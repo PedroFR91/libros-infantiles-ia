@@ -1,0 +1,116 @@
+// Schema Prisma - Libros Infantiles IA
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  sessionId     String?   @unique // Para usuarios anónimos
+  credits       Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  books         Book[]
+  payments      Payment[]
+  creditLedger  CreditLedger[]
+}
+
+model Book {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  
+  title         String?
+  kidName       String
+  theme         String
+  style         String    @default("cartoon")
+  status        BookStatus @default(DRAFT)
+  
+  // Cached PDF URLs
+  digitalPdfUrl   String?
+  printPdfUrl     String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  pages         BookPage[]
+
+  @@index([userId])
+}
+
+model BookPage {
+  id            String    @id @default(cuid())
+  bookId        String
+  book          Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  pageNumber    Int
+  text          String?
+  imagePrompt   String?
+  imageUrl      String?
+  thumbnailUrl  String?
+  
+  // Para refinado
+  promptOverride String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([bookId, pageNumber])
+  @@index([bookId])
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  stripeSessionId String    @unique
+  stripePaymentId String?
+  amount          Int       // En centimos
+  currency        String    @default("eur")
+  status          PaymentStatus @default(PENDING)
+  creditsGranted  Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([stripeSessionId])
+}
+
+model CreditLedger {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  
+  amount      Int       // Positivo = añadir, Negativo = consumir
+  reason      String    // "purchase", "book_generation", "page_regeneration"
+  referenceId String?   // bookId o paymentId
+  balance     Int       // Balance después de esta transacción
+  
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+enum BookStatus {
+  DRAFT
+  GENERATING
+  COMPLETED
+  ERROR
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
