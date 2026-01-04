@@ -33,6 +33,7 @@ model Book {
   theme         String
   style         String    @default("cartoon")
   status        BookStatus @default(DRAFT)
+  characterDescription String? // Descripción física del personaje basada en foto
   
   // Cached PDF URLs
   digitalPdfUrl   String?

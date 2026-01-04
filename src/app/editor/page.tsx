@@ -20,6 +20,10 @@ import {
   Wand2,
   FileText,
   Image as ImageIcon,
+  Upload,
+  Camera,
+  User,
+  Trash2,
 } from "lucide-react";
 
 // Types
@@ -78,8 +82,7 @@ export default function EditorPage() {
         <div className='min-h-screen bg-background flex items-center justify-center'>
           <Loader2 className='w-8 h-8 animate-spin text-primary' />
         </div>
-      }
-    >
+      }>
       <EditorContent />
     </Suspense>
   );
@@ -117,6 +120,14 @@ function EditorContent() {
     "digital" | "print" | null
   >(null);
 
+  // Photo upload state
+  const [kidPhoto, setKidPhoto] = useState<File | null>(null);
+  const [kidPhotoPreview, setKidPhotoPreview] = useState<string | null>(null);
+  const [characterDescription, setCharacterDescription] = useState<
+    string | null
+  >(null);
+  const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
+
   // Load user data
   useEffect(() => {
     fetchUserData();
@@ -150,6 +161,61 @@ function EditorContent() {
     }
   };
 
+  // Handle photo upload and analysis
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      alert("Por favor, sube una imagen JPG, PNG, WebP o GIF");
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("La imagen es demasiado grande. Máximo 10MB");
+      return;
+    }
+
+    setKidPhoto(file);
+    setKidPhotoPreview(URL.createObjectURL(file));
+    setAnalyzingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+
+      const res = await fetch("/api/analyze-photo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setCharacterDescription(data.characterDescription);
+    } catch (error) {
+      console.error("Error analyzing photo:", error);
+      alert(
+        "Error al analizar la foto. Puedes continuar sin ella o intentar con otra imagen."
+      );
+      setCharacterDescription(null);
+    } finally {
+      setAnalyzingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setKidPhoto(null);
+    setKidPhotoPreview(null);
+    setCharacterDescription(null);
+  };
+
   // Create and generate book
   const handleGenerateBook = async () => {
     if (!kidName.trim() || !theme.trim()) {
@@ -174,6 +240,7 @@ function EditorContent() {
           kidName: kidName.trim(),
           theme: theme.trim(),
           categories: selectedCategories,
+          characterDescription: characterDescription || undefined,
         }),
       });
 
@@ -415,6 +482,76 @@ function EditorContent() {
                   className='w-full px-4 py-3 bg-surface border border-border rounded-xl text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all'
                   disabled={isGenerating}
                 />
+              </div>
+
+              {/* Kid Photo - NEW */}
+              <div className='mb-4'>
+                <label className='block text-sm font-medium text-text-muted mb-2'>
+                  Foto del niño/a (opcional)
+                  <span className='block text-xs text-text-muted/70 mt-1'>
+                    El personaje se parecerá a la foto
+                  </span>
+                </label>
+
+                {kidPhotoPreview ? (
+                  <div className='relative'>
+                    <div className='relative w-full aspect-square max-w-[150px] mx-auto rounded-xl overflow-hidden border-2 border-primary'>
+                      <img
+                        src={kidPhotoPreview}
+                        alt='Foto del niño'
+                        className='w-full h-full object-cover'
+                      />
+                      {analyzingPhoto && (
+                        <div className='absolute inset-0 bg-black/50 flex items-center justify-center'>
+                          <div className='text-center text-white'>
+                            <Loader2 className='w-6 h-6 animate-spin mx-auto mb-1' />
+                            <span className='text-xs'>Analizando...</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {characterDescription && !analyzingPhoto && (
+                      <div className='mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded-lg'>
+                        <div className='flex items-center gap-1 text-green-500 text-xs font-medium mb-1'>
+                          <Check className='w-3 h-3' />
+                          Características detectadas
+                        </div>
+                        <p className='text-xs text-text-muted line-clamp-2'>
+                          {characterDescription}
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleRemovePhoto}
+                      disabled={isGenerating || analyzingPhoto}
+                      className='absolute top-1 right-1 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors disabled:opacity-50'>
+                      <Trash2 className='w-3 h-3' />
+                    </button>
+                  </div>
+                ) : (
+                  <label className='block cursor-pointer'>
+                    <div className='w-full py-6 border-2 border-dashed border-border hover:border-primary rounded-xl transition-colors flex flex-col items-center justify-center gap-2 bg-surface/50'>
+                      <div className='w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center'>
+                        <Camera className='w-6 h-6 text-primary' />
+                      </div>
+                      <span className='text-sm text-text-muted'>
+                        Subir foto
+                      </span>
+                      <span className='text-xs text-text-muted/70'>
+                        JPG, PNG, WebP (máx 10MB)
+                      </span>
+                    </div>
+                    <input
+                      type='file'
+                      accept='image/jpeg,image/png,image/webp,image/gif'
+                      onChange={handlePhotoUpload}
+                      disabled={isGenerating}
+                      className='hidden'
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Theme */}

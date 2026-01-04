@@ -79,8 +79,13 @@ export async function POST(
       // Consumir créditos
       await consumeCredits(book.userId, "BOOK_GENERATION", id);
 
-      // Generar historia
-      const story = await generateStoryText(book.kidName, book.theme, []);
+      // Generar historia (incluye descripción del personaje si existe)
+      const story = await generateStoryText(
+        book.kidName,
+        book.theme,
+        [],
+        (book as { characterDescription?: string | null }).characterDescription
+      );
 
       // Actualizar título
       await prisma.book.update({

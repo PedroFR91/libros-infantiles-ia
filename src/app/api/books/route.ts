@@ -42,7 +42,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { kidName, theme, categories = [], style = "cartoon" } = body;
+    const {
+      kidName,
+      theme,
+      categories = [],
+      style = "cartoon",
+      characterDescription = null,
+    } = body;
 
     if (!kidName || !theme) {
       return NextResponse.json(
@@ -62,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Obtener o crear usuario
     const user = await getOrCreateUser(sessionId);
 
-    // Crear libro draft
+    // Crear libro draft con descripción del personaje
     const book = await prisma.book.create({
       data: {
         userId: user.id,
@@ -73,6 +79,7 @@ export async function POST(request: NextRequest) {
             : theme,
         style,
         status: "DRAFT",
+        characterDescription, // Nueva columna para la descripción del personaje
       },
     });
 

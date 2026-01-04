@@ -79,21 +79,36 @@ export interface GeneratedStory {
 export async function generateStoryText(
   kidName: string,
   theme: string,
-  categories: string[]
+  categories: string[],
+  characterDescription?: string | null
 ): Promise<GeneratedStory> {
   const categoryText =
     categories.length > 0 ? `con elementos de: ${categories.join(", ")}` : "";
+
+  // Si hay descripción del personaje, la incluimos en las instrucciones
+  const characterInstructions = characterDescription
+    ? `\n\nIMPORTANTE - APARIENCIA DEL PROTAGONISTA:
+El protagonista "${kidName}" debe tener EXACTAMENTE estas características físicas en TODAS las ilustraciones:
+${characterDescription}
+
+En cada imagePrompt, incluye esta descripción para mantener la consistencia visual del personaje.`
+    : "";
 
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini", // Modelo eficiente con buena calidad
     messages: [
-      { role: "system", content: STORY_SYSTEM_PROMPT },
+      { role: "system", content: STORY_SYSTEM_PROMPT + characterInstructions },
       {
         role: "user",
         content: `Crea un cuento infantil de 12 páginas donde el protagonista se llama "${kidName}". 
 El tema principal es: "${theme}" ${categoryText}.
 Genera el título y el texto de cada página con su prompt de imagen correspondiente.
+${
+  characterDescription
+    ? `Recuerda incluir la descripción física del protagonista (${characterDescription}) en cada imagePrompt para mantener consistencia.`
+    : ""
+}
 Responde SOLO con el JSON, sin markdown ni explicaciones.`,
       },
     ],
