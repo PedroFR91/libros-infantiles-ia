@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSession, signOut } from "next-auth/react";
 import {
   Book,
   ChevronLeft,
@@ -24,6 +25,9 @@ import {
   Camera,
   User,
   Trash2,
+  LogIn,
+  LogOut,
+  Shield,
 } from "lucide-react";
 
 // Types
@@ -90,6 +94,7 @@ export default function EditorPage() {
 
 function EditorContent() {
   const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
 
   // User state
   const [credits, setCredits] = useState(0);
@@ -443,7 +448,7 @@ function EditorContent() {
             </span>
           </Link>
 
-          <div className='flex items-center gap-4'>
+          <div className='flex items-center gap-3'>
             {/* Credits */}
             <button
               onClick={() => setShowCreditsModal(true)}
@@ -452,8 +457,58 @@ function EditorContent() {
               <span className='font-semibold'>
                 {loadingUser ? "..." : credits}
               </span>
-              <span className='text-text-muted text-sm'>créditos</span>
+              <span className='text-text-muted text-sm hidden sm:inline'>créditos</span>
             </button>
+
+            {/* User Menu */}
+            {sessionStatus === "loading" ? (
+              <div className='w-10 h-10 rounded-full bg-surface animate-pulse' />
+            ) : session?.user ? (
+              <div className='flex items-center gap-2'>
+                {/* Admin Badge */}
+                {session.user.role === "ADMIN" && (
+                  <Link
+                    href='/admin'
+                    className='p-2 rounded-lg bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 transition-colors'
+                    title='Panel Admin'>
+                    <Shield className='w-5 h-5' />
+                  </Link>
+                )}
+                
+                {/* User Avatar */}
+                <div className='flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border'>
+                  {session.user.image ? (
+                    <img
+                      src={session.user.image}
+                      alt={session.user.name || "Avatar"}
+                      className='w-7 h-7 rounded-full'
+                    />
+                  ) : (
+                    <div className='w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center'>
+                      <User className='w-4 h-4 text-primary' />
+                    </div>
+                  )}
+                  <span className='text-sm font-medium hidden sm:inline max-w-[100px] truncate'>
+                    {session.user.name || session.user.email?.split("@")[0]}
+                  </span>
+                </div>
+
+                {/* Logout Button */}
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className='p-2 rounded-lg bg-surface border border-border hover:border-red-500 hover:text-red-500 transition-colors'
+                  title='Cerrar sesión'>
+                  <LogOut className='w-5 h-5' />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href='/login'
+                className='flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold transition-colors'>
+                <LogIn className='w-5 h-5' />
+                <span className='hidden sm:inline'>Iniciar sesión</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>
