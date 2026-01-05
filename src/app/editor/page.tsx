@@ -137,30 +137,26 @@ function EditorContent() {
   >(null);
   const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
 
-  // Load user data
+  // Load user data - esperar a que la sesión esté determinada
   useEffect(() => {
+    // No cargar hasta que sepamos el estado de la sesión
+    if (sessionStatus === "loading") return;
+
     fetchUserData();
     fetchCreditPacks();
 
     // Check for success from Stripe
     if (searchParams.get("success") === "true") {
-      fetchUserData();
+      // Pequeño delay para asegurar que el webhook procesó el pago
+      setTimeout(() => fetchUserData(), 1000);
     }
-  }, [searchParams]);
-
-  // Sincronizar créditos cuando cambia la sesión de NextAuth
-  useEffect(() => {
-    if (sessionStatus === "authenticated" && session?.user) {
-      // Recargar datos del usuario cuando la sesión esté lista
-      fetchUserData();
-    }
-  }, [sessionStatus, session?.user?.id]);
+  }, [searchParams, sessionStatus, session?.user?.id]);
 
   const fetchUserData = async () => {
     try {
       const res = await fetch("/api/user");
       const data = await res.json();
-      console.log("Credits loaded:", data.credits);
+      console.log("Credits loaded:", data.credits, "User:", data.user?.email);
       setCredits(data.credits || 0);
     } catch (error) {
       console.error("Error loading user:", error);
@@ -241,6 +237,13 @@ function EditorContent() {
       return;
     }
 
+    // Si aún estamos cargando, esperar
+    if (loadingUser || sessionStatus === "loading") {
+      console.log("Esperando a cargar créditos...");
+      return;
+    }
+
+    console.log("Credits check:", credits, "loadingUser:", loadingUser);
     if (credits < 5) {
       setShowCreditsModal(true);
       return;
@@ -697,12 +700,17 @@ function EditorContent() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerateBook}
-                disabled={isGenerating || !kidName.trim() || !theme.trim()}
+                disabled={isGenerating || !kidName.trim() || !theme.trim() || loadingUser || sessionStatus === "loading"}
                 className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
                 {isGenerating ? (
                   <>
                     <Loader2 className='w-5 h-5 animate-spin' />
                     {generatingStatus}
+                  </>
+                ) : loadingUser || sessionStatus === "loading" ? (
+                  <>
+                    <Loader2 className='w-5 h-5 animate-spin' />
+                    Cargando...
                   </>
                 ) : (
                   <>
