@@ -9,8 +9,12 @@ export async function GET() {
   try {
     // PRIMERO: Verificar si hay usuario autenticado con NextAuth
     const session = await auth();
-    
-    console.log("[API /user] Session:", session?.user?.id, session?.user?.email);
+
+    console.log(
+      "[API /user] Session:",
+      session?.user?.id,
+      session?.user?.email
+    );
 
     if (session?.user?.id) {
       // Usuario autenticado - buscar por ID
@@ -25,8 +29,13 @@ export async function GET() {
           createdAt: true,
         },
       });
-      
-      console.log("[API /user] User found:", user?.email, "credits:", user?.credits);
+
+      console.log(
+        "[API /user] User found:",
+        user?.email,
+        "credits:",
+        user?.credits
+      );
 
       if (user) {
         const history = await getCreditHistory(user.id, 10);
