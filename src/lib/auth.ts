@@ -6,6 +6,12 @@ import prisma from "@/lib/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Sesión persistente: 30 días
+  session: {
+    strategy: "database",
+    maxAge: 30 * 24 * 60 * 60, // 30 días en segundos
+    updateAge: 24 * 60 * 60, // Actualizar sesión cada 24 horas
+  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,

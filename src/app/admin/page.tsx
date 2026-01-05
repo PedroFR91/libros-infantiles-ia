@@ -93,7 +93,14 @@ export default async function AdminPage() {
     ]),
   ]);
 
-  const [totalUsers, totalBooks, completedBooks, totalPayments, revenueData, creditsData] = stats;
+  const [
+    totalUsers,
+    totalBooks,
+    completedBooks,
+    totalPayments,
+    revenueData,
+    creditsData,
+  ] = stats;
 
   return (
     <AdminDashboard

@@ -29,11 +29,14 @@ export async function POST(request: NextRequest) {
       user = await prisma.user.findUnique({
         where: { id: session.user.id },
       });
-      
+
       if (!user) {
-        return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Usuario no encontrado" },
+          { status: 404 }
+        );
       }
-      
+
       console.log("Checkout para usuario autenticado:", user.email);
     } else {
       // Usuario anónimo - usar cookie sessionId
@@ -50,7 +53,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear sesión de Stripe
-    const baseUrl = process.env.AUTH_URL || process.env.BASE_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.AUTH_URL || process.env.BASE_URL || "http://localhost:3000";
 
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
