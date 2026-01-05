@@ -113,6 +113,10 @@ function EditorContent() {
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingStatus, setGeneratingStatus] = useState("");
+  const [generatingPhase, setGeneratingPhase] = useState<
+    "story" | "images" | "finishing"
+  >("story");
+  const [generatingProgress, setGeneratingProgress] = useState(0);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [creditPacks, setCreditPacks] = useState<CreditPack[]>([]);
@@ -235,6 +239,8 @@ function EditorContent() {
 
     setIsGenerating(true);
     setGeneratingStatus("Creando tu libro...");
+    setGeneratingPhase("story");
+    setGeneratingProgress(10);
 
     try {
       // Create book
@@ -255,12 +261,34 @@ function EditorContent() {
         throw new Error("No se pudo crear el libro");
       }
 
-      setGeneratingStatus("Generando historia...");
+      setGeneratingProgress(20);
+      setGeneratingStatus("Escribiendo la historia...");
+
+      // Simular progreso visual mientras genera
+      const progressInterval = setInterval(() => {
+        setGeneratingProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          // Progreso más lento conforme avanza
+          const increment = prev < 40 ? 8 : prev < 60 ? 4 : prev < 80 ? 2 : 1;
+          return Math.min(prev + increment, 90);
+        });
+      }, 2000);
+
+      // Cambiar fase después de un tiempo
+      setTimeout(() => {
+        setGeneratingPhase("images");
+        setGeneratingStatus("Creando ilustraciones mágicas...");
+      }, 5000);
 
       // Generate content
       const genRes = await fetch(`/api/books/${newBook.id}/generate`, {
         method: "POST",
       });
+
+      clearInterval(progressInterval);
 
       const genData = await genRes.json();
 
@@ -272,6 +300,14 @@ function EditorContent() {
       if (genData.error) {
         throw new Error(genData.error);
       }
+
+      setGeneratingPhase("finishing");
+      setGeneratingStatus("¡Finalizando tu libro!");
+      setGeneratingProgress(95);
+
+      // Pequeño delay para mostrar el mensaje final
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setGeneratingProgress(100);
 
       setBook(genData.book);
       setCredits((prev) => prev - 5);
@@ -756,32 +792,26 @@ function EditorContent() {
           {/* Book Spread */}
           <div className='flex-1 flex items-center justify-center p-8 overflow-hidden'>
             {!book ? (
-              <div className='text-center'>
-                <div className='w-32 h-32 mx-auto mb-6 rounded-2xl bg-surface flex items-center justify-center'>
-                  <Book className='w-16 h-16 text-text-muted' />
+              isGenerating ? (
+                <GeneratingOverlay 
+                  kidName={kidName}
+                  theme={theme}
+                  phase={generatingPhase}
+                  progress={generatingProgress}
+                  status={generatingStatus}
+                />
+              ) : (
+                <div className='text-center'>
+                  <div className='w-32 h-32 mx-auto mb-6 rounded-2xl bg-surface flex items-center justify-center'>
+                    <Book className='w-16 h-16 text-text-muted' />
+                  </div>
+                  <h3 className='text-xl font-bold mb-2'>Crea tu primer libro</h3>
+                  <p className='text-text-muted max-w-md'>
+                    Introduce el nombre del protagonista y el tema para generar
+                    una historia única con ilustraciones mágicas.
+                  </p>
                 </div>
-                <h3 className='text-xl font-bold mb-2'>Crea tu primer libro</h3>
-                <p className='text-text-muted max-w-md'>
-                  Introduce el nombre del protagonista y el tema para generar
-                  una historia única con ilustraciones mágicas.
-                </p>
-              </div>
-            ) : isGenerating ? (
-              <div className='text-center'>
-                <div className='w-24 h-24 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center animate-pulse-glow'>
-                  <Sparkles className='w-12 h-12 text-primary animate-pulse' />
-                </div>
-                <h3 className='text-xl font-bold mb-2'>{generatingStatus}</h3>
-                <p className='text-text-muted'>
-                  Esto puede tardar unos minutos...
-                </p>
-                <div className='mt-4 w-64 h-2 bg-surface rounded-full overflow-hidden mx-auto'>
-                  <div
-                    className='h-full bg-primary animate-pulse'
-                    style={{ width: "60%" }}
-                  />
-                </div>
-              </div>
+              )
             ) : (
               <div className='flex items-center gap-4'>
                 {/* Previous button */}
@@ -1097,6 +1127,236 @@ function EditorContent() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// Componente de pantalla de generación mejorada
+function GeneratingOverlay({ 
+  kidName, 
+  theme, 
+  phase, 
+  progress, 
+  status 
+}: { 
+  kidName: string;
+  theme: string;
+  phase: "story" | "images" | "finishing";
+  progress: number;
+  status: string;
+}) {
+  const phases = [
+    { id: "story", label: "Escribiendo historia", icon: FileText },
+    { id: "images", label: "Creando ilustraciones", icon: ImageIcon },
+    { id: "finishing", label: "Finalizando", icon: Sparkles },
+  ];
+
+  const magicMessages = [
+    "Mezclando ingredientes mágicos...",
+    "Despertando la imaginación...",
+    "Pintando con colores del arcoíris...",
+    "Añadiendo polvo de estrellas...",
+    "Tejiendo aventuras...",
+    "Dando vida a los personajes...",
+    "Creando momentos especiales...",
+    "Preparando sorpresas...",
+  ];
+
+  const [currentMessage, setCurrentMessage] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMessage(prev => (prev + 1) % magicMessages.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="w-full max-w-2xl mx-auto px-4">
+      {/* Libro animado central */}
+      <div className="relative mb-8">
+        {/* Partículas flotantes */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(12)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute"
+              initial={{ 
+                x: Math.random() * 400 - 200, 
+                y: Math.random() * 200 + 100,
+                opacity: 0,
+                scale: 0
+              }}
+              animate={{ 
+                y: [null, -100],
+                opacity: [0, 1, 0],
+                scale: [0, 1, 0.5],
+                rotate: [0, 360]
+              }}
+              transition={{ 
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: i * 0.4,
+                ease: "easeOut"
+              }}
+            >
+              <Sparkles className={`w-4 h-4 ${
+                i % 3 === 0 ? 'text-primary' : i % 3 === 1 ? 'text-yellow-400' : 'text-pink-400'
+              }`} />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Libro flotante */}
+        <motion.div 
+          className="relative mx-auto w-40 h-48"
+          animate={{ 
+            y: [0, -10, 0],
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        >
+          {/* Sombra del libro */}
+          <motion.div 
+            className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-32 h-4 bg-black/20 rounded-full blur-md"
+            animate={{ 
+              scale: [1, 0.9, 1],
+              opacity: [0.3, 0.2, 0.3]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          
+          {/* Libro 3D */}
+          <div className="relative w-full h-full" style={{ perspective: '1000px' }}>
+            {/* Tapa trasera */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/80 rounded-lg shadow-xl transform rotate-y-6" 
+                 style={{ transform: 'rotateY(-6deg) translateZ(-8px)' }} />
+            
+            {/* Páginas */}
+            <div className="absolute inset-0 bg-white rounded-r-lg shadow-md"
+                 style={{ transform: 'translateZ(-4px)', left: '8px' }} />
+            
+            {/* Tapa frontal */}
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/90 rounded-lg shadow-2xl flex flex-col items-center justify-center p-4"
+              animate={{ rotateY: phase === 'finishing' ? [0, -30, 0] : 0 }}
+              transition={{ duration: 1, repeat: phase === 'finishing' ? Infinity : 0 }}
+            >
+              <Book className="w-12 h-12 text-white mb-2" />
+              <div className="text-white text-center">
+                <p className="text-sm font-bold truncate max-w-full">{kidName}</p>
+                <p className="text-xs opacity-80 truncate max-w-full">
+                  {theme.length > 30 ? theme.substring(0, 30) + '...' : theme}
+                </p>
+              </div>
+              
+              {/* Brillo animado */}
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-lg"
+                animate={{ x: [-200, 200] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+              />
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Fases del proceso */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {phases.map((p, index) => {
+          const Icon = p.icon;
+          const isActive = p.id === phase;
+          const isPast = phases.findIndex(x => x.id === phase) > index;
+          
+          return (
+            <div key={p.id} className="flex items-center">
+              <motion.div 
+                className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all ${
+                  isActive 
+                    ? 'bg-primary text-white' 
+                    : isPast 
+                      ? 'bg-green-500/20 text-green-500' 
+                      : 'bg-surface text-text-muted'
+                }`}
+                animate={isActive ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 1, repeat: isActive ? Infinity : 0 }}
+              >
+                {isPast ? (
+                  <Check className="w-4 h-4" />
+                ) : isActive ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Loader2 className="w-4 h-4" />
+                  </motion.div>
+                ) : (
+                  <Icon className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium hidden sm:inline">{p.label}</span>
+              </motion.div>
+              
+              {index < phases.length - 1 && (
+                <div className={`w-8 h-0.5 mx-1 transition-colors ${
+                  isPast ? 'bg-green-500' : 'bg-border'
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Barra de progreso */}
+      <div className="mb-6">
+        <div className="flex justify-between text-sm mb-2">
+          <span className="text-text-muted">{status}</span>
+          <span className="text-primary font-bold">{progress}%</span>
+        </div>
+        <div className="h-3 bg-surface rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full bg-gradient-to-r from-primary via-primary to-secondary rounded-full relative"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* Efecto de brillo en la barra */}
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              animate={{ x: ['-100%', '100%'] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Mensaje mágico cambiante */}
+      <div className="text-center">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={currentMessage}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="text-text-muted flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4 text-yellow-400" />
+            {magicMessages[currentMessage]}
+            <Sparkles className="w-4 h-4 text-yellow-400" />
+          </motion.p>
+        </AnimatePresence>
+      </div>
+
+      {/* Tiempo estimado */}
+      <p className="text-center text-xs text-text-muted/60 mt-4">
+        Tiempo estimado: 1-2 minutos
+      </p>
     </div>
   );
 }
