@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/credits";
 import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
+import { auth } from "@/lib/auth";
 
 // POST /api/stripe/checkout - Crear sesión de checkout
 export async function POST(request: NextRequest) {
@@ -18,19 +19,38 @@ export async function POST(request: NextRequest) {
     const pack = CREDIT_PACKS[packId];
     const stripe = getStripe();
 
-    // Obtener o crear sessionId
-    const cookieStore = await cookies();
-    let sessionId = cookieStore.get("sessionId")?.value;
+    // PRIMERO: Verificar si hay usuario autenticado con NextAuth
+    const session = await auth();
+    let user;
+    let sessionId: string | undefined;
 
-    if (!sessionId) {
-      sessionId = uuidv4();
+    if (session?.user?.id) {
+      // Usuario autenticado - usar su ID directamente
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+      });
+      
+      if (!user) {
+        return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      }
+      
+      console.log("Checkout para usuario autenticado:", user.email);
+    } else {
+      // Usuario anónimo - usar cookie sessionId
+      const cookieStore = await cookies();
+      sessionId = cookieStore.get("sessionId")?.value;
+
+      if (!sessionId) {
+        sessionId = uuidv4();
+      }
+
+      // Obtener o crear usuario anónimo
+      user = await getOrCreateUser(sessionId);
+      console.log("Checkout para usuario anónimo:", sessionId);
     }
 
-    // Obtener o crear usuario
-    const user = await getOrCreateUser(sessionId);
-
     // Crear sesión de Stripe
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const baseUrl = process.env.AUTH_URL || process.env.BASE_URL || "http://localhost:3000";
 
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -54,7 +74,10 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         packId,
         credits: pack.credits.toString(),
+        isAuthenticated: session?.user?.id ? "true" : "false",
       },
+      // Pre-rellenar email si el usuario está autenticado
+      ...(user.email && { customer_email: user.email }),
     });
 
     // Guardar payment pendiente
@@ -74,13 +97,15 @@ export async function POST(request: NextRequest) {
       sessionId: checkoutSession.id,
     });
 
-    // Establecer cookie
-    response.cookies.set("sessionId", sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    // Solo establecer cookie si es usuario anónimo
+    if (sessionId) {
+      response.cookies.set("sessionId", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
 
     return response;
   } catch (error) {
