@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LibrosIA - Crea libros infantiles personalizados con IA",
-  description: "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial",
+  description:
+    "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial",
 };
 
 export default function RootLayout({
@@ -24,10 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang='es'>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -457,7 +457,9 @@ function EditorContent() {
               <span className='font-semibold'>
                 {loadingUser ? "..." : credits}
               </span>
-              <span className='text-text-muted text-sm hidden sm:inline'>créditos</span>
+              <span className='text-text-muted text-sm hidden sm:inline'>
+                créditos
+              </span>
             </button>
 
             {/* User Menu */}
@@ -474,7 +476,7 @@ function EditorContent() {
                     <Shield className='w-5 h-5' />
                   </Link>
                 )}
-                
+
                 {/* User Avatar */}
                 <div className='flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border'>
                   {session.user.image ? (

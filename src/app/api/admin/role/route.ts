@@ -18,19 +18,28 @@ export async function POST(request: NextRequest) {
     });
 
     if (adminUser?.role !== "ADMIN") {
-      return NextResponse.json({ error: "No tienes permisos de administrador" }, { status: 403 });
+      return NextResponse.json(
+        { error: "No tienes permisos de administrador" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
     const { userId, role } = body;
 
     if (!userId || !role || !["USER", "ADMIN"].includes(role)) {
-      return NextResponse.json({ error: "userId y role válido son requeridos" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId y role válido son requeridos" },
+        { status: 400 }
+      );
     }
 
     // Don't allow removing your own admin
     if (userId === session.user.id && role === "USER") {
-      return NextResponse.json({ error: "No puedes quitarte tus propios permisos de admin" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No puedes quitarte tus propios permisos de admin" },
+        { status: 400 }
+      );
     }
 
     await prisma.user.update({
@@ -41,6 +50,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, role });
   } catch (error) {
     console.error("Error updating role:", error);
-    return NextResponse.json({ error: "Error al cambiar rol" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error al cambiar rol" },
+      { status: 500 }
+    );
   }
 }

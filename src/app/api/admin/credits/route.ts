@@ -18,14 +18,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (adminUser?.role !== "ADMIN") {
-      return NextResponse.json({ error: "No tienes permisos de administrador" }, { status: 403 });
+      return NextResponse.json(
+        { error: "No tienes permisos de administrador" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
     const { userId, amount } = body;
 
     if (!userId || typeof amount !== "number") {
-      return NextResponse.json({ error: "userId y amount son requeridos" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId y amount son requeridos" },
+        { status: 400 }
+      );
     }
 
     // Get current user credits
@@ -35,7 +41,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!targetUser) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      );
     }
 
     const newBalance = Math.max(0, targetUser.credits + amount);
@@ -63,6 +72,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error updating credits:", error);
-    return NextResponse.json({ error: "Error al actualizar créditos" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error al actualizar créditos" },
+      { status: 500 }
+    );
   }
 }
