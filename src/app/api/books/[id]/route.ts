@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// Helper para obtener userId
+async function getUserId(): Promise<string | null> {
+  // Verificar NextAuth
+  const session = await auth();
+  if (session?.user?.id) {
+    return session.user.id;
+  }
+
+  // Fallback a sessionId
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get("sessionId")?.value;
+  if (sessionId) {
+    const user = await prisma.user.findUnique({
+      where: { sessionId },
+      select: { id: true },
+    });
+    return user?.id || null;
+  }
+
+  return null;
+}
 
 // GET /api/books/[id] - Obtener libro con páginas
 export async function GET(
@@ -9,17 +32,16 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sessionId")?.value;
+    const userId = await getUserId();
 
-    if (!sessionId) {
+    if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const book = await prisma.book.findFirst({
       where: {
         id,
-        user: { sessionId },
+        userId,
       },
       include: {
         pages: {
@@ -53,10 +75,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sessionId")?.value;
+    const userId = await getUserId();
 
-    if (!sessionId) {
+    if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -64,7 +85,7 @@ export async function PATCH(
     const book = await prisma.book.findFirst({
       where: {
         id,
-        user: { sessionId },
+        userId,
       },
     });
 
@@ -75,7 +96,7 @@ export async function PATCH(
       );
     }
 
-    const { title, pages } = body;
+    const { title, pages, pageNumber, text } = body;
 
     // Actualizar título si se proporciona
     if (title) {
@@ -85,7 +106,18 @@ export async function PATCH(
       });
     }
 
-    // Actualizar páginas si se proporcionan
+    // Actualizar una página específica (desde el editor)
+    if (pageNumber !== undefined && text !== undefined) {
+      await prisma.bookPage.updateMany({
+        where: {
+          bookId: id,
+          pageNumber: pageNumber,
+        },
+        data: { text },
+      });
+    }
+
+    // Actualizar páginas si se proporcionan como array
     if (pages && Array.isArray(pages)) {
       for (const page of pages) {
         if (page.pageNumber && page.text !== undefined) {
@@ -127,10 +159,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sessionId")?.value;
+    const userId = await getUserId();
 
-    if (!sessionId) {
+    if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -138,7 +169,7 @@ export async function DELETE(
     const book = await prisma.book.findFirst({
       where: {
         id,
-        user: { sessionId },
+        userId,
       },
     });
 

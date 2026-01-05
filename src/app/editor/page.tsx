@@ -73,13 +73,19 @@ function EditorContent() {
   const [kidName, setKidName] = useState("");
   const [theme, setTheme] = useState("");
   const [bookStyle, setBookStyle] = useState<BookStyle>("cartoon");
-  const [selectedThemeCategories, setSelectedThemeCategories] = useState<string[]>([]);
-  const [selectedVisualCategories, setSelectedVisualCategories] = useState<string[]>([]);
+  const [selectedThemeCategories, setSelectedThemeCategories] = useState<
+    string[]
+  >([]);
+  const [selectedVisualCategories, setSelectedVisualCategories] = useState<
+    string[]
+  >([]);
 
   // Foto del niño
   const [kidPhoto, setKidPhoto] = useState<File | null>(null);
   const [kidPhotoPreview, setKidPhotoPreview] = useState<string | null>(null);
-  const [characterDescription, setCharacterDescription] = useState<string | null>(null);
+  const [characterDescription, setCharacterDescription] = useState<
+    string | null
+  >(null);
   const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
 
   // Libro
@@ -89,18 +95,27 @@ function EditorContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("spread");
 
   // Edición de texto
-  const [editingText, setEditingText] = useState<{ pageNumber: number; text: string } | null>(null);
+  const [editingText, setEditingText] = useState<{
+    pageNumber: number;
+    text: string;
+  } | null>(null);
 
   // UI
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [generatingPhase, setGeneratingPhase] = useState<"story" | "images" | "finishing">("story");
+  const [generatingPhase, setGeneratingPhase] = useState<
+    "story" | "images" | "finishing"
+  >("story");
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [creditPacks, setCreditPacks] = useState<CreditPack[]>([]);
-  const [downloadingPdf, setDownloadingPdf] = useState<"digital" | "print" | null>(null);
-  const [activeTab, setActiveTab] = useState<"create" | "style" | "text">("create");
+  const [downloadingPdf, setDownloadingPdf] = useState<
+    "digital" | "print" | null
+  >(null);
+  const [activeTab, setActiveTab] = useState<"create" | "style" | "text">(
+    "create"
+  );
 
   // ============================================
   // EFECTOS
@@ -317,11 +332,14 @@ function EditorContent() {
     setIsRegenerating(true);
 
     try {
-      const res = await fetch(`/api/books/${book.id}/pages/${pageNumber}/regenerate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customPrompt: "" }),
-      });
+      const res = await fetch(
+        `/api/books/${book.id}/pages/${pageNumber}/regenerate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customPrompt: "" }),
+        }
+      );
 
       const data = await res.json();
 
@@ -385,7 +403,10 @@ function EditorContent() {
   // ACTUALIZAR PÁGINA (para personalización de texto)
   // ============================================
 
-  const handleUpdatePage = async (pageNumber: number, updates: Partial<BookPage>) => {
+  const handleUpdatePage = async (
+    pageNumber: number,
+    updates: Partial<BookPage>
+  ) => {
     if (!book) return;
 
     // Actualizar localmente primero
@@ -409,7 +430,9 @@ function EditorContent() {
     setDownloadingPdf(type);
 
     try {
-      const res = await fetch(`/api/books/${book.id}/pdf/download?type=${type}`);
+      const res = await fetch(
+        `/api/books/${book.id}/pdf/download?type=${type}`
+      );
 
       if (!res.ok) throw new Error("Error downloading PDF");
 
@@ -457,7 +480,8 @@ function EditorContent() {
   // PÁGINA SELECCIONADA
   // ============================================
 
-  const selectedPageData = book?.pages.find((p) => p.pageNumber === selectedPage) || null;
+  const selectedPageData =
+    book?.pages.find((p) => p.pageNumber === selectedPage) || null;
 
   // ============================================
   // RENDER
@@ -484,8 +508,12 @@ function EditorContent() {
               onClick={() => setShowCreditsModal(true)}
               className='flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-border hover:border-primary transition-colors'>
               <Coins className='w-5 h-5 text-primary' />
-              <span className='font-semibold'>{loadingUser ? "..." : credits}</span>
-              <span className='text-text-muted text-sm hidden sm:inline'>créditos</span>
+              <span className='font-semibold'>
+                {loadingUser ? "..." : credits}
+              </span>
+              <span className='text-text-muted text-sm hidden sm:inline'>
+                créditos
+              </span>
             </button>
 
             {/* Usuario */}
@@ -513,9 +541,11 @@ function EditorContent() {
                       <User className='w-4 h-4 text-primary' />
                     </div>
                   )}
-                  <span className='text-sm font-medium hidden sm:inline max-w-[100px] truncate'>
+                  <Link
+                    href='/perfil'
+                    className='text-sm font-medium hidden sm:inline max-w-[100px] truncate hover:text-primary transition-colors'>
                     {session.user.name || session.user.email?.split("@")[0]}
-                  </span>
+                  </Link>
                 </div>
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
@@ -691,7 +721,7 @@ function EditorContent() {
                       ) : (
                         <Download className='w-4 h-4' />
                       )}
-                      Digital (RGB)
+                      PDF
                     </button>
                     <button
                       onClick={() => handleDownloadPDF("print")}
@@ -702,7 +732,7 @@ function EditorContent() {
                       ) : (
                         <ImageIcon className='w-4 h-4' />
                       )}
-                      Print-Ready (CMYK)
+                      PDF formato impresión
                     </button>
                   </div>
                 )}
@@ -733,9 +763,11 @@ function EditorContent() {
               <div className='space-y-4'>
                 <div className='text-center text-text-muted py-4'>
                   <Edit3 className='w-10 h-10 mx-auto mb-3 opacity-50' />
-                  <p className='text-sm'>Selecciona una página para editar el texto</p>
+                  <p className='text-sm'>
+                    Selecciona una página para editar el texto
+                  </p>
                 </div>
-                
+
                 {/* Grid de páginas para seleccionar */}
                 <div className='grid grid-cols-3 gap-2'>
                   {book.pages.map((page) => (
@@ -751,14 +783,18 @@ function EditorContent() {
                         />
                       ) : (
                         <div className='w-full h-full bg-surface flex items-center justify-center'>
-                          <span className='text-xs text-text-muted'>{page.pageNumber}</span>
+                          <span className='text-xs text-text-muted'>
+                            {page.pageNumber}
+                          </span>
                         </div>
                       )}
                       <div className='absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center'>
                         <Edit3 className='w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity' />
                       </div>
                       <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] text-center py-0.5'>
-                        {page.pageNumber === 1 ? 'Portada' : `Pág ${page.pageNumber}`}
+                        {page.pageNumber === 1
+                          ? "Portada"
+                          : `Pág ${page.pageNumber}`}
                       </div>
                     </button>
                   ))}
@@ -778,7 +814,9 @@ function EditorContent() {
           {selectedPage !== null && book && (
             <div className='flex-shrink-0 p-4 border-t border-border bg-surface'>
               <div className='flex items-center justify-between mb-3'>
-                <span className='text-sm font-medium'>Página {selectedPage}</span>
+                <span className='text-sm font-medium'>
+                  Página {selectedPage}
+                </span>
                 <button
                   onClick={() => setSelectedPage(null)}
                   className='p-1 hover:bg-bg rounded'>
@@ -819,10 +857,12 @@ function EditorContent() {
                   <div className='w-32 h-32 mx-auto mb-6 rounded-2xl bg-surface flex items-center justify-center'>
                     <Book className='w-16 h-16 text-text-muted' />
                   </div>
-                  <h3 className='text-xl font-bold mb-2'>Crea tu primer libro</h3>
+                  <h3 className='text-xl font-bold mb-2'>
+                    Crea tu primer libro
+                  </h3>
                   <p className='text-text-muted max-w-md'>
-                    Introduce el nombre del protagonista y el tema para generar una
-                    historia única con ilustraciones mágicas.
+                    Introduce el nombre del protagonista y el tema para generar
+                    una historia única con ilustraciones mágicas.
                   </p>
                 </div>
               </div>
@@ -896,10 +936,14 @@ function EditorContent() {
                             </span>
                           )}
                         </div>
-                        <p className='text-sm text-text-muted'>{pack.description}</p>
+                        <p className='text-sm text-text-muted'>
+                          {pack.description}
+                        </p>
                       </div>
                       <div className='text-right'>
-                        <div className='text-xl font-bold'>{pack.priceFormatted}</div>
+                        <div className='text-xl font-bold'>
+                          {pack.priceFormatted}
+                        </div>
                       </div>
                     </div>
                   </button>
