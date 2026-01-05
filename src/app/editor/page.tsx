@@ -564,12 +564,12 @@ function EditorContent() {
             </button>
             <button
               onClick={() => setActiveTab("text")}
-              disabled={!selectedPage}
+              disabled={!book}
               className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
                 activeTab === "text"
                   ? "text-primary border-b-2 border-primary"
                   : "text-text-muted hover:text-text"
-              } ${!selectedPage ? "opacity-50 cursor-not-allowed" : ""}`}>
+              } ${!book ? "opacity-50 cursor-not-allowed" : ""}`}>
               <Type className='w-4 h-4' />
               Texto
             </button>
@@ -729,10 +729,47 @@ function EditorContent() {
               />
             )}
 
-            {activeTab === "text" && !selectedPage && (
+            {activeTab === "text" && !selectedPage && book && (
+              <div className='space-y-4'>
+                <div className='text-center text-text-muted py-4'>
+                  <Edit3 className='w-10 h-10 mx-auto mb-3 opacity-50' />
+                  <p className='text-sm'>Selecciona una página para editar el texto</p>
+                </div>
+                
+                {/* Grid de páginas para seleccionar */}
+                <div className='grid grid-cols-3 gap-2'>
+                  {book.pages.map((page) => (
+                    <button
+                      key={page.id}
+                      onClick={() => setSelectedPage(page.pageNumber)}
+                      className='relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-all group'>
+                      {page.imageUrl ? (
+                        <img
+                          src={page.imageUrl}
+                          alt={`Página ${page.pageNumber}`}
+                          className='w-full h-full object-cover'
+                        />
+                      ) : (
+                        <div className='w-full h-full bg-surface flex items-center justify-center'>
+                          <span className='text-xs text-text-muted'>{page.pageNumber}</span>
+                        </div>
+                      )}
+                      <div className='absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center'>
+                        <Edit3 className='w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity' />
+                      </div>
+                      <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] text-center py-0.5'>
+                        {page.pageNumber === 1 ? 'Portada' : `Pág ${page.pageNumber}`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "text" && !book && (
               <div className='text-center text-text-muted py-8'>
                 <Edit3 className='w-12 h-12 mx-auto mb-4 opacity-50' />
-                <p>Selecciona una página para personalizar el texto</p>
+                <p>Primero genera un libro para editar el texto</p>
               </div>
             )}
           </div>

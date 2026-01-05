@@ -775,7 +775,7 @@ function PageRenderer({
             onClick={handleStartEdit}
             className='px-3 py-1.5 bg-primary text-white text-xs rounded-full flex items-center gap-1 shadow-lg hover:bg-primary-hover'>
             <Edit3 className='w-3 h-3' />
-            {isCover ? 'Editar título' : 'Añadir texto'}
+            {isCover ? "Editar título" : "Añadir texto"}
           </button>
         </div>
       )}

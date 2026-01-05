@@ -17,12 +17,18 @@ function getOpenAI(): OpenAI {
 
 // Estilos artísticos disponibles
 export const ART_STYLES: Record<string, string> = {
-  classic: "classic storybook illustration style, warm watercolor textures, soft lighting, reminiscent of Beatrix Potter and classic fairy tale books",
-  comic: "comic book style with bold outlines, speech bubbles, dynamic poses, vibrant colors, manga-influenced children's illustration",
-  watercolor: "delicate watercolor painting style, soft pastel colors, dreamy atmosphere, artistic brush strokes, ethereal lighting",
-  cartoon: "modern cartoon style, bright saturated colors, cute character designs, smooth gradients, Disney/Pixar influenced",
-  realistic: "semi-realistic digital illustration, detailed textures, cinematic lighting, photorealistic backgrounds with stylized characters",
-  minimalist: "minimalist illustration style, clean lines, limited color palette, simple shapes, modern children's book aesthetic",
+  classic:
+    "classic storybook illustration style, warm watercolor textures, soft lighting, reminiscent of Beatrix Potter and classic fairy tale books",
+  comic:
+    "comic book style with bold outlines, speech bubbles, dynamic poses, vibrant colors, manga-influenced children's illustration",
+  watercolor:
+    "delicate watercolor painting style, soft pastel colors, dreamy atmosphere, artistic brush strokes, ethereal lighting",
+  cartoon:
+    "modern cartoon style, bright saturated colors, cute character designs, smooth gradients, Disney/Pixar influenced",
+  realistic:
+    "semi-realistic digital illustration, detailed textures, cinematic lighting, photorealistic backgrounds with stylized characters",
+  minimalist:
+    "minimalist illustration style, clean lines, limited color palette, simple shapes, modern children's book aesthetic",
 };
 
 // Prompts del sistema para generar cuentos infantiles
@@ -166,32 +172,44 @@ Responde SOLO con el JSON incluyendo el campo "characterSheet":
   }
 
   const story = JSON.parse(content) as GeneratedStory;
-  
+
   // Asegurar que cada imagePrompt incluya el characterSheet y el estilo
-  story.pages = story.pages.map(page => ({
+  story.pages = story.pages.map((page) => ({
     ...page,
-    imagePrompt: ensureConsistentPrompt(page.imagePrompt, story.characterSheet, styleDescription)
+    imagePrompt: ensureConsistentPrompt(
+      page.imagePrompt,
+      story.characterSheet,
+      styleDescription
+    ),
   }));
 
   return story;
 }
 
 // Función auxiliar para asegurar consistencia en los prompts
-function ensureConsistentPrompt(prompt: string, characterSheet: string, artStyle: string): string {
+function ensureConsistentPrompt(
+  prompt: string,
+  characterSheet: string,
+  artStyle: string
+): string {
   // Si el prompt no comienza con la descripción del personaje, añadirla
-  const hasCharacter = prompt.toLowerCase().includes(characterSheet.toLowerCase().substring(0, 30));
-  const hasStyle = prompt.toLowerCase().includes(artStyle.toLowerCase().substring(0, 30));
-  
+  const hasCharacter = prompt
+    .toLowerCase()
+    .includes(characterSheet.toLowerCase().substring(0, 30));
+  const hasStyle = prompt
+    .toLowerCase()
+    .includes(artStyle.toLowerCase().substring(0, 30));
+
   let finalPrompt = prompt;
-  
+
   if (!hasCharacter) {
     finalPrompt = `${characterSheet}. ${finalPrompt}`;
   }
-  
+
   if (!hasStyle) {
     finalPrompt = `${finalPrompt}. Art style: ${artStyle}`;
   }
-  
+
   return finalPrompt;
 }
 
@@ -206,7 +224,7 @@ export async function regeneratePageText(
   customPrompt?: string
 ): Promise<{ text: string; imagePrompt: string }> {
   const styleDescription = ART_STYLES[artStyle] || ART_STYLES.cartoon;
-  
+
   const prompt = customPrompt
     ? `Regenera la página ${pageNumber} del cuento sobre "${theme}" con el protagonista "${kidName}". 
        Instrucción específica: ${customPrompt}
@@ -247,10 +265,14 @@ export async function regeneratePageText(
   }
 
   const result = JSON.parse(content);
-  
+
   // Asegurar consistencia
-  result.imagePrompt = ensureConsistentPrompt(result.imagePrompt, characterSheet, styleDescription);
-  
+  result.imagePrompt = ensureConsistentPrompt(
+    result.imagePrompt,
+    characterSheet,
+    styleDescription
+  );
+
   return result;
 }
 

@@ -115,10 +115,12 @@ export async function POST(
       // Actualizar título y guardar characterSheet
       await prisma.book.update({
         where: { id },
-        data: { 
+        data: {
           title: story.title,
           // Guardar characterSheet en metadatos del libro si el campo existe
-          ...(story.characterSheet && { characterDescription: story.characterSheet })
+          ...(story.characterSheet && {
+            characterDescription: story.characterSheet,
+          }),
         },
       });
 
