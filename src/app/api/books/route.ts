@@ -10,7 +10,7 @@ export async function GET() {
   try {
     // PRIMERO: Verificar sesión de NextAuth
     const session = await auth();
-    
+
     if (session?.user?.id) {
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -83,11 +83,11 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     let user;
     let sessionId: string | null = null;
-    
+
     if (session?.user?.id) {
       // Usuario autenticado con NextAuth
       user = await prisma.user.findUnique({
-        where: { id: session.user.id }
+        where: { id: session.user.id },
       });
     } else {
       // FALLBACK: Usuario anónimo
