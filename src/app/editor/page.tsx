@@ -148,10 +148,19 @@ function EditorContent() {
     }
   }, [searchParams]);
 
+  // Sincronizar créditos cuando cambia la sesión de NextAuth
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.user) {
+      // Recargar datos del usuario cuando la sesión esté lista
+      fetchUserData();
+    }
+  }, [sessionStatus, session?.user?.id]);
+
   const fetchUserData = async () => {
     try {
       const res = await fetch("/api/user");
       const data = await res.json();
+      console.log("Credits loaded:", data.credits);
       setCredits(data.credits || 0);
     } catch (error) {
       console.error("Error loading user:", error);

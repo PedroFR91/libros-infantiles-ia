@@ -9,7 +9,7 @@ export async function GET() {
   try {
     // PRIMERO: Verificar si hay usuario autenticado con NextAuth
     const session = await auth();
-    
+
     if (session?.user?.id) {
       // Usuario autenticado - buscar por ID
       const user = await prisma.user.findUnique({
