@@ -63,6 +63,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   where: { userId: anonymousUser.id },
                   data: { userId: existingUser.id },
                 }),
+                // Transferir pagos del usuario anónimo
+                prisma.payment.updateMany({
+                  where: { userId: anonymousUser.id },
+                  data: { userId: existingUser.id },
+                }),
+                // Transferir historial de créditos
+                prisma.creditLedger.updateMany({
+                  where: { userId: anonymousUser.id },
+                  data: { userId: existingUser.id },
+                }),
                 // Eliminar usuario anónimo
                 prisma.user.delete({
                   where: { id: anonymousUser.id },
@@ -98,13 +108,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (anonymousUser && anonymousUser.id !== user.id) {
-            // Transferir créditos y libros
+            // Transferir créditos, libros, pagos e historial
             await prisma.$transaction([
               prisma.user.update({
                 where: { id: user.id },
                 data: { credits: { increment: anonymousUser.credits } },
               }),
               prisma.book.updateMany({
+                where: { userId: anonymousUser.id },
+                data: { userId: user.id },
+              }),
+              prisma.payment.updateMany({
+                where: { userId: anonymousUser.id },
+                data: { userId: user.id },
+              }),
+              prisma.creditLedger.updateMany({
                 where: { userId: anonymousUser.id },
                 data: { userId: user.id },
               }),

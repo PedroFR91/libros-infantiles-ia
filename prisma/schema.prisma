@@ -120,7 +120,7 @@ model BookPage {
 model Payment {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   stripeSessionId String    @unique
   stripePaymentId String?
@@ -139,7 +139,7 @@ model Payment {
 model CreditLedger {
   id          String    @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   amount      Int       // Positivo = añadir, Negativo = consumir
   reason      String    // "purchase", "book_generation", "page_regeneration"
