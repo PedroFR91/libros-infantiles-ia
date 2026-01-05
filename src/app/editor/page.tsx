@@ -237,15 +237,28 @@ function EditorContent() {
       return;
     }
 
-    // Si aún estamos cargando, esperar
-    if (loadingUser || sessionStatus === "loading") {
-      console.log("Esperando a cargar créditos...");
-      return;
-    }
+    // Verificar créditos directamente con el API para evitar problemas de sincronización
+    try {
+      const res = await fetch("/api/user");
+      const data = await res.json();
+      const currentCredits = data.credits || 0;
+      console.log(
+        "Credits from API:",
+        currentCredits,
+        "Local credits:",
+        credits
+      );
 
-    console.log("Credits check:", credits, "loadingUser:", loadingUser);
-    if (credits < 5) {
-      setShowCreditsModal(true);
+      // Actualizar el estado local con los créditos reales
+      setCredits(currentCredits);
+
+      if (currentCredits < 5) {
+        setShowCreditsModal(true);
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      alert("Error al verificar créditos. Inténtalo de nuevo.");
       return;
     }
 
@@ -700,17 +713,12 @@ function EditorContent() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerateBook}
-                disabled={isGenerating || !kidName.trim() || !theme.trim() || loadingUser || sessionStatus === "loading"}
+                disabled={isGenerating || !kidName.trim() || !theme.trim()}
                 className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
                 {isGenerating ? (
                   <>
                     <Loader2 className='w-5 h-5 animate-spin' />
                     {generatingStatus}
-                  </>
-                ) : loadingUser || sessionStatus === "loading" ? (
-                  <>
-                    <Loader2 className='w-5 h-5 animate-spin' />
-                    Cargando...
                   </>
                 ) : (
                   <>
