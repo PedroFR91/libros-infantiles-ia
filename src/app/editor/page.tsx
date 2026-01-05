@@ -399,6 +399,33 @@ function EditorContent() {
     }
   };
 
+  // Función para actualizar texto de una página desde el PageEditor
+  const handleUpdatePageText = async (pageNumber: number, text: string) => {
+    if (!book) return;
+
+    // Actualizar localmente primero
+    setBook({
+      ...book,
+      pages: book.pages.map((p) =>
+        p.pageNumber === pageNumber ? { ...p, text } : p
+      ),
+    });
+
+    // Guardar en el servidor
+    try {
+      await fetch(`/api/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageNumber,
+          text,
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving text:", error);
+    }
+  };
+
   // ============================================
   // ACTUALIZAR PÁGINA (para personalización de texto)
   // ============================================
@@ -882,6 +909,7 @@ function EditorContent() {
               editingText={editingText}
               onEditText={setEditingText}
               onSaveText={handleSaveText}
+              onUpdatePageText={handleUpdatePageText}
             />
           )}
         </main>

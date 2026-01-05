@@ -25,6 +25,7 @@ import {
   getTextBackgroundStyles,
   getTextFontStyles,
 } from "./types";
+import PageEditor from "./PageEditor";
 
 interface BookViewerProps {
   book: BookData;
@@ -37,6 +38,7 @@ interface BookViewerProps {
   editingText: { pageNumber: number; text: string } | null;
   onEditText: (edit: { pageNumber: number; text: string } | null) => void;
   onSaveText: () => void;
+  onUpdatePageText?: (pageNumber: number, text: string) => Promise<void>;
 }
 
 export default function BookViewer({
@@ -50,8 +52,10 @@ export default function BookViewer({
   editingText,
   onEditText,
   onSaveText,
+  onUpdatePageText,
 }: BookViewerProps) {
   const totalPages = book.pages.length;
+  const [pageEditorOpen, setPageEditorOpen] = useState<number | null>(null);
 
   // Para vista spread (doble página)
   const currentSpread = Math.floor(currentPage / 2);
@@ -80,8 +84,54 @@ export default function BookViewer({
     }
   };
 
+  // Handlers para el PageEditor
+  const handleOpenPageEditor = (pageNumber: number) => {
+    setPageEditorOpen(pageNumber);
+  };
+
+  const handleClosePageEditor = () => {
+    setPageEditorOpen(null);
+  };
+
+  const handleNavigatePageEditor = (direction: "prev" | "next") => {
+    if (pageEditorOpen === null) return;
+
+    if (direction === "prev" && pageEditorOpen > 1) {
+      setPageEditorOpen(pageEditorOpen - 1);
+    } else if (direction === "next" && pageEditorOpen < totalPages) {
+      setPageEditorOpen(pageEditorOpen + 1);
+    }
+  };
+
+  const handleSavePageText = async (text: string) => {
+    if (pageEditorOpen === null || !onUpdatePageText) return;
+    await onUpdatePageText(pageEditorOpen, text);
+    // No cerramos el editor para permitir seguir editando
+  };
+
+  // Encontrar la página actual del editor
+  const editorPage =
+    pageEditorOpen !== null
+      ? book.pages.find((p) => p.pageNumber === pageEditorOpen)
+      : null;
+
   return (
     <div className='flex flex-col h-full'>
+      {/* PageEditor Modal */}
+      <AnimatePresence>
+        {pageEditorOpen !== null && editorPage && (
+          <PageEditor
+            pageNumber={pageEditorOpen}
+            totalPages={totalPages}
+            text={editorPage.text || ""}
+            imageUrl={editorPage.imageUrl}
+            onSave={handleSavePageText}
+            onClose={handleClosePageEditor}
+            onNavigate={handleNavigatePageEditor}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Toolbar de modos de vista */}
       <div className='flex-shrink-0 flex items-center justify-between px-4 py-2 bg-bg-light border-b border-border'>
         {/* Modos de visualización */}
@@ -184,7 +234,8 @@ export default function BookViewer({
             <button
               key={page.id}
               onClick={() => onPageChange(index)}
-              className={`relative flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+              onDoubleClick={() => handleOpenPageEditor(page.pageNumber)}
+              className={`relative flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border-2 transition-all group ${
                 (
                   viewMode === "spread"
                     ? index === leftPageIndex || index === rightPageIndex
@@ -206,6 +257,10 @@ export default function BookViewer({
                   </span>
                 </div>
               )}
+              {/* Overlay de edición en hover */}
+              <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
+                <Edit3 className='w-4 h-4 text-white' />
+              </div>
               {/* Número de página */}
               <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] text-center py-0.5'>
                 {page.pageNumber}
@@ -218,6 +273,9 @@ export default function BookViewer({
               )}
             </button>
           ))}
+        </div>
+        <div className='text-center text-xs text-text-muted pb-2'>
+          Doble clic en una miniatura para editar el texto
         </div>
       </div>
     </div>
