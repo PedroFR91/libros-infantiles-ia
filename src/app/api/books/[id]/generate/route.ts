@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
 import { generateStoryText, generateImage } from "@/lib/openai";
+import { auth } from "@/lib/auth";
 
 // POST /api/books/[id]/generate - Generar libro completo
 export async function POST(
@@ -11,18 +12,36 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sessionId")?.value;
 
-    if (!sessionId) {
+    // PRIMERO: Verificar sesión de NextAuth
+    const session = await auth();
+    let userId: string | null = null;
+
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } else {
+      // FALLBACK: Usuario anónimo por sessionId
+      const cookieStore = await cookies();
+      const sessionId = cookieStore.get("sessionId")?.value;
+
+      if (sessionId) {
+        const anonymousUser = await prisma.user.findUnique({
+          where: { sessionId },
+          select: { id: true },
+        });
+        userId = anonymousUser?.id || null;
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Obtener libro y usuario
+    // Obtener libro del usuario
     const book = await prisma.book.findFirst({
       where: {
         id,
-        user: { sessionId },
+        userId,
       },
       include: { user: true },
     });

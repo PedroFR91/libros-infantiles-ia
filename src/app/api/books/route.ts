@@ -3,10 +3,32 @@ import prisma from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/credits";
 import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
+import { auth } from "@/lib/auth";
 
 // GET /api/books - Listar libros del usuario
 export async function GET() {
   try {
+    // PRIMERO: Verificar sesión de NextAuth
+    const session = await auth();
+    
+    if (session?.user?.id) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: {
+          books: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              pages: {
+                orderBy: { pageNumber: "asc" },
+              },
+            },
+          },
+        },
+      });
+      return NextResponse.json({ books: user?.books ?? [] });
+    }
+
+    // FALLBACK: Usuario anónimo por sessionId
     const cookieStore = await cookies();
     let sessionId = cookieStore.get("sessionId")?.value;
 
@@ -57,16 +79,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener o crear sessionId
-    const cookieStore = await cookies();
-    let sessionId = cookieStore.get("sessionId")?.value;
-
-    if (!sessionId) {
-      sessionId = uuidv4();
+    // PRIMERO: Verificar sesión de NextAuth
+    const session = await auth();
+    let user;
+    let sessionId: string | null = null;
+    
+    if (session?.user?.id) {
+      // Usuario autenticado con NextAuth
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id }
+      });
+    } else {
+      // FALLBACK: Usuario anónimo
+      const cookieStore = await cookies();
+      sessionId = cookieStore.get("sessionId")?.value || uuidv4();
+      user = await getOrCreateUser(sessionId);
     }
 
-    // Obtener o crear usuario
-    const user = await getOrCreateUser(sessionId);
+    if (!user) {
+      return NextResponse.json(
+        { error: "No se pudo obtener usuario" },
+        { status: 500 }
+      );
+    }
 
     // Crear libro draft con descripción del personaje
     const book = await prisma.book.create({
@@ -79,7 +114,7 @@ export async function POST(request: NextRequest) {
             : theme,
         style,
         status: "DRAFT",
-        characterDescription, // Nueva columna para la descripción del personaje
+        characterDescription,
       },
     });
 
@@ -89,13 +124,15 @@ export async function POST(request: NextRequest) {
         "Libro creado. Usa /api/books/:id/generate para generar el contenido.",
     });
 
-    // Establecer cookie de sesión
-    response.cookies.set("sessionId", sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365, // 1 año
-    });
+    // Solo establecer cookie de sesión si es usuario anónimo
+    if (sessionId) {
+      response.cookies.set("sessionId", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365, // 1 año
+      });
+    }
 
     return response;
   } catch (error) {
