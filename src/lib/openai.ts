@@ -15,6 +15,16 @@ function getOpenAI(): OpenAI {
   return openaiInstance;
 }
 
+// Estilos artísticos disponibles
+export const ART_STYLES: Record<string, string> = {
+  classic: "classic storybook illustration style, warm watercolor textures, soft lighting, reminiscent of Beatrix Potter and classic fairy tale books",
+  comic: "comic book style with bold outlines, speech bubbles, dynamic poses, vibrant colors, manga-influenced children's illustration",
+  watercolor: "delicate watercolor painting style, soft pastel colors, dreamy atmosphere, artistic brush strokes, ethereal lighting",
+  cartoon: "modern cartoon style, bright saturated colors, cute character designs, smooth gradients, Disney/Pixar influenced",
+  realistic: "semi-realistic digital illustration, detailed textures, cinematic lighting, photorealistic backgrounds with stylized characters",
+  minimalist: "minimalist illustration style, clean lines, limited color palette, simple shapes, modern children's book aesthetic",
+};
+
 // Prompts del sistema para generar cuentos infantiles
 export const STORY_SYSTEM_PROMPT = `Eres un escritor experto en cuentos infantiles. Creas historias mágicas, educativas y apropiadas para niños de 3 a 8 años.
 
@@ -26,21 +36,28 @@ REGLAS:
 - Un libro tiene exactamente 12 páginas
 - La primera página es la portada/título
 - La última página es el final feliz
-- Las descripciones visuales deben ser coloridas y alegres
+
+REGLAS CRÍTICAS PARA imagePrompt (MUY IMPORTANTE):
+- CADA imagePrompt DEBE comenzar con la descripción EXACTA del protagonista
+- Usa SIEMPRE los mismos términos para describir al personaje (edad, pelo, ojos, ropa, etc.)
+- El estilo artístico debe ser CONSISTENTE en todas las páginas
+- Describe la MISMA ropa/vestimenta del protagonista en TODAS las páginas
+- Nunca cambies el aspecto físico del personaje entre páginas
 
 FORMATO DE RESPUESTA (JSON):
 {
   "title": "Título del cuento",
+  "characterSheet": "Descripción detallada y fija del protagonista que se usará en todas las imágenes",
   "pages": [
     {
       "pageNumber": 1,
       "text": "Texto de la página",
-      "imagePrompt": "Descripción detallada para generar la imagen en estilo ilustración infantil"
+      "imagePrompt": "[DEBE EMPEZAR CON: characterSheet]. Descripción de la escena..."
     }
   ]
 }`;
 
-export const IMAGE_STYLE_PROMPT = `Children's book illustration style, cute and colorful, digital art, soft colors, friendly characters, whimsical, storybook illustration, high quality, detailed background, warm lighting`;
+export const IMAGE_STYLE_PROMPT = `Children's book illustration, high quality, detailed, professional illustration`;
 
 // Categorías de temas disponibles
 export const STORY_CATEGORIES = [
@@ -72,6 +89,7 @@ export interface GeneratedPage {
 
 export interface GeneratedStory {
   title: string;
+  characterSheet: string;
   pages: GeneratedPage[];
 }
 
@@ -80,40 +98,65 @@ export async function generateStoryText(
   kidName: string,
   theme: string,
   categories: string[],
-  characterDescription?: string | null
+  characterDescription?: string | null,
+  artStyle: string = "cartoon"
 ): Promise<GeneratedStory> {
   const categoryText =
     categories.length > 0 ? `con elementos de: ${categories.join(", ")}` : "";
 
-  // Si hay descripción del personaje, la incluimos en las instrucciones
-  const characterInstructions = characterDescription
-    ? `\n\nIMPORTANTE - APARIENCIA DEL PROTAGONISTA:
-El protagonista "${kidName}" debe tener EXACTAMENTE estas características físicas en TODAS las ilustraciones:
-${characterDescription}
+  // Obtener estilo artístico
+  const styleDescription = ART_STYLES[artStyle] || ART_STYLES.cartoon;
 
-En cada imagePrompt, incluye esta descripción para mantener la consistencia visual del personaje.`
-    : "";
+  // Si hay descripción del personaje desde la foto, la usamos
+  const characterBase = characterDescription
+    ? `Basándote en esta descripción física real: "${characterDescription}"`
+    : `Crea una apariencia única y memorable para ${kidName}`;
+
+  const characterInstructions = `
+INSTRUCCIONES CRÍTICAS PARA CONSISTENCIA DEL PERSONAJE:
+
+1. CHARACTER SHEET (obligatorio):
+   ${characterBase}
+   - Define: edad aproximada, tipo/color de pelo, color de ojos, tono de piel
+   - Define: vestimenta específica (colores exactos, tipo de ropa)
+   - Esta descripción EXACTA debe aparecer al inicio de CADA imagePrompt
+   
+2. ESTILO ARTÍSTICO (obligatorio en todas las imágenes):
+   "${styleDescription}"
+   - Este estilo debe ser IDÉNTICO en las 12 páginas
+   - Incluir al final de cada imagePrompt
+
+3. CONSISTENCIA VISUAL:
+   - NUNCA cambies el aspecto del protagonista entre páginas
+   - Los fondos pueden cambiar, el personaje NO
+   - Usa SIEMPRE los mismos colores de ropa
+   - Mantén las mismas proporciones del personaje`;
 
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini", // Modelo eficiente con buena calidad
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: STORY_SYSTEM_PROMPT + characterInstructions },
       {
         role: "user",
         content: `Crea un cuento infantil de 12 páginas donde el protagonista se llama "${kidName}". 
 El tema principal es: "${theme}" ${categoryText}.
-Genera el título y el texto de cada página con su prompt de imagen correspondiente.
-${
-  characterDescription
-    ? `Recuerda incluir la descripción física del protagonista (${characterDescription}) en cada imagePrompt para mantener consistencia.`
-    : ""
-}
-Responde SOLO con el JSON, sin markdown ni explicaciones.`,
+
+IMPORTANTE:
+1. Primero, crea un "characterSheet" detallado con la apariencia EXACTA del protagonista
+2. En CADA imagePrompt, comienza con la descripción del characterSheet
+3. Termina CADA imagePrompt con: "${styleDescription}"
+
+Responde SOLO con el JSON incluyendo el campo "characterSheet":
+{
+  "title": "...",
+  "characterSheet": "Descripción detallada del protagonista...",
+  "pages": [...]
+}`,
       },
     ],
-    temperature: 0.8,
-    max_tokens: 4000,
+    temperature: 0.7, // Reducido para más consistencia
+    max_tokens: 5000,
     response_format: { type: "json_object" },
   });
 
@@ -122,7 +165,34 @@ Responde SOLO con el JSON, sin markdown ni explicaciones.`,
     throw new Error("No se pudo generar la historia");
   }
 
-  return JSON.parse(content) as GeneratedStory;
+  const story = JSON.parse(content) as GeneratedStory;
+  
+  // Asegurar que cada imagePrompt incluya el characterSheet y el estilo
+  story.pages = story.pages.map(page => ({
+    ...page,
+    imagePrompt: ensureConsistentPrompt(page.imagePrompt, story.characterSheet, styleDescription)
+  }));
+
+  return story;
+}
+
+// Función auxiliar para asegurar consistencia en los prompts
+function ensureConsistentPrompt(prompt: string, characterSheet: string, artStyle: string): string {
+  // Si el prompt no comienza con la descripción del personaje, añadirla
+  const hasCharacter = prompt.toLowerCase().includes(characterSheet.toLowerCase().substring(0, 30));
+  const hasStyle = prompt.toLowerCase().includes(artStyle.toLowerCase().substring(0, 30));
+  
+  let finalPrompt = prompt;
+  
+  if (!hasCharacter) {
+    finalPrompt = `${characterSheet}. ${finalPrompt}`;
+  }
+  
+  if (!hasStyle) {
+    finalPrompt = `${finalPrompt}. Art style: ${artStyle}`;
+  }
+  
+  return finalPrompt;
 }
 
 // Regenerar una página específica
@@ -131,16 +201,28 @@ export async function regeneratePageText(
   theme: string,
   pageNumber: number,
   currentText: string,
+  characterSheet: string,
+  artStyle: string = "cartoon",
   customPrompt?: string
 ): Promise<{ text: string; imagePrompt: string }> {
+  const styleDescription = ART_STYLES[artStyle] || ART_STYLES.cartoon;
+  
   const prompt = customPrompt
     ? `Regenera la página ${pageNumber} del cuento sobre "${theme}" con el protagonista "${kidName}". 
        Instrucción específica: ${customPrompt}
        Texto actual: "${currentText}"
-       Mejora o cambia según la instrucción.`
+       Mejora o cambia según la instrucción.
+       
+       IMPORTANTE: El imagePrompt DEBE comenzar con esta descripción del personaje:
+       "${characterSheet}"
+       Y terminar con este estilo artístico: "${styleDescription}"`
     : `Regenera la página ${pageNumber} del cuento sobre "${theme}" con el protagonista "${kidName}".
        Texto actual: "${currentText}"
-       Crea una versión alternativa manteniendo la coherencia con la historia.`;
+       Crea una versión alternativa manteniendo la coherencia con la historia.
+       
+       IMPORTANTE: El imagePrompt DEBE comenzar con esta descripción del personaje:
+       "${characterSheet}"
+       Y terminar con este estilo artístico: "${styleDescription}"`;
 
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
@@ -164,12 +246,18 @@ export async function regeneratePageText(
     throw new Error("No se pudo regenerar la página");
   }
 
-  return JSON.parse(content);
+  const result = JSON.parse(content);
+  
+  // Asegurar consistencia
+  result.imagePrompt = ensureConsistentPrompt(result.imagePrompt, characterSheet, styleDescription);
+  
+  return result;
 }
 
 // Generar imagen con DALL-E
 export async function generateImage(prompt: string): Promise<string> {
-  const fullPrompt = `${prompt}. ${IMAGE_STYLE_PROMPT}`;
+  // El prompt ya debe incluir el estilo artístico
+  const fullPrompt = `${prompt}. ${IMAGE_STYLE_PROMPT}, same character design throughout, consistent art style`;
 
   const openai = getOpenAI();
   const response = await openai.images.generate({
@@ -177,7 +265,7 @@ export async function generateImage(prompt: string): Promise<string> {
     prompt: fullPrompt,
     n: 1,
     size: "1024x1024",
-    quality: "standard", // 'hd' para mayor calidad pero más caro
+    quality: "standard",
     style: "vivid",
   });
 

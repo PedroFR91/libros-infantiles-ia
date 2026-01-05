@@ -683,9 +683,17 @@ function PageRenderer({
   const textStyle = (page.textStyle as TextStyle) || "default";
   const textColor = page.textColor || "#FFFFFF";
 
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEditText({
+      pageNumber: page.pageNumber,
+      text: page.text || "",
+    });
+  };
+
   return (
     <div
-      className={`relative bg-white cursor-pointer transition-all ${
+      className={`relative bg-white cursor-pointer transition-all group ${
         isSelected ? "ring-4 ring-primary" : ""
       }`}
       style={{ width, height }}
@@ -734,17 +742,16 @@ function PageRenderer({
               </div>
             </div>
           ) : (
-            <p
-              className='text-sm leading-relaxed'
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                onEditText({
-                  pageNumber: page.pageNumber,
-                  text: page.text || "",
-                });
-              }}>
-              {page.text}
-            </p>
+            <div className='relative'>
+              <p className='text-sm leading-relaxed'>{page.text}</p>
+              {/* Botón de editar siempre visible en hover */}
+              <button
+                onClick={handleStartEdit}
+                className='absolute -top-2 -right-2 p-1.5 bg-primary rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-primary-hover'
+                title='Editar texto'>
+                <Edit3 className='w-3 h-3' />
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -754,10 +761,22 @@ function PageRenderer({
         {page.pageNumber}
       </div>
 
-      {/* Indicador de edición */}
+      {/* Indicador de selección */}
       {isSelected && !isEditing && (
         <div className='absolute top-2 right-2 p-1.5 bg-primary rounded text-white'>
-          <Edit3 className='w-3 h-3' />
+          <Check className='w-3 h-3' />
+        </div>
+      )}
+
+      {/* Overlay de edición rápida para páginas sin texto o portada */}
+      {(isCover || !page.text) && (
+        <div className='absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity'>
+          <button
+            onClick={handleStartEdit}
+            className='px-3 py-1.5 bg-primary text-white text-xs rounded-full flex items-center gap-1 shadow-lg hover:bg-primary-hover'>
+            <Edit3 className='w-3 h-3' />
+            {isCover ? 'Editar título' : 'Añadir texto'}
+          </button>
         </div>
       )}
     </div>

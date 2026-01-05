@@ -98,18 +98,28 @@ export async function POST(
       // Consumir créditos
       await consumeCredits(book.userId, "BOOK_GENERATION", id);
 
-      // Generar historia (incluye descripción del personaje si existe)
+      // Obtener estilo artístico del libro (por defecto cartoon)
+      const artStyle = (book as { style?: string }).style || "cartoon";
+
+      // Generar historia con characterSheet para consistencia
       const story = await generateStoryText(
         book.kidName,
         book.theme,
         [],
-        (book as { characterDescription?: string | null }).characterDescription
+        (book as { characterDescription?: string | null }).characterDescription,
+        artStyle
       );
 
-      // Actualizar título
+      console.log("Character Sheet generado:", story.characterSheet);
+
+      // Actualizar título y guardar characterSheet
       await prisma.book.update({
         where: { id },
-        data: { title: story.title },
+        data: { 
+          title: story.title,
+          // Guardar characterSheet en metadatos del libro si el campo existe
+          ...(story.characterSheet && { characterDescription: story.characterSheet })
+        },
       });
 
       // Generar imágenes y crear páginas
@@ -118,8 +128,9 @@ export async function POST(
         let thumbnailUrl = null;
 
         try {
+          console.log(`Generando imagen página ${page.pageNumber}...`);
           imageUrl = await generateImage(page.imagePrompt);
-          thumbnailUrl = imageUrl; // TODO: Generar thumbnail real
+          thumbnailUrl = imageUrl;
         } catch (error) {
           console.error(
             `Error generando imagen para página ${page.pageNumber}:`,
@@ -139,8 +150,8 @@ export async function POST(
         });
       });
 
-      // Ejecutar en paralelo (máximo 3 a la vez para no saturar OpenAI)
-      const batchSize = 3;
+      // Ejecutar en paralelo (máximo 2 a la vez para mejor consistencia)
+      const batchSize = 2;
       const pages = [];
       for (let i = 0; i < pagePromises.length; i += batchSize) {
         const batch = pagePromises.slice(i, i + batchSize);
