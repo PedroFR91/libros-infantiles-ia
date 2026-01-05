@@ -211,7 +211,164 @@ function EditorContent() {
   };
 
   // ============================================
-  // GENERACIÓN DE LIBRO
+  // GENERACIÓN DE HISTORIA (GRATIS - Solo textos)
+  // ============================================
+
+  const handleGenerateStory = async () => {
+    if (!kidName.trim() || !theme.trim()) {
+      alert("Por favor, introduce el nombre del niño y el tema de la historia");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratingStatus("Creando la historia...");
+    setGeneratingPhase("story");
+    setGeneratingProgress(10);
+
+    try {
+      // Crear libro
+      const createRes = await fetch("/api/books", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kidName: kidName.trim(),
+          theme: theme.trim(),
+          style: bookStyle,
+          categories: [...selectedThemeCategories, ...selectedVisualCategories],
+          characterDescription: characterDescription || undefined,
+        }),
+      });
+
+      const { book: newBook } = await createRes.json();
+
+      if (!newBook) {
+        throw new Error("No se pudo crear el libro");
+      }
+
+      setGeneratingProgress(30);
+      setGeneratingStatus("Escribiendo la historia...");
+
+      // Progreso visual
+      const progressInterval = setInterval(() => {
+        setGeneratingProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return Math.min(prev + 5, 90);
+        });
+      }, 1000);
+
+      // Generar SOLO la historia (textos) - GRATIS
+      const genRes = await fetch(`/api/books/${newBook.id}/generate-story`, {
+        method: "POST",
+      });
+
+      clearInterval(progressInterval);
+
+      const genData = await genRes.json();
+
+      if (genData.error) {
+        throw new Error(genData.error);
+      }
+
+      setGeneratingProgress(100);
+      setGeneratingStatus("¡Historia lista!");
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      setBook(genData.book);
+      setCurrentPage(0);
+    } catch (error) {
+      console.error("Error generating story:", error);
+      alert("Error al generar la historia. Por favor, inténtalo de nuevo.");
+    } finally {
+      setIsGenerating(false);
+      setGeneratingStatus("");
+    }
+  };
+
+  // ============================================
+  // GENERACIÓN DE IMÁGENES (CUESTA 5 CRÉDITOS)
+  // ============================================
+
+  const handleGenerateImages = async () => {
+    if (!book) return;
+
+    // Verificar créditos con el API
+    try {
+      const res = await fetch("/api/user");
+      const data = await res.json();
+      const currentCredits = data.credits || 0;
+      setCredits(currentCredits);
+
+      if (currentCredits < 5) {
+        setShowCreditsModal(true);
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      alert("Error al verificar créditos. Inténtalo de nuevo.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratingStatus("Creando ilustraciones...");
+    setGeneratingPhase("images");
+    setGeneratingProgress(10);
+
+    try {
+      // Progreso visual
+      const progressInterval = setInterval(() => {
+        setGeneratingProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return Math.min(prev + 3, 90);
+        });
+      }, 2000);
+
+      // Generar imágenes - CUESTA CRÉDITOS
+      const genRes = await fetch(`/api/books/${book.id}/generate-images`, {
+        method: "POST",
+      });
+
+      clearInterval(progressInterval);
+
+      const genData = await genRes.json();
+
+      if (genData.needsCredits) {
+        setShowCreditsModal(true);
+        return;
+      }
+
+      if (genData.error) {
+        throw new Error(genData.error);
+      }
+
+      setGeneratingPhase("finishing");
+      setGeneratingStatus("¡Finalizando tu libro!");
+      setGeneratingProgress(95);
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setGeneratingProgress(100);
+
+      setBook(genData.book);
+      setCredits((prev) => prev - 5);
+    } catch (error) {
+      console.error("Error generating images:", error);
+      alert(
+        "Error al generar las ilustraciones. Por favor, inténtalo de nuevo."
+      );
+    } finally {
+      setIsGenerating(false);
+      setGeneratingStatus("");
+    }
+  };
+
+  // ============================================
+  // GENERACIÓN DE LIBRO COMPLETO (flujo legacy)
   // ============================================
 
   const handleGenerateBook = async () => {
@@ -714,23 +871,80 @@ function EditorContent() {
                   )}
                 </div>
 
-                {/* Botón Generar */}
-                <button
-                  onClick={handleGenerateBook}
-                  disabled={isGenerating || !kidName.trim() || !theme.trim()}
-                  className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className='w-5 h-5 animate-spin' />
-                      {generatingStatus}
-                    </>
-                  ) : (
-                    <>
+                {/* Botones de Generación - Flujo de 2 pasos */}
+                {!book ? (
+                  // PASO 1: Generar historia (GRATIS)
+                  <div className='space-y-3'>
+                    <button
+                      onClick={handleGenerateStory}
+                      disabled={isGenerating || !kidName.trim() || !theme.trim()}
+                      className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className='w-5 h-5 animate-spin' />
+                          {generatingStatus}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className='w-5 h-5' />
+                          Crear historia (GRATIS)
+                        </>
+                      )}
+                    </button>
+                    <p className='text-xs text-text-muted text-center'>
+                      ✨ Genera los textos gratis. Podrás editarlos antes de añadir ilustraciones.
+                    </p>
+                  </div>
+                ) : book.status === "DRAFT" ? (
+                  // PASO 2: Libro en borrador - Puede editar textos y generar imágenes
+                  <div className='space-y-3'>
+                    <div className='p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl'>
+                      <p className='text-sm text-amber-600 font-medium mb-1'>
+                        📝 Borrador listo
+                      </p>
+                      <p className='text-xs text-text-muted'>
+                        Edita los textos haciendo doble clic en las miniaturas. 
+                        Cuando estés satisfecho, genera las ilustraciones.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleGenerateImages}
+                      disabled={isGenerating}
+                      className='w-full py-4 bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className='w-5 h-5 animate-spin' />
+                          {generatingStatus}
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className='w-5 h-5' />
+                          Generar ilustraciones (5 créditos)
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setBook(null)}
+                      className='w-full py-2 text-text-muted hover:text-red-500 text-sm transition-colors'>
+                      Descartar y empezar de nuevo
+                    </button>
+                  </div>
+                ) : (
+                  // COMPLETADO: Mostrar opciones de descarga y nuevo libro
+                  <div className='space-y-3'>
+                    <div className='p-3 bg-green-500/10 border border-green-500/30 rounded-xl'>
+                      <p className='text-sm text-green-600 font-medium'>
+                        ✅ ¡Libro completado!
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setBook(null)}
+                      className='w-full py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
                       <Sparkles className='w-5 h-5' />
-                      Generar libro (5 créditos)
-                    </>
-                  )}
-                </button>
+                      Crear nuevo libro
+                    </button>
+                  </div>
+                )}
 
                 {/* Descargas PDF */}
                 {book && book.status === "COMPLETED" && (
