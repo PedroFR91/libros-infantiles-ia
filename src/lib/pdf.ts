@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import * as fs from "fs/promises";
 import * as path from "path";
 
@@ -15,22 +15,24 @@ interface BookData {
   pages: PageData[];
 }
 
-// Configuración de páginas
+// Configuración de páginas - formato cuadrado de libro infantil
 const PAGE_CONFIG = {
   digital: {
-    width: 612, // 8.5 inches at 72 DPI
-    height: 792, // 11 inches at 72 DPI
-    margin: 50,
-    fontSize: 14,
-    titleSize: 24,
+    width: 576, // 8 inches at 72 DPI (cuadrado)
+    height: 576, // 8 inches at 72 DPI
+    margin: 36, // 0.5 inch margin
+    fontSize: 12,
+    titleSize: 20,
+    lineHeight: 1.6,
   },
   print: {
-    width: 648, // 9 inches at 72 DPI (con bleed de 0.25")
-    height: 828, // 11.5 inches at 72 DPI (con bleed de 0.25")
-    margin: 72, // 1 inch margin
+    width: 612, // 8.5 inches at 72 DPI (con bleed)
+    height: 612, // 8.5 inches at 72 DPI
+    margin: 54, // 0.75 inch margin
     bleed: 18, // 0.25 inch bleed
-    fontSize: 14,
-    titleSize: 24,
+    fontSize: 12,
+    titleSize: 20,
+    lineHeight: 1.6,
   },
 };
 
@@ -40,29 +42,93 @@ const STORAGE_DIR =
     ? "/tmp"
     : path.join(process.cwd(), "storage", "pdfs");
 
+// Directorio de imágenes
+const IMAGES_DIR = path.join(process.cwd(), "public", "images", "books");
+
 // Asegurar que el directorio existe
 async function ensureStorageDir() {
   try {
     await fs.mkdir(STORAGE_DIR, { recursive: true });
-  } catch (error) {
+  } catch {
     // El directorio ya existe
   }
 }
 
-// Descargar imagen como bytes
-async function fetchImageBytes(url: string): Promise<Uint8Array | null> {
+// Leer imagen del disco o descargar si es URL externa
+async function getImageBytes(
+  imageUrl: string
+): Promise<Uint8Array | null> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const arrayBuffer = await response.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+    // Si es una URL de nuestra API, leer del disco
+    if (
+      imageUrl.startsWith("/api/images/books/") ||
+      imageUrl.startsWith("/images/books/")
+    ) {
+      // Extraer el path: /api/images/books/bookId/filename.png -> bookId/filename.png
+      const match = imageUrl.match(/\/(?:api\/)?images\/books\/([^/]+)\/(.+)$/);
+      if (match) {
+        const [, bookId, filename] = match;
+        const localPath = path.join(IMAGES_DIR, bookId, filename);
+
+        try {
+          const fileBuffer = await fs.readFile(localPath);
+          console.log(`Imagen leída del disco: ${localPath}`);
+          return new Uint8Array(fileBuffer);
+        } catch (readError) {
+          console.error(
+            `Error leyendo imagen del disco: ${localPath}`,
+            readError
+          );
+        }
+      }
+    }
+
+    // Si es una URL externa, descargarla
+    if (imageUrl.startsWith("http")) {
+      const response = await fetch(imageUrl);
+      if (!response.ok) return null;
+      const arrayBuffer = await response.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+
+    return null;
   } catch (error) {
-    console.error("Error descargando imagen:", error);
+    console.error("Error obteniendo imagen:", error);
     return null;
   }
 }
 
-// Generar PDF digital
+// Utilidad para wrappear texto usando el ancho real de la fuente
+function wrapText(
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+    if (testWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+// Generar PDF digital - formato libro infantil cuadrado
 export async function generateDigitalPDF(book: BookData): Promise<string> {
   await ensureStorageDir();
 
@@ -71,38 +137,63 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+  // Colores del tema
+  const bgColor = rgb(0.98, 0.96, 0.93); // Crema cálido
+  const textColor = rgb(0.15, 0.15, 0.15);
+  const subtitleColor = rgb(0.4, 0.4, 0.4);
+  const accentColor = rgb(0.4, 0.3, 0.6); // Morado suave
+
   for (const pageData of book.pages) {
     const page = pdfDoc.addPage([config.width, config.height]);
     const { width, height } = page.getSize();
 
-    // Fondo suave
+    // Fondo crema
     page.drawRectangle({
       x: 0,
       y: 0,
       width,
       height,
-      color: rgb(0.98, 0.97, 0.95), // Crema claro
+      color: bgColor,
     });
 
-    // Imagen (si existe)
+    // Imagen ocupando la parte superior (70% de la página)
+    const imageAreaHeight = height * 0.7;
+    const imageAreaY = height - imageAreaHeight;
+
     if (pageData.imageUrl) {
-      const imageBytes = await fetchImageBytes(pageData.imageUrl);
+      const imageBytes = await getImageBytes(pageData.imageUrl);
       if (imageBytes) {
         try {
           const image = await pdfDoc
             .embedPng(imageBytes)
             .catch(() => pdfDoc.embedJpg(imageBytes));
 
-          const imageWidth = width - config.margin * 2;
-          const imageHeight = height * 0.55;
-          const imageX = config.margin;
-          const imageY = height - config.margin - imageHeight;
+          // Calcular dimensiones manteniendo aspect ratio
+          const imgDims = image.scale(1);
+          const imgAspect = imgDims.width / imgDims.height;
+          const areaAspect = width / imageAreaHeight;
+
+          let drawWidth, drawHeight, drawX, drawY;
+
+          if (imgAspect > areaAspect) {
+            // Imagen más ancha - ajustar por ancho
+            drawWidth = width;
+            drawHeight = width / imgAspect;
+            drawX = 0;
+            drawY = imageAreaY + (imageAreaHeight - drawHeight) / 2;
+          } else {
+            // Imagen más alta - ajustar por alto
+            drawHeight = imageAreaHeight;
+            drawWidth = imageAreaHeight * imgAspect;
+            drawX = (width - drawWidth) / 2;
+            drawY = imageAreaY;
+          }
 
           page.drawImage(image, {
-            x: imageX,
-            y: imageY,
-            width: imageWidth,
-            height: imageHeight,
+            x: drawX,
+            y: drawY,
+            width: drawWidth,
+            height: drawHeight,
           });
         } catch (error) {
           console.error("Error embebiendo imagen:", error);
@@ -110,54 +201,92 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
       }
     }
 
-    // Texto
-    const textY = height * 0.35;
+    // Área de texto (30% inferior)
+    const textAreaY = imageAreaY - 10;
+    const textStartY = textAreaY - 20;
     const maxWidth = width - config.margin * 2;
 
-    // Título en primera página
+    // Título solo en primera página
     if (pageData.pageNumber === 1) {
-      page.drawText(book.title, {
-        x: config.margin,
-        y: textY + 50,
-        size: config.titleSize,
-        font: boldFont,
-        color: rgb(0.2, 0.2, 0.2),
-        maxWidth,
-      });
+      const titleLines = wrapText(
+        book.title,
+        boldFont,
+        config.titleSize,
+        maxWidth
+      );
+      let titleY = textStartY;
 
-      page.drawText(`Una aventura de ${book.kidName}`, {
-        x: config.margin,
-        y: textY + 20,
+      for (const line of titleLines) {
+        const titleWidth = boldFont.widthOfTextAtSize(line, config.titleSize);
+        page.drawText(line, {
+          x: (width - titleWidth) / 2, // Centrado
+          y: titleY,
+          size: config.titleSize,
+          font: boldFont,
+          color: accentColor,
+        });
+        titleY -= config.titleSize * 1.3;
+      }
+
+      const subtitle = `Una historia de ${book.kidName}`;
+      const subtitleWidth = font.widthOfTextAtSize(subtitle, config.fontSize);
+      page.drawText(subtitle, {
+        x: (width - subtitleWidth) / 2,
+        y: titleY - 5,
         size: config.fontSize,
         font,
-        color: rgb(0.4, 0.4, 0.4),
+        color: subtitleColor,
       });
-    }
 
-    // Texto de la página
-    if (pageData.text) {
-      const lines = wrapText(pageData.text, font, config.fontSize, maxWidth);
-      let currentY = textY;
-
-      for (const line of lines) {
-        page.drawText(line, {
-          x: config.margin,
-          y: currentY,
-          size: config.fontSize,
+      // Texto de la primera página debajo del subtítulo
+      if (pageData.text) {
+        const lines = wrapText(
+          pageData.text,
           font,
-          color: rgb(0.2, 0.2, 0.2),
-        });
-        currentY -= config.fontSize * 1.5;
+          config.fontSize - 1,
+          maxWidth
+        );
+        let currentY = titleY - 30;
+
+        for (const line of lines) {
+          const lineWidth = font.widthOfTextAtSize(line, config.fontSize - 1);
+          page.drawText(line, {
+            x: (width - lineWidth) / 2,
+            y: currentY,
+            size: config.fontSize - 1,
+            font,
+            color: textColor,
+          });
+          currentY -= (config.fontSize - 1) * config.lineHeight;
+        }
+      }
+    } else {
+      // Texto de la historia (páginas 2+)
+      if (pageData.text) {
+        const lines = wrapText(pageData.text, font, config.fontSize, maxWidth);
+        let currentY = textStartY;
+
+        for (const line of lines) {
+          const lineWidth = font.widthOfTextAtSize(line, config.fontSize);
+          page.drawText(line, {
+            x: (width - lineWidth) / 2,
+            y: currentY,
+            size: config.fontSize,
+            font,
+            color: textColor,
+          });
+          currentY -= config.fontSize * config.lineHeight;
+        }
       }
     }
 
-    // Número de página
+    // Número de página (pequeño, abajo a la derecha)
     page.drawText(`${pageData.pageNumber}`, {
-      x: width / 2 - 5,
-      y: 30,
-      size: 10,
+      x: width - config.margin,
+      y: 15,
+      size: 9,
       font,
-      color: rgb(0.5, 0.5, 0.5),
+      color: subtitleColor,
     });
   }
 
@@ -167,7 +296,6 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
 
   await fs.writeFile(filepath, pdfBytes);
 
-  // TODO: Si USE_S3=true, subir a S3 y retornar URL de S3
   return `/api/books/${book.id}/pdf/download?type=digital`;
 }
 
@@ -180,45 +308,66 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+  // Colores
+  const bgColor = rgb(1, 1, 1); // Blanco para impresión
+  const textColor = rgb(0.1, 0.1, 0.1);
+  const subtitleColor = rgb(0.35, 0.35, 0.35);
+  const accentColor = rgb(0.35, 0.25, 0.55);
+
   for (const pageData of book.pages) {
     const page = pdfDoc.addPage([config.width, config.height]);
     const { width, height } = page.getSize();
 
-    // Área de bleed (marca de corte visual - en producción sería más sofisticado)
-    // Fondo que se extiende al bleed
+    // Fondo blanco
     page.drawRectangle({
       x: 0,
       y: 0,
       width,
       height,
-      color: rgb(1, 1, 1), // Blanco
+      color: bgColor,
     });
 
-    // Área segura (dentro de márgenes)
-    const safeX = config.bleed + config.margin;
-    const safeY = config.bleed + config.margin;
-    const safeWidth = width - safeX * 2;
-    const safeHeight = height - safeY * 2;
+    // Área segura (sin bleed)
+    const safeX = config.bleed;
+    const safeY = config.bleed;
+    const safeWidth = width - config.bleed * 2;
+    const safeHeight = height - config.bleed * 2;
 
-    // Imagen (si existe) - con mayor resolución
+    // Imagen ocupando la parte superior
+    const imageAreaHeight = safeHeight * 0.68;
+    const imageAreaY = safeY + safeHeight - imageAreaHeight;
+
     if (pageData.imageUrl) {
-      const imageBytes = await fetchImageBytes(pageData.imageUrl);
+      const imageBytes = await getImageBytes(pageData.imageUrl);
       if (imageBytes) {
         try {
           const image = await pdfDoc
             .embedPng(imageBytes)
             .catch(() => pdfDoc.embedJpg(imageBytes));
 
-          const imageWidth = safeWidth;
-          const imageHeight = safeHeight * 0.55;
-          const imageX = safeX;
-          const imageY = height - safeY - imageHeight;
+          const imgDims = image.scale(1);
+          const imgAspect = imgDims.width / imgDims.height;
+          const areaAspect = safeWidth / imageAreaHeight;
+
+          let drawWidth, drawHeight, drawX, drawY;
+
+          if (imgAspect > areaAspect) {
+            drawWidth = safeWidth;
+            drawHeight = safeWidth / imgAspect;
+            drawX = safeX;
+            drawY = imageAreaY + (imageAreaHeight - drawHeight) / 2;
+          } else {
+            drawHeight = imageAreaHeight;
+            drawWidth = imageAreaHeight * imgAspect;
+            drawX = safeX + (safeWidth - drawWidth) / 2;
+            drawY = imageAreaY;
+          }
 
           page.drawImage(image, {
-            x: imageX,
-            y: imageY,
-            width: imageWidth,
-            height: imageHeight,
+            x: drawX,
+            y: drawY,
+            width: drawWidth,
+            height: drawHeight,
           });
         } catch (error) {
           console.error("Error embebiendo imagen:", error);
@@ -226,56 +375,93 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
       }
     }
 
-    // Texto
-    const textY = height * 0.35;
+    // Área de texto
+    const textAreaY = imageAreaY - 15;
+    const textStartY = textAreaY - 20;
+    const maxWidth = safeWidth - config.margin;
 
     // Título en primera página
     if (pageData.pageNumber === 1) {
-      page.drawText(book.title, {
-        x: safeX,
-        y: textY + 50,
-        size: config.titleSize,
-        font: boldFont,
-        color: rgb(0.1, 0.1, 0.1),
-        maxWidth: safeWidth,
-      });
+      const titleLines = wrapText(
+        book.title,
+        boldFont,
+        config.titleSize,
+        maxWidth
+      );
+      let titleY = textStartY;
 
-      page.drawText(`Una aventura de ${book.kidName}`, {
-        x: safeX,
-        y: textY + 20,
+      for (const line of titleLines) {
+        const titleWidth = boldFont.widthOfTextAtSize(line, config.titleSize);
+        page.drawText(line, {
+          x: safeX + (safeWidth - titleWidth) / 2,
+          y: titleY,
+          size: config.titleSize,
+          font: boldFont,
+          color: accentColor,
+        });
+        titleY -= config.titleSize * 1.3;
+      }
+
+      const subtitle = `Una historia de ${book.kidName}`;
+      const subtitleWidth = font.widthOfTextAtSize(subtitle, config.fontSize);
+      page.drawText(subtitle, {
+        x: safeX + (safeWidth - subtitleWidth) / 2,
+        y: titleY - 5,
         size: config.fontSize,
         font,
-        color: rgb(0.3, 0.3, 0.3),
+        color: subtitleColor,
       });
-    }
 
-    // Texto de la página
-    if (pageData.text) {
-      const lines = wrapText(pageData.text, font, config.fontSize, safeWidth);
-      let currentY = textY;
-
-      for (const line of lines) {
-        page.drawText(line, {
-          x: safeX,
-          y: currentY,
-          size: config.fontSize,
+      // Texto de la primera página
+      if (pageData.text) {
+        const lines = wrapText(
+          pageData.text,
           font,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-        currentY -= config.fontSize * 1.5;
+          config.fontSize - 1,
+          maxWidth
+        );
+        let currentY = titleY - 30;
+
+        for (const line of lines) {
+          const lineWidth = font.widthOfTextAtSize(line, config.fontSize - 1);
+          page.drawText(line, {
+            x: safeX + (safeWidth - lineWidth) / 2,
+            y: currentY,
+            size: config.fontSize - 1,
+            font,
+            color: textColor,
+          });
+          currentY -= (config.fontSize - 1) * config.lineHeight;
+        }
+      }
+    } else {
+      // Texto (páginas 2+)
+      if (pageData.text) {
+        const lines = wrapText(pageData.text, font, config.fontSize, maxWidth);
+        let currentY = textStartY;
+
+        for (const line of lines) {
+          const lineWidth = font.widthOfTextAtSize(line, config.fontSize);
+          page.drawText(line, {
+            x: safeX + (safeWidth - lineWidth) / 2,
+            y: currentY,
+            size: config.fontSize,
+            font,
+            color: textColor,
+          });
+          currentY -= config.fontSize * config.lineHeight;
+        }
       }
     }
 
-    // Número de página (fuera del área de corte)
+    // Número de página
     page.drawText(`${pageData.pageNumber}`, {
-      x: width / 2 - 5,
-      y: config.bleed + 15,
-      size: 10,
+      x: safeX + safeWidth - 20,
+      y: safeY + 10,
+      size: 9,
       font,
-      color: rgb(0.4, 0.4, 0.4),
+      color: subtitleColor,
     });
-
-    // TODO: Añadir marcas de corte para impresión profesional
   }
 
   const pdfBytes = await pdfDoc.save();
@@ -301,35 +487,4 @@ export async function getPDFPath(
   } catch {
     return null;
   }
-}
-
-// Utilidad para wrappear texto
-function wrapText(
-  text: string,
-  _font: unknown, // Font no se usa actualmente, reservado para futuro
-  fontSize: number,
-  maxWidth: number
-): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    // Aproximación simple del ancho (en producción usar font.widthOfTextAtSize)
-    const estimatedWidth = testLine.length * fontSize * 0.5;
-
-    if (estimatedWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  }
-
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  return lines;
 }
