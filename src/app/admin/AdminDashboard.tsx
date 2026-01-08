@@ -308,23 +308,26 @@ export default function AdminDashboard({
     <div className='min-h-screen bg-bg'>
       {/* Header */}
       <header className='bg-bg-light border-b border-border'>
-        <div className='max-w-7xl mx-auto px-4 py-4 flex items-center justify-between'>
-          <div className='flex items-center gap-4'>
+        <div className='max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between'>
+          <div className='flex items-center gap-2 sm:gap-4'>
             <Link
               href='/editor'
-              className='p-2 rounded-lg bg-surface hover:bg-border transition-colors'>
-              <ArrowLeft className='w-5 h-5' />
+              className='p-1.5 sm:p-2 rounded-lg bg-surface hover:bg-border transition-colors'>
+              <ArrowLeft className='w-4 h-4 sm:w-5 sm:h-5' />
             </Link>
             <div className='flex items-center gap-2'>
-              <Shield className='w-6 h-6 text-amber-500' />
-              <h1 className='text-xl font-bold'>Panel de Administración</h1>
+              <Shield className='w-5 h-5 sm:w-6 sm:h-6 text-amber-500' />
+              <h1 className='text-base sm:text-xl font-bold hidden sm:block'>
+                Panel de Administración
+              </h1>
+              <h1 className='text-base font-bold sm:hidden'>Admin</h1>
             </div>
           </div>
           <Link href='/' className='flex items-center gap-2'>
-            <div className='w-8 h-8 rounded-lg bg-primary flex items-center justify-center'>
-              <Book className='w-5 h-5 text-white' />
+            <div className='w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center'>
+              <Book className='w-4 h-4 sm:w-5 sm:h-5 text-white' />
             </div>
-            <span className='font-bold'>
+            <span className='font-bold hidden sm:block'>
               <span className='text-primary'>Libros</span>
               <span className='text-secondary'>IA</span>
             </span>
@@ -332,79 +335,95 @@ export default function AdminDashboard({
         </div>
       </header>
 
-      <div className='max-w-7xl mx-auto px-4 py-8'>
+      <div className='max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8'>
         {/* Stats Cards */}
-        <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8'>
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center'>
-                <Users className='w-5 h-5 text-blue-500' />
+        <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-8'>
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-500/20 flex items-center justify-center'>
+                <Users className='w-4 h-4 sm:w-5 sm:h-5 text-blue-500' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Usuarios</p>
-                <p className='text-xl font-bold'>{stats.totalUsers}</p>
+                <p className='text-[10px] sm:text-xs text-text-muted'>
+                  Usuarios
+                </p>
+                <p className='text-base sm:text-xl font-bold'>
+                  {stats.totalUsers}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center'>
-                <Book className='w-5 h-5 text-purple-500' />
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/20 flex items-center justify-center'>
+                <Book className='w-4 h-4 sm:w-5 sm:h-5 text-purple-500' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Libros</p>
-                <p className='text-xl font-bold'>{stats.totalBooks}</p>
+                <p className='text-[10px] sm:text-xs text-text-muted'>Libros</p>
+                <p className='text-base sm:text-xl font-bold'>
+                  {stats.totalBooks}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center'>
-                <CheckCircle className='w-5 h-5 text-green-500' />
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-500/20 flex items-center justify-center'>
+                <CheckCircle className='w-4 h-4 sm:w-5 sm:h-5 text-green-500' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Completados</p>
-                <p className='text-xl font-bold'>{stats.completedBooks}</p>
+                <p className='text-[10px] sm:text-xs text-text-muted'>
+                  Completados
+                </p>
+                <p className='text-base sm:text-xl font-bold'>
+                  {stats.completedBooks}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center'>
-                <CreditCard className='w-5 h-5 text-emerald-500' />
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center'>
+                <CreditCard className='w-4 h-4 sm:w-5 sm:h-5 text-emerald-500' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Pagos</p>
-                <p className='text-xl font-bold'>{stats.totalPayments}</p>
+                <p className='text-[10px] sm:text-xs text-text-muted'>Pagos</p>
+                <p className='text-base sm:text-xl font-bold'>
+                  {stats.totalPayments}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center'>
-                <DollarSign className='w-5 h-5 text-amber-500' />
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/20 flex items-center justify-center'>
+                <DollarSign className='w-4 h-4 sm:w-5 sm:h-5 text-amber-500' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Ingresos</p>
-                <p className='text-xl font-bold'>
+                <p className='text-[10px] sm:text-xs text-text-muted'>
+                  Ingresos
+                </p>
+                <p className='text-base sm:text-xl font-bold'>
                   €{stats.totalRevenue.toFixed(0)}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-surface border border-border rounded-xl p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center'>
-                <Coins className='w-5 h-5 text-primary' />
+          <div className='bg-surface border border-border rounded-lg sm:rounded-xl p-3 sm:p-4'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/20 flex items-center justify-center'>
+                <Coins className='w-4 h-4 sm:w-5 sm:h-5 text-primary' />
               </div>
               <div>
-                <p className='text-xs text-text-muted'>Créditos</p>
-                <p className='text-xl font-bold'>
+                <p className='text-[10px] sm:text-xs text-text-muted'>
+                  Créditos
+                </p>
+                <p className='text-base sm:text-xl font-bold'>
                   {stats.totalCreditsInSystem}
                 </p>
               </div>
@@ -413,55 +432,56 @@ export default function AdminDashboard({
         </div>
 
         {/* Tabs */}
-        <div className='flex gap-2 mb-4'>
+        <div className='flex gap-1 sm:gap-2 mb-4 overflow-x-auto pb-2'>
           <button
             onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-base whitespace-nowrap ${
               activeTab === "users"
                 ? "bg-primary text-white"
                 : "bg-surface hover:bg-border text-text"
             }`}>
-            <Users className='w-4 h-4' />
-            Usuarios ({users.length})
+            <Users className='w-3 h-3 sm:w-4 sm:h-4' />
+            <span className='hidden sm:inline'>Usuarios</span> ({users.length})
           </button>
           <button
             onClick={() => setActiveTab("books")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-base whitespace-nowrap ${
               activeTab === "books"
                 ? "bg-primary text-white"
                 : "bg-surface hover:bg-border text-text"
             }`}>
-            <Book className='w-4 h-4' />
-            Libros ({books.length})
+            <Book className='w-3 h-3 sm:w-4 sm:h-4' />
+            <span className='hidden sm:inline'>Libros</span> ({books.length})
           </button>
           <button
             onClick={() => setActiveTab("payments")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-base whitespace-nowrap ${
               activeTab === "payments"
                 ? "bg-primary text-white"
                 : "bg-surface hover:bg-border text-text"
             }`}>
-            <CreditCard className='w-4 h-4' />
-            Pagos ({recentPayments.length})
+            <CreditCard className='w-3 h-3 sm:w-4 sm:h-4' />
+            <span className='hidden sm:inline'>Pagos</span> (
+            {recentPayments.length})
           </button>
         </div>
 
         {/* Main Content */}
-        <div className='bg-surface border border-border rounded-xl overflow-hidden'>
-          <div className='p-4 border-b border-border flex items-center justify-between'>
-            <h2 className='text-lg font-bold'>
+        <div className='bg-surface border border-border rounded-lg sm:rounded-xl overflow-hidden'>
+          <div className='p-3 sm:p-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0'>
+            <h2 className='text-sm sm:text-lg font-bold'>
               {activeTab === "users" && "Gestión de Usuarios"}
               {activeTab === "books" && "Libros Generados"}
               {activeTab === "payments" && "Historial de Pagos"}
             </h2>
-            <div className='relative'>
-              <Search className='w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted' />
+            <div className='relative w-full sm:w-auto'>
+              <Search className='w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted' />
               <input
                 type='text'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder='Buscar...'
-                className='pl-10 pr-4 py-2 bg-bg border border-border rounded-lg text-sm focus:border-primary outline-none w-64'
+                className='pl-9 sm:pl-10 pr-4 py-1.5 sm:py-2 bg-bg border border-border rounded-lg text-xs sm:text-sm focus:border-primary outline-none w-full sm:w-64'
               />
             </div>
           </div>

@@ -133,14 +133,16 @@ export default function BookViewer({
       </AnimatePresence>
 
       {/* Toolbar de modos de vista */}
-      <div className='flex-shrink-0 flex items-center justify-between px-4 py-2 bg-bg-light border-b border-border'>
+      <div className='flex-shrink-0 flex items-center justify-between px-2 sm:px-4 py-2 bg-bg-light border-b border-border'>
         {/* Modos de visualización */}
-        <div className='flex items-center gap-1 bg-surface rounded-lg p-1'>
-          {VIEW_MODES.map((mode) => (
+        <div className='flex items-center gap-0.5 sm:gap-1 bg-surface rounded-lg p-0.5 sm:p-1'>
+          {VIEW_MODES.filter(
+            (mode) => mode.id !== "spread" || window.innerWidth >= 768
+          ).map((mode) => (
             <button
               key={mode.id}
               onClick={() => onViewModeChange(mode.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all ${
                 viewMode === mode.id
                   ? "bg-primary text-white"
                   : "text-text-muted hover:text-text hover:bg-bg"
@@ -152,8 +154,8 @@ export default function BookViewer({
         </div>
 
         {/* Indicador de página */}
-        <div className='flex items-center gap-2 text-sm'>
-          <span className='text-text-muted'>Página</span>
+        <div className='flex items-center gap-1 sm:gap-2 text-xs sm:text-sm'>
+          <span className='text-text-muted hidden xs:inline'>Página</span>
           <span className='font-bold text-primary'>
             {viewMode === "spread"
               ? `${leftPageIndex + 1}${
@@ -161,11 +163,11 @@ export default function BookViewer({
                 }`
               : currentPage + 1}
           </span>
-          <span className='text-text-muted'>de {totalPages}</span>
+          <span className='text-text-muted'>/ {totalPages}</span>
         </div>
 
         {/* Título del libro */}
-        <div className='text-sm font-medium text-text truncate max-w-[200px]'>
+        <div className='text-xs sm:text-sm font-medium text-text truncate max-w-[100px] sm:max-w-[200px] hidden xs:block'>
           {book.title || `Historia de ${book.kidName}`}
         </div>
       </div>
@@ -229,13 +231,13 @@ export default function BookViewer({
 
       {/* Miniaturas de páginas */}
       <div className='flex-shrink-0 bg-bg-light border-t border-border'>
-        <div className='flex items-center gap-2 p-3 overflow-x-auto'>
+        <div className='flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 overflow-x-auto'>
           {book.pages.map((page, index) => (
             <button
               key={page.id}
               onClick={() => onPageChange(index)}
               onDoubleClick={() => handleOpenPageEditor(page.pageNumber)}
-              className={`relative flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border-2 transition-all group ${
+              className={`relative flex-shrink-0 w-12 h-16 sm:w-16 sm:h-20 rounded-md sm:rounded-lg overflow-hidden border-2 transition-all group ${
                 (
                   viewMode === "spread"
                     ? index === leftPageIndex || index === rightPageIndex
@@ -252,29 +254,29 @@ export default function BookViewer({
                 />
               ) : (
                 <div className='w-full h-full bg-surface flex items-center justify-center'>
-                  <span className='text-xs text-text-muted'>
+                  <span className='text-[10px] sm:text-xs text-text-muted'>
                     {page.pageNumber}
                   </span>
                 </div>
               )}
               {/* Overlay de edición en hover */}
               <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
-                <Edit3 className='w-4 h-4 text-white' />
+                <Edit3 className='w-3 h-3 sm:w-4 sm:h-4 text-white' />
               </div>
               {/* Número de página */}
-              <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] text-center py-0.5'>
+              <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[8px] sm:text-[10px] text-center py-0.5'>
                 {page.pageNumber}
               </div>
               {/* Indicador de portada */}
               {index === 0 && (
-                <div className='absolute top-0 left-0 right-0 bg-primary/90 text-white text-[8px] text-center py-0.5'>
+                <div className='absolute top-0 left-0 right-0 bg-primary/90 text-white text-[6px] sm:text-[8px] text-center py-0.5'>
                   Portada
                 </div>
               )}
             </button>
           ))}
         </div>
-        <div className='text-center text-xs text-text-muted pb-2'>
+        <div className='text-center text-[10px] sm:text-xs text-text-muted pb-1.5 sm:pb-2'>
           Doble clic en una miniatura para editar el texto
         </div>
       </div>
@@ -318,13 +320,13 @@ function SpreadView({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className='flex items-center gap-4'>
+      className='hidden md:flex items-center gap-2 lg:gap-4'>
       {/* Botón anterior */}
       <button
         onClick={onPrevSpread}
         disabled={currentSpread === 0}
-        className='p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
-        <ChevronLeft className='w-6 h-6' />
+        className='p-2 lg:p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
+        <ChevronLeft className='w-5 h-5 lg:w-6 lg:h-6' />
       </button>
 
       {/* Libro abierto */}
@@ -342,12 +344,12 @@ function SpreadView({
           editingText={editingText}
           onEditText={onEditText}
           onSaveText={onSaveText}
-          width={350}
-          height={500}
+          width={280}
+          height={400}
         />
 
         {/* Lomo */}
-        <div className='w-2 bg-gradient-to-r from-gray-300 to-gray-200' />
+        <div className='w-1.5 lg:w-2 bg-gradient-to-r from-gray-300 to-gray-200' />
 
         {/* Página derecha */}
         <PageRenderer
@@ -364,8 +366,8 @@ function SpreadView({
           editingText={editingText}
           onEditText={onEditText}
           onSaveText={onSaveText}
-          width={350}
-          height={500}
+          width={280}
+          height={400}
         />
       </div>
 
@@ -373,8 +375,8 @@ function SpreadView({
       <button
         onClick={onNextSpread}
         disabled={currentSpread >= totalSpreads - 1}
-        className='p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
-        <ChevronRight className='w-6 h-6' />
+        className='p-2 lg:p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
+        <ChevronRight className='w-5 h-5 lg:w-6 lg:h-6' />
       </button>
     </motion.div>
   );
@@ -416,19 +418,19 @@ function SinglePageView({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className='flex items-center gap-6'>
+      className='flex items-center gap-2 sm:gap-4 lg:gap-6 w-full justify-center px-2'>
       {/* Botón anterior */}
       <button
         onClick={onPrevPage}
         disabled={pageNumber === 0}
-        className='p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
-        <ChevronLeft className='w-6 h-6' />
+        className='p-2 sm:p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0'>
+        <ChevronLeft className='w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6' />
       </button>
 
       {/* Página */}
-      <div className={`relative ${isCover ? "transform scale-105" : ""}`}>
+      <div className={`relative ${isCover ? "sm:transform sm:scale-105" : ""}`}>
         {isCover && (
-          <div className='absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-sm font-bold px-4 py-1 rounded-full'>
+          <div className='absolute -top-6 sm:-top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-0.5 sm:py-1 rounded-full'>
             PORTADA
           </div>
         )}
@@ -444,8 +446,8 @@ function SinglePageView({
           editingText={editingText}
           onEditText={onEditText}
           onSaveText={onSaveText}
-          width={isCover ? 450 : 400}
-          height={isCover ? 640 : 570}
+          width={isCover ? 280 : 260}
+          height={isCover ? 400 : 370}
           isCover={isCover}
         />
       </div>
@@ -454,8 +456,8 @@ function SinglePageView({
       <button
         onClick={onNextPage}
         disabled={pageNumber >= totalPages - 1}
-        className='p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all'>
-        <ChevronRight className='w-6 h-6' />
+        className='p-2 sm:p-3 rounded-full bg-surface border border-border hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0'>
+        <ChevronRight className='w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6' />
       </button>
     </motion.div>
   );

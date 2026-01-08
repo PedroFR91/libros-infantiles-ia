@@ -671,79 +671,90 @@ function EditorContent() {
   // RENDER
   // ============================================
 
+  // Estado para sidebar móvil
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className='h-screen flex flex-col overflow-hidden bg-bg'>
       {/* Header */}
       <header className='flex-shrink-0 bg-bg-light border-b border-border'>
-        <div className='px-4 py-3 flex items-center justify-between'>
-          <Link href='/' className='flex items-center gap-2'>
-            <div className='w-8 h-8 rounded-lg bg-primary flex items-center justify-center'>
-              <Book className='w-5 h-5 text-white' />
-            </div>
-            <span className='font-bold'>
-              <span className='text-primary'>Libros</span>
-              <span className='text-secondary'>IA</span>
-            </span>
-          </Link>
+        <div className='px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between'>
+          <div className='flex items-center gap-2'>
+            {/* Botón menú móvil */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className='lg:hidden p-2 rounded-lg bg-surface border border-border hover:border-primary transition-colors'>
+              <Settings className='w-5 h-5' />
+            </button>
+            <Link href='/' className='flex items-center gap-2'>
+              <div className='w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center'>
+                <Book className='w-4 h-4 sm:w-5 sm:h-5 text-white' />
+              </div>
+              <span className='font-bold hidden sm:inline'>
+                <span className='text-primary'>Libros</span>
+                <span className='text-secondary'>IA</span>
+              </span>
+            </Link>
+          </div>
 
-          <div className='flex items-center gap-3'>
+          <div className='flex items-center gap-2 sm:gap-3'>
             {/* Créditos */}
             <button
               onClick={() => setShowCreditsModal(true)}
-              className='flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-border hover:border-primary transition-colors'>
-              <Coins className='w-5 h-5 text-primary' />
-              <span className='font-semibold'>
+              className='flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-surface border border-border hover:border-primary transition-colors'>
+              <Coins className='w-4 h-4 sm:w-5 sm:h-5 text-primary' />
+              <span className='font-semibold text-sm sm:text-base'>
                 {loadingUser ? "..." : credits}
               </span>
-              <span className='text-text-muted text-sm hidden sm:inline'>
+              <span className='text-text-muted text-xs sm:text-sm hidden sm:inline'>
                 créditos
               </span>
             </button>
 
             {/* Usuario */}
             {sessionStatus === "loading" ? (
-              <div className='w-10 h-10 rounded-full bg-surface animate-pulse' />
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-surface animate-pulse' />
             ) : session?.user ? (
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-1.5 sm:gap-2'>
                 {session.user.role === "ADMIN" && (
                   <Link
                     href='/admin'
-                    className='p-2 rounded-lg bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 transition-colors'
+                    className='p-1.5 sm:p-2 rounded-lg bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 transition-colors'
                     title='Panel Admin'>
-                    <Shield className='w-5 h-5' />
+                    <Shield className='w-4 h-4 sm:w-5 sm:h-5' />
                   </Link>
                 )}
-                <div className='flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border'>
+                <Link
+                  href='/perfil'
+                  className='flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-surface border border-border hover:border-primary transition-colors'>
                   {session.user.image ? (
                     <img
                       src={session.user.image}
                       alt={session.user.name || "Avatar"}
-                      className='w-7 h-7 rounded-full'
+                      className='w-6 h-6 sm:w-7 sm:h-7 rounded-full'
                     />
                   ) : (
-                    <div className='w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center'>
-                      <User className='w-4 h-4 text-primary' />
+                    <div className='w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary/20 flex items-center justify-center'>
+                      <User className='w-3 h-3 sm:w-4 sm:h-4 text-primary' />
                     </div>
                   )}
-                  <Link
-                    href='/perfil'
-                    className='text-sm font-medium hidden sm:inline max-w-[100px] truncate hover:text-primary transition-colors'>
+                  <span className='text-xs sm:text-sm font-medium hidden md:inline max-w-[80px] truncate'>
                     {session.user.name || session.user.email?.split("@")[0]}
-                  </Link>
-                </div>
+                  </span>
+                </Link>
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className='p-2 rounded-lg bg-surface border border-border hover:border-red-500 hover:text-red-500 transition-colors'
+                  className='p-1.5 sm:p-2 rounded-lg bg-surface border border-border hover:border-red-500 hover:text-red-500 transition-colors'
                   title='Cerrar sesión'>
-                  <LogOut className='w-5 h-5' />
+                  <LogOut className='w-4 h-4 sm:w-5 sm:h-5' />
                 </button>
               </div>
             ) : (
               <Link
                 href='/login'
-                className='flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold transition-colors'>
-                <LogIn className='w-5 h-5' />
-                <span className='hidden sm:inline'>Iniciar sesión</span>
+                className='flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm sm:text-base transition-colors'>
+                <LogIn className='w-4 h-4 sm:w-5 sm:h-5' />
+                <span className='hidden xs:inline'>Entrar</span>
               </Link>
             )}
           </div>
@@ -751,51 +762,80 @@ function EditorContent() {
       </header>
 
       {/* Contenido Principal */}
-      <div className='flex-1 flex overflow-hidden'>
+      <div className='flex-1 flex overflow-hidden relative'>
+        {/* Overlay para cerrar sidebar en móvil */}
+        {mobileMenuOpen && (
+          <div
+            className='fixed inset-0 bg-black/50 z-40 lg:hidden'
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
         {/* Panel Izquierdo - Sidebar con scroll */}
-        <aside className='w-80 flex-shrink-0 bg-bg-light border-r border-border flex flex-col'>
+        <aside
+          className={`
+            fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
+            w-[85vw] sm:w-80 flex-shrink-0 bg-bg-light border-r border-border flex flex-col
+            transform transition-transform duration-300 ease-in-out
+            ${
+              mobileMenuOpen
+                ? "translate-x-0"
+                : "-translate-x-full lg:translate-x-0"
+            }
+            lg:transform-none
+          `}>
+          {/* Header del sidebar móvil */}
+          <div className='flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border lg:hidden'>
+            <span className='font-bold text-lg'>Opciones</span>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className='p-2 rounded-lg hover:bg-surface transition-colors'>
+              <X className='w-5 h-5' />
+            </button>
+          </div>
+
           {/* Tabs del sidebar */}
           <div className='flex-shrink-0 flex border-b border-border'>
             <button
               onClick={() => setActiveTab("create")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === "create"
                   ? "text-primary border-b-2 border-primary"
                   : "text-text-muted hover:text-text"
               }`}>
-              <Wand2 className='w-4 h-4' />
+              <Wand2 className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
               Crear
             </button>
             <button
               onClick={() => setActiveTab("style")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === "style"
                   ? "text-primary border-b-2 border-primary"
                   : "text-text-muted hover:text-text"
               }`}>
-              <Settings className='w-4 h-4' />
+              <Settings className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
               Estilo
             </button>
             <button
               onClick={() => setActiveTab("text")}
               disabled={!book}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === "text"
                   ? "text-primary border-b-2 border-primary"
                   : "text-text-muted hover:text-text"
               } ${!book ? "opacity-50 cursor-not-allowed" : ""}`}>
-              <Type className='w-4 h-4' />
+              <Type className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
               Texto
             </button>
           </div>
 
           {/* Contenido del sidebar con scroll */}
-          <div className='flex-1 overflow-y-auto p-4'>
+          <div className='flex-1 overflow-y-auto p-3 sm:p-4'>
             {activeTab === "create" && (
-              <div className='space-y-6'>
+              <div className='space-y-4 sm:space-y-6'>
                 {/* Nombre del protagonista */}
                 <div>
-                  <label className='block text-sm font-medium text-text-muted mb-2'>
+                  <label className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
                     Nombre del protagonista
                   </label>
                   <input
@@ -803,13 +843,13 @@ function EditorContent() {
                     value={kidName}
                     onChange={(e) => setKidName(e.target.value)}
                     placeholder='Ej: Sofía'
-                    className='w-full px-4 py-3 bg-surface border border-border rounded-xl text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all'
+                    className='w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-surface border border-border rounded-lg sm:rounded-xl text-sm sm:text-base text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all'
                   />
                 </div>
 
                 {/* Tema */}
                 <div>
-                  <label className='block text-sm font-medium text-text-muted mb-2'>
+                  <label className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
                     Tema de la historia
                   </label>
                   <textarea
@@ -817,21 +857,21 @@ function EditorContent() {
                     onChange={(e) => setTheme(e.target.value)}
                     placeholder='Ej: Una aventura en el espacio buscando estrellas mágicas'
                     rows={3}
-                    className='w-full px-4 py-3 bg-surface border border-border rounded-xl text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none'
+                    className='w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-surface border border-border rounded-lg sm:rounded-xl text-sm sm:text-base text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none'
                   />
                 </div>
 
                 {/* Foto del niño */}
                 <div>
-                  <label className='block text-sm font-medium text-text-muted mb-2'>
-                    <Camera className='w-4 h-4 inline mr-1' />
+                  <label className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
+                    <Camera className='w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1' />
                     Foto del protagonista (opcional)
                   </label>
 
                   {!kidPhotoPreview ? (
-                    <label className='flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors'>
-                      <Upload className='w-8 h-8 text-text-muted mb-2' />
-                      <span className='text-sm text-text-muted'>
+                    <label className='flex flex-col items-center justify-center w-full h-28 sm:h-32 border-2 border-dashed border-border rounded-lg sm:rounded-xl cursor-pointer hover:border-primary transition-colors'>
+                      <Upload className='w-6 h-6 sm:w-8 sm:h-8 text-text-muted mb-1.5 sm:mb-2' />
+                      <span className='text-xs sm:text-sm text-text-muted'>
                         Subir foto
                       </span>
                       <input
@@ -846,26 +886,26 @@ function EditorContent() {
                       <img
                         src={kidPhotoPreview}
                         alt='Preview'
-                        className='w-full h-32 object-cover rounded-xl'
+                        className='w-full h-28 sm:h-32 object-cover rounded-lg sm:rounded-xl'
                       />
                       {analyzingPhoto && (
-                        <div className='absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center'>
+                        <div className='absolute inset-0 bg-black/50 rounded-lg sm:rounded-xl flex items-center justify-center'>
                           <div className='text-white text-center'>
-                            <Loader2 className='w-6 h-6 animate-spin mx-auto mb-2' />
+                            <Loader2 className='w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-1.5 sm:mb-2' />
                             <span className='text-xs'>Analizando...</span>
                           </div>
                         </div>
                       )}
                       <button
                         onClick={handleRemovePhoto}
-                        className='absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white hover:bg-red-600'>
-                        <Trash2 className='w-4 h-4' />
+                        className='absolute top-2 right-2 p-1 sm:p-1.5 bg-red-500 rounded-full text-white hover:bg-red-600'>
+                        <Trash2 className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
                       </button>
                     </div>
                   )}
 
                   {characterDescription && (
-                    <p className='mt-2 text-xs text-text-muted bg-surface p-2 rounded-lg'>
+                    <p className='mt-1.5 sm:mt-2 text-xs text-text-muted bg-surface p-2 rounded-lg'>
                       ✨ {characterDescription}
                     </p>
                   )}
@@ -874,21 +914,24 @@ function EditorContent() {
                 {/* Botones de Generación - Flujo de 2 pasos */}
                 {!book ? (
                   // PASO 1: Generar historia (GRATIS)
-                  <div className='space-y-3'>
+                  <div className='space-y-2 sm:space-y-3'>
                     <button
-                      onClick={handleGenerateStory}
+                      onClick={() => {
+                        handleGenerateStory();
+                        setMobileMenuOpen(false);
+                      }}
                       disabled={
                         isGenerating || !kidName.trim() || !theme.trim()
                       }
-                      className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
+                      className='w-full py-3 sm:py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
                       {isGenerating ? (
                         <>
-                          <Loader2 className='w-5 h-5 animate-spin' />
-                          {generatingStatus}
+                          <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin' />
+                          <span className='truncate'>{generatingStatus}</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className='w-5 h-5' />
+                          <Sparkles className='w-4 h-4 sm:w-5 sm:h-5' />
                           Crear historia (GRATIS)
                         </>
                       )}
@@ -900,9 +943,9 @@ function EditorContent() {
                   </div>
                 ) : book.status === "DRAFT" ? (
                   // PASO 2: Libro en borrador - Puede editar textos y generar imágenes
-                  <div className='space-y-3'>
-                    <div className='p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl'>
-                      <p className='text-sm text-amber-600 font-medium mb-1'>
+                  <div className='space-y-2 sm:space-y-3'>
+                    <div className='p-2.5 sm:p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg sm:rounded-xl'>
+                      <p className='text-xs sm:text-sm text-amber-600 font-medium mb-1'>
                         📝 Borrador listo
                       </p>
                       <p className='text-xs text-text-muted'>
@@ -911,39 +954,42 @@ function EditorContent() {
                       </p>
                     </div>
                     <button
-                      onClick={handleGenerateImages}
+                      onClick={() => {
+                        handleGenerateImages();
+                        setMobileMenuOpen(false);
+                      }}
                       disabled={isGenerating}
-                      className='w-full py-4 bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
+                      className='w-full py-3 sm:py-4 bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
                       {isGenerating ? (
                         <>
-                          <Loader2 className='w-5 h-5 animate-spin' />
-                          {generatingStatus}
+                          <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin' />
+                          <span className='truncate'>{generatingStatus}</span>
                         </>
                       ) : (
                         <>
-                          <ImageIcon className='w-5 h-5' />
+                          <ImageIcon className='w-4 h-4 sm:w-5 sm:h-5' />
                           Generar ilustraciones (5 créditos)
                         </>
                       )}
                     </button>
                     <button
                       onClick={() => setBook(null)}
-                      className='w-full py-2 text-text-muted hover:text-red-500 text-sm transition-colors'>
+                      className='w-full py-2 text-text-muted hover:text-red-500 text-xs sm:text-sm transition-colors'>
                       Descartar y empezar de nuevo
                     </button>
                   </div>
                 ) : (
                   // COMPLETADO: Mostrar opciones de descarga y nuevo libro
-                  <div className='space-y-3'>
-                    <div className='p-3 bg-green-500/10 border border-green-500/30 rounded-xl'>
-                      <p className='text-sm text-green-600 font-medium'>
+                  <div className='space-y-2 sm:space-y-3'>
+                    <div className='p-2.5 sm:p-3 bg-green-500/10 border border-green-500/30 rounded-lg sm:rounded-xl'>
+                      <p className='text-xs sm:text-sm text-green-600 font-medium'>
                         ✅ ¡Libro completado!
                       </p>
                     </div>
                     <button
                       onClick={() => setBook(null)}
-                      className='w-full py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
-                      <Sparkles className='w-5 h-5' />
+                      className='w-full py-2.5 sm:py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
+                      <Sparkles className='w-4 h-4 sm:w-5 sm:h-5' />
                       Crear nuevo libro
                     </button>
                   </div>
@@ -951,30 +997,30 @@ function EditorContent() {
 
                 {/* Descargas PDF */}
                 {book && book.status === "COMPLETED" && (
-                  <div className='space-y-2 pt-4 border-t border-border'>
-                    <h4 className='text-sm font-medium text-text-muted mb-2'>
-                      <Download className='w-4 h-4 inline mr-1' />
+                  <div className='space-y-2 pt-3 sm:pt-4 border-t border-border'>
+                    <h4 className='text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
+                      <Download className='w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1' />
                       Descargar PDF
                     </h4>
                     <button
                       onClick={() => handleDownloadPDF("digital")}
                       disabled={downloadingPdf !== null}
-                      className='w-full py-2 bg-surface border border-border hover:border-primary text-text font-medium rounded-xl transition-all flex items-center justify-center gap-2'>
+                      className='w-full py-2 bg-surface border border-border hover:border-primary text-text font-medium rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-xs sm:text-sm'>
                       {downloadingPdf === "digital" ? (
-                        <Loader2 className='w-4 h-4 animate-spin' />
+                        <Loader2 className='w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin' />
                       ) : (
-                        <Download className='w-4 h-4' />
+                        <Download className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
                       )}
                       PDF
                     </button>
                     <button
                       onClick={() => handleDownloadPDF("print")}
                       disabled={downloadingPdf !== null}
-                      className='w-full py-2 bg-surface border border-border hover:border-primary text-text font-medium rounded-xl transition-all flex items-center justify-center gap-2'>
+                      className='w-full py-2 bg-surface border border-border hover:border-primary text-text font-medium rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-xs sm:text-sm'>
                       {downloadingPdf === "print" ? (
-                        <Loader2 className='w-4 h-4 animate-spin' />
+                        <Loader2 className='w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin' />
                       ) : (
-                        <ImageIcon className='w-4 h-4' />
+                        <ImageIcon className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
                       )}
                       PDF formato impresión
                     </button>
@@ -1139,16 +1185,18 @@ function EditorContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4'
+            className='fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4'
             onClick={() => setShowCreditsModal(false)}>
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className='bg-bg-light rounded-2xl p-6 max-w-md w-full border border-border'
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              className='bg-bg-light rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 w-full sm:max-w-md border-t sm:border border-border max-h-[85vh] overflow-y-auto'
               onClick={(e) => e.stopPropagation()}>
-              <div className='flex items-center justify-between mb-6'>
-                <h2 className='text-2xl font-bold'>Comprar Créditos</h2>
+              <div className='flex items-center justify-between mb-4 sm:mb-6'>
+                <h2 className='text-xl sm:text-2xl font-bold'>
+                  Comprar Créditos
+                </h2>
                 <button
                   onClick={() => setShowCreditsModal(false)}
                   className='p-2 hover:bg-surface rounded-lg transition-colors'>
@@ -1156,17 +1204,17 @@ function EditorContent() {
                 </button>
               </div>
 
-              <p className='text-text-muted mb-6'>
+              <p className='text-sm sm:text-base text-text-muted mb-4 sm:mb-6'>
                 Tienes <span className='text-primary font-bold'>{credits}</span>{" "}
                 créditos. Compra más para seguir creando libros.
               </p>
 
-              <div className='space-y-4'>
+              <div className='space-y-3 sm:space-y-4'>
                 {creditPacks.map((pack) => (
                   <button
                     key={pack.id}
                     onClick={() => handleBuyCredits(pack.id)}
-                    className={`w-full p-4 rounded-xl text-left transition-all ${
+                    className={`w-full p-3 sm:p-4 rounded-xl text-left transition-all ${
                       pack.popular
                         ? "bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary"
                         : "bg-surface border border-border hover:border-primary"
@@ -1174,19 +1222,21 @@ function EditorContent() {
                     <div className='flex items-center justify-between'>
                       <div>
                         <div className='flex items-center gap-2'>
-                          <span className='font-bold'>{pack.name}</span>
+                          <span className='font-bold text-sm sm:text-base'>
+                            {pack.name}
+                          </span>
                           {pack.popular && (
-                            <span className='px-2 py-0.5 bg-primary text-white text-xs font-bold rounded'>
+                            <span className='px-1.5 sm:px-2 py-0.5 bg-primary text-white text-[10px] sm:text-xs font-bold rounded'>
                               Popular
                             </span>
                           )}
                         </div>
-                        <p className='text-sm text-text-muted'>
+                        <p className='text-xs sm:text-sm text-text-muted'>
                           {pack.description}
                         </p>
                       </div>
                       <div className='text-right'>
-                        <div className='text-xl font-bold'>
+                        <div className='text-lg sm:text-xl font-bold'>
                           {pack.priceFormatted}
                         </div>
                       </div>
@@ -1195,8 +1245,8 @@ function EditorContent() {
                 ))}
               </div>
 
-              <div className='mt-6 text-center text-sm text-text-muted'>
-                <ShoppingCart className='w-4 h-4 inline mr-1' />
+              <div className='mt-4 sm:mt-6 text-center text-xs sm:text-sm text-text-muted'>
+                <ShoppingCart className='w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1' />
                 Pago seguro con Stripe
               </div>
             </motion.div>

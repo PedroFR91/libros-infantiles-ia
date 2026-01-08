@@ -16,12 +16,12 @@ export default function HomePage() {
     <div className='min-h-screen bg-bg'>
       {/* Header */}
       <header className='fixed top-0 left-0 right-0 z-50 glass'>
-        <div className='max-w-7xl mx-auto px-4 py-4 flex items-center justify-between'>
+        <div className='max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between'>
           <Link href='/' className='flex items-center gap-2'>
-            <div className='w-10 h-10 rounded-xl bg-primary flex items-center justify-center'>
-              <Book className='w-6 h-6 text-white' />
+            <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center'>
+              <Book className='w-5 h-5 sm:w-6 sm:h-6 text-white' />
             </div>
-            <span className='text-xl font-bold'>
+            <span className='text-lg sm:text-xl font-bold'>
               <span className='text-primary'>Libros</span>
               <span className='text-secondary'>IA</span>
             </span>
@@ -42,50 +42,51 @@ export default function HomePage() {
 
           <Link
             href='/editor'
-            className='px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl transition-all hover:scale-105'>
-            Crear mi libro
+            className='px-3 sm:px-6 py-2 sm:py-2.5 bg-primary hover:bg-primary-hover text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all hover:scale-105'>
+            <span className='hidden sm:inline'>Crear mi libro</span>
+            <span className='sm:hidden'>Crear</span>
           </Link>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className='pt-32 pb-20 px-4'>
+      <section className='pt-24 sm:pt-32 pb-12 sm:pb-20 px-3 sm:px-4'>
         <div className='max-w-7xl mx-auto'>
-          <div className='grid lg:grid-cols-2 gap-12 items-center'>
+          <div className='grid lg:grid-cols-2 gap-8 lg:gap-12 items-center'>
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}>
-              <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary mb-6'>
-                <Sparkles className='w-4 h-4' />
-                <span className='text-sm font-medium'>Powered by AI</span>
+              <div className='inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 border border-primary/30 text-primary mb-4 sm:mb-6'>
+                <Sparkles className='w-3 h-3 sm:w-4 sm:h-4' />
+                <span className='text-xs sm:text-sm font-medium'>Powered by AI</span>
               </div>
 
-              <h1 className='text-5xl lg:text-6xl font-bold mb-6 leading-tight'>
+              <h1 className='text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight'>
                 Crea libros infantiles
                 <span className='gradient-text'> únicos y mágicos</span>
               </h1>
 
-              <p className='text-xl text-text-muted mb-8 max-w-lg'>
+              <p className='text-base sm:text-xl text-text-muted mb-6 sm:mb-8 max-w-lg'>
                 Tu hijo será el protagonista de su propia aventura. Genera
                 historias personalizadas con ilustraciones únicas en minutos.
               </p>
 
-              <div className='flex flex-col sm:flex-row gap-4'>
+              <div className='flex flex-col sm:flex-row gap-3 sm:gap-4'>
                 <Link
                   href='/editor'
-                  className='px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold text-lg rounded-xl transition-all hover:scale-105 flex items-center justify-center gap-2 animate-pulse-glow'>
+                  className='px-6 sm:px-8 py-3 sm:py-4 bg-primary hover:bg-primary-hover text-white font-bold text-base sm:text-lg rounded-xl transition-all hover:scale-105 flex items-center justify-center gap-2 animate-pulse-glow'>
                   <Wand2 className='w-5 h-5' />
                   Crear mi libro
                 </Link>
                 <a
                   href='#como-funciona'
-                  className='px-8 py-4 bg-surface hover:bg-border text-text font-semibold rounded-xl transition-colors flex items-center justify-center'>
+                  className='px-6 sm:px-8 py-3 sm:py-4 bg-surface hover:bg-border text-text font-semibold rounded-xl transition-colors flex items-center justify-center'>
                   Ver demo
                 </a>
               </div>
 
-              <div className='mt-8 flex items-center gap-6 text-text-muted'>
+              <div className='mt-6 sm:mt-8 flex flex-wrap items-center gap-4 sm:gap-6 text-text-muted text-sm sm:text-base'>
                 <div className='flex items-center gap-2'>
                   <svg
                     className='w-5 h-5 text-green-500'
@@ -157,17 +158,17 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id='como-funciona' className='py-20 px-4 bg-bg-light'>
+      <section id='como-funciona' className='py-12 sm:py-20 px-3 sm:px-4 bg-bg-light'>
         <div className='max-w-7xl mx-auto'>
-          <div className='text-center mb-16'>
-            <h2 className='text-4xl font-bold mb-4'>Cómo funciona</h2>
-            <p className='text-text-muted text-lg max-w-2xl mx-auto'>
+          <div className='text-center mb-10 sm:mb-16'>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Cómo funciona</h2>
+            <p className='text-text-muted text-sm sm:text-lg max-w-2xl mx-auto'>
               Crear un libro personalizado nunca fue tan fácil. En solo 3 pasos
               tendrás una historia única.
             </p>
           </div>
 
-          <div className='grid md:grid-cols-3 gap-8'>
+          <div className='grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8'>
             {[
               {
                 icon: Palette,
@@ -194,12 +195,12 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className='p-8 rounded-2xl bg-surface border border-border hover:border-primary/50 transition-colors'>
-                <div className='w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center mb-6'>
-                  <feature.icon className='w-7 h-7 text-primary' />
+                className='p-5 sm:p-8 rounded-xl sm:rounded-2xl bg-surface border border-border hover:border-primary/50 transition-colors'>
+                <div className='w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-primary/20 flex items-center justify-center mb-4 sm:mb-6'>
+                  <feature.icon className='w-5 h-5 sm:w-7 sm:h-7 text-primary' />
                 </div>
-                <h3 className='text-xl font-bold mb-3'>{feature.title}</h3>
-                <p className='text-text-muted'>{feature.description}</p>
+                <h3 className='text-lg sm:text-xl font-bold mb-2 sm:mb-3'>{feature.title}</h3>
+                <p className='text-text-muted text-sm sm:text-base'>{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -207,16 +208,16 @@ export default function HomePage() {
       </section>
 
       {/* Categories Preview */}
-      <section className='py-20 px-4'>
+      <section className='py-12 sm:py-20 px-3 sm:px-4'>
         <div className='max-w-7xl mx-auto'>
-          <div className='text-center mb-12'>
-            <h2 className='text-4xl font-bold mb-4'>Temas disponibles</h2>
-            <p className='text-text-muted text-lg'>
+          <div className='text-center mb-8 sm:mb-12'>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Temas disponibles</h2>
+            <p className='text-text-muted text-sm sm:text-lg'>
               Elige la aventura perfecta para tu pequeño
             </p>
           </div>
 
-          <div className='flex flex-wrap justify-center gap-4'>
+          <div className='flex flex-wrap justify-center gap-2 sm:gap-4'>
             {[
               { emoji: "🚒", label: "Bombero" },
               { emoji: "🚀", label: "Astronauta" },
@@ -234,9 +235,9 @@ export default function HomePage() {
               <motion.div
                 key={cat.label}
                 whileHover={{ scale: 1.05 }}
-                className='px-6 py-3 rounded-full bg-surface border border-border hover:border-primary transition-colors cursor-pointer flex items-center gap-2'>
-                <span className='text-2xl'>{cat.emoji}</span>
-                <span className='font-medium'>{cat.label}</span>
+                className='px-3 sm:px-6 py-2 sm:py-3 rounded-full bg-surface border border-border hover:border-primary transition-colors cursor-pointer flex items-center gap-1 sm:gap-2'>
+                <span className='text-lg sm:text-2xl'>{cat.emoji}</span>
+                <span className='font-medium text-sm sm:text-base'>{cat.label}</span>
               </motion.div>
             ))}
           </div>
@@ -246,14 +247,14 @@ export default function HomePage() {
       {/* Pricing Section */}
       <section id='precios' className='py-20 px-4 bg-bg-light'>
         <div className='max-w-7xl mx-auto'>
-          <div className='text-center mb-16'>
-            <h2 className='text-4xl font-bold mb-4'>Packs de créditos</h2>
-            <p className='text-text-muted text-lg'>
+          <div className='text-center mb-10 sm:mb-16'>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Packs de créditos</h2>
+            <p className='text-text-muted text-sm sm:text-lg'>
               Compra créditos y crea todos los libros que quieras
             </p>
           </div>
 
-          <div className='grid md:grid-cols-3 gap-8 max-w-4xl mx-auto'>
+          <div className='grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8 max-w-4xl mx-auto'>
             {[
               {
                 name: "5 Créditos",
@@ -278,25 +279,25 @@ export default function HomePage() {
               <motion.div
                 key={pack.name}
                 whileHover={{ y: -5 }}
-                className={`p-8 rounded-2xl relative ${
+                className={`p-5 sm:p-8 rounded-xl sm:rounded-2xl relative ${
                   pack.popular
                     ? "bg-gradient-to-b from-primary/20 to-surface border-2 border-primary"
                     : "bg-surface border border-border"
                 }`}>
                 {pack.popular && (
-                  <div className='absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-white text-sm font-bold rounded-full'>
+                  <div className='absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1 bg-primary text-white text-xs sm:text-sm font-bold rounded-full'>
                     Popular
                   </div>
                 )}
                 <div className='text-center'>
-                  <h3 className='text-xl font-bold mb-2'>{pack.name}</h3>
-                  <div className='mb-4'>
-                    <span className='text-4xl font-bold'>€{pack.price}</span>
+                  <h3 className='text-lg sm:text-xl font-bold mb-2'>{pack.name}</h3>
+                  <div className='mb-3 sm:mb-4'>
+                    <span className='text-2xl sm:text-4xl font-bold'>€{pack.price}</span>
                   </div>
-                  <p className='text-text-muted mb-6'>{pack.description}</p>
+                  <p className='text-text-muted text-sm sm:text-base mb-4 sm:mb-6'>{pack.description}</p>
                   <Link
                     href='/editor'
-                    className={`block w-full py-3 rounded-xl font-semibold transition-colors ${
+                    className={`block w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base transition-colors ${
                       pack.popular
                         ? "bg-primary hover:bg-primary-hover text-white"
                         : "bg-border hover:bg-surface text-text"
@@ -308,9 +309,9 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className='mt-12 text-center'>
-            <div className='inline-flex items-center gap-2 text-text-muted'>
-              <CreditCard className='w-5 h-5' />
+          <div className='mt-8 sm:mt-12 text-center'>
+            <div className='inline-flex items-center gap-2 text-text-muted text-sm sm:text-base'>
+              <CreditCard className='w-4 h-4 sm:w-5 sm:h-5' />
               <span>Pago seguro con Stripe</span>
             </div>
           </div>
@@ -318,37 +319,37 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className='py-20 px-4'>
+      <section className='py-12 sm:py-20 px-3 sm:px-4'>
         <div className='max-w-4xl mx-auto text-center'>
-          <h2 className='text-4xl font-bold mb-6'>¿Listo para crear magia?</h2>
-          <p className='text-xl text-text-muted mb-8'>
+          <h2 className='text-2xl sm:text-4xl font-bold mb-4 sm:mb-6'>¿Listo para crear magia?</h2>
+          <p className='text-base sm:text-xl text-text-muted mb-6 sm:mb-8'>
             Dale a tu hijo un regalo único que recordará siempre
           </p>
           <Link
             href='/editor'
-            className='inline-flex items-center gap-2 px-10 py-5 bg-primary hover:bg-primary-hover text-white font-bold text-xl rounded-2xl transition-all hover:scale-105 animate-pulse-glow'>
-            <Book className='w-6 h-6' />
+            className='inline-flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-5 bg-primary hover:bg-primary-hover text-white font-bold text-base sm:text-xl rounded-xl sm:rounded-2xl transition-all hover:scale-105 animate-pulse-glow'>
+            <Book className='w-5 h-5 sm:w-6 sm:h-6' />
             Crear mi libro ahora
           </Link>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className='py-12 px-4 border-t border-border'>
+      <footer className='py-8 sm:py-12 px-3 sm:px-4 border-t border-border'>
         <div className='max-w-7xl mx-auto'>
-          <div className='flex flex-col md:flex-row items-center justify-between gap-4'>
+          <div className='flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4'>
             <div className='flex items-center gap-2'>
-              <div className='w-8 h-8 rounded-lg bg-primary flex items-center justify-center'>
-                <Book className='w-5 h-5 text-white' />
+              <div className='w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center'>
+                <Book className='w-4 h-4 sm:w-5 sm:h-5 text-white' />
               </div>
-              <span className='font-bold'>
+              <span className='font-bold text-sm sm:text-base'>
                 <span className='text-primary'>Libros</span>
                 <span className='text-secondary'>IA</span>
               </span>
-              <span className='text-text-muted ml-2'>by IconicoSpace</span>
+              <span className='text-text-muted ml-2 text-xs sm:text-base'>by IconicoSpace</span>
             </div>
 
-            <div className='text-text-muted text-sm'>
+            <div className='text-text-muted text-xs sm:text-sm text-center sm:text-right'>
               © {new Date().getFullYear()} IconicoSpace. Todos los derechos
               reservados.
             </div>
