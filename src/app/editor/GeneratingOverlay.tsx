@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, BookOpen, Check } from "lucide-react";
+import { Sparkles, BookOpen, Check, Image as ImageIcon } from "lucide-react";
 import ImageGenerationAnimation from "./ImageGenerationAnimation";
 
 interface GeneratingOverlayProps {
