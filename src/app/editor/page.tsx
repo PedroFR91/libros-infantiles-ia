@@ -246,14 +246,17 @@ function EditorContent() {
 
       const data = await res.json();
 
-      if (data.description) {
-        setCharacterDescription(data.description);
+      if (data.success && data.characterDescription) {
+        setCharacterDescription(data.characterDescription);
+      } else if (data.error) {
+        console.error("Error del API:", data.error);
+        setCharacterDescription(null);
+        alert(data.error);
       }
     } catch (error) {
       console.error("Error analyzing photo:", error);
-      setCharacterDescription(
-        "Un niño adorable con rasgos únicos que le hacen especial"
-      );
+      setCharacterDescription(null);
+      alert("Error al analizar la foto. Intenta con otra imagen.");
     } finally {
       setAnalyzingPhoto(false);
     }
