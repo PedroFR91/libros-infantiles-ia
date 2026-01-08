@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# generated images (stored locally)
+/public/images/books/*
+!/public/images/books/.gitkeep
+
 # debug
 npm-debug.log*
 yarn-debug.log*

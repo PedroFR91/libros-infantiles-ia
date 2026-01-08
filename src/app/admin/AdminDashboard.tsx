@@ -250,12 +250,15 @@ export default function AdminDashboard({
   };
 
   // Admin book actions
-  const handleDownloadPdf = async (bookId: string, type: "digital" | "print") => {
+  const handleDownloadPdf = async (
+    bookId: string,
+    type: "digital" | "print"
+  ) => {
     setDownloadingPdf(`${bookId}-${type}`);
     try {
       const res = await fetch(`/api/books/${bookId}/pdf/download?type=${type}`);
       if (!res.ok) throw new Error("Error downloading PDF");
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -273,7 +276,11 @@ export default function AdminDashboard({
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (!confirm("¿Seguro que quieres eliminar este libro? Esta acción no se puede deshacer.")) {
+    if (
+      !confirm(
+        "¿Seguro que quieres eliminar este libro? Esta acción no se puede deshacer."
+      )
+    ) {
       return;
     }
 
@@ -689,7 +696,9 @@ export default function AdminDashboard({
                           </button>
                           {book.status === "COMPLETED" && (
                             <button
-                              onClick={() => handleDownloadPdf(book.id, "digital")}
+                              onClick={() =>
+                                handleDownloadPdf(book.id, "digital")
+                              }
                               disabled={downloadingPdf === `${book.id}-digital`}
                               className='p-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded transition-colors disabled:opacity-50'
                               title='Descargar PDF'>
@@ -999,7 +1008,8 @@ export default function AdminDashboard({
                 </div>
                 <div>
                   <h2 className='text-xl font-bold'>
-                    {bookDetailModal.title || `Libro de ${bookDetailModal.kidName}`}
+                    {bookDetailModal.title ||
+                      `Libro de ${bookDetailModal.kidName}`}
                   </h2>
                   <p className='text-sm text-text-muted'>
                     Protagonista: {bookDetailModal.kidName}
@@ -1023,11 +1033,17 @@ export default function AdminDashboard({
                 </div>
                 <div>
                   <p className='text-text-muted'>Estado</p>
-                  <div className='mt-1'>{getStatusBadge(bookDetailModal.status)}</div>
+                  <div className='mt-1'>
+                    {getStatusBadge(bookDetailModal.status)}
+                  </div>
                 </div>
                 <div>
                   <p className='text-text-muted'>Usuario</p>
-                  <p>{bookDetailModal.user.name || bookDetailModal.user.email || "Anónimo"}</p>
+                  <p>
+                    {bookDetailModal.user.name ||
+                      bookDetailModal.user.email ||
+                      "Anónimo"}
+                  </p>
                 </div>
                 <div>
                   <p className='text-text-muted'>Creado</p>
@@ -1056,7 +1072,9 @@ export default function AdminDashboard({
               </div>
               <div className='bg-surface rounded-lg p-4 text-center'>
                 <p className='text-2xl font-bold text-green-500'>
-                  {bookDetailModal.status === "COMPLETED" ? "Listo" : "Pendiente"}
+                  {bookDetailModal.status === "COMPLETED"
+                    ? "Listo"
+                    : "Pendiente"}
                 </p>
                 <p className='text-xs text-text-muted'>PDF</p>
               </div>
@@ -1067,8 +1085,12 @@ export default function AdminDashboard({
               {bookDetailModal.status === "COMPLETED" && (
                 <>
                   <button
-                    onClick={() => handleDownloadPdf(bookDetailModal.id, "digital")}
-                    disabled={downloadingPdf === `${bookDetailModal.id}-digital`}
+                    onClick={() =>
+                      handleDownloadPdf(bookDetailModal.id, "digital")
+                    }
+                    disabled={
+                      downloadingPdf === `${bookDetailModal.id}-digital`
+                    }
                     className='flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50'>
                     {downloadingPdf === `${bookDetailModal.id}-digital` ? (
                       <RefreshCw className='w-5 h-5 animate-spin' />
@@ -1078,7 +1100,9 @@ export default function AdminDashboard({
                     Descargar PDF
                   </button>
                   <button
-                    onClick={() => handleDownloadPdf(bookDetailModal.id, "print")}
+                    onClick={() =>
+                      handleDownloadPdf(bookDetailModal.id, "print")
+                    }
                     disabled={downloadingPdf === `${bookDetailModal.id}-print`}
                     className='flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50'>
                     {downloadingPdf === `${bookDetailModal.id}-print` ? (

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
 import { regeneratePageText, generateImage } from "@/lib/openai";
+import { downloadAndStoreImage } from "@/lib/imageStorage";
 
 // POST /api/books/[id]/pages/[pageNumber]/regenerate - Regenerar una página
 export async function POST(
@@ -99,8 +100,18 @@ export async function POST(
     if (regenerateImage) {
       const prompt = updates.imagePrompt || page.imagePrompt;
       if (prompt) {
-        const imageUrl = await generateImage(prompt);
-        updates.imageUrl = imageUrl;
+        // Generar imagen con OpenAI (URL temporal)
+        const tempImageUrl = await generateImage(prompt);
+        // Descargar y almacenar permanentemente
+        const permanentUrl = await downloadAndStoreImage(
+          tempImageUrl,
+          id,
+          pageNumber
+        );
+        updates.imageUrl = permanentUrl;
+        console.log(
+          `Imagen regenerada página ${pageNumber} guardada: ${permanentUrl}`
+        );
       }
     }
 

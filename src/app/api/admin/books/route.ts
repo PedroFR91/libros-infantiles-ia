@@ -116,10 +116,7 @@ export async function POST(request: NextRequest) {
     const { action, bookId } = await request.json();
 
     if (!bookId) {
-      return NextResponse.json(
-        { error: "bookId requerido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "bookId requerido" }, { status: 400 });
     }
 
     switch (action) {

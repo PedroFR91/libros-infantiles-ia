@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
 import { generateStoryText, generateImage } from "@/lib/openai";
+import { downloadAndStoreImage } from "@/lib/imageStorage";
 import { auth } from "@/lib/auth";
 
 // POST /api/books/[id]/generate - Generar libro completo
@@ -131,8 +132,16 @@ export async function POST(
 
         try {
           console.log(`Generando imagen página ${page.pageNumber}...`);
-          imageUrl = await generateImage(page.imagePrompt);
+          // Generar imagen con OpenAI (URL temporal)
+          const tempImageUrl = await generateImage(page.imagePrompt);
+          // Descargar y almacenar permanentemente
+          imageUrl = await downloadAndStoreImage(
+            tempImageUrl,
+            id,
+            page.pageNumber
+          );
           thumbnailUrl = imageUrl;
+          console.log(`Imagen página ${page.pageNumber} guardada: ${imageUrl}`);
         } catch (error) {
           console.error(
             `Error generando imagen para página ${page.pageNumber}:`,
