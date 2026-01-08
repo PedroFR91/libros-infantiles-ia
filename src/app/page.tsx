@@ -59,7 +59,9 @@ export default function HomePage() {
               transition={{ duration: 0.6 }}>
               <div className='inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 border border-primary/30 text-primary mb-4 sm:mb-6'>
                 <Sparkles className='w-3 h-3 sm:w-4 sm:h-4' />
-                <span className='text-xs sm:text-sm font-medium'>Powered by AI</span>
+                <span className='text-xs sm:text-sm font-medium'>
+                  Powered by AI
+                </span>
               </div>
 
               <h1 className='text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight'>
@@ -158,10 +160,14 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id='como-funciona' className='py-12 sm:py-20 px-3 sm:px-4 bg-bg-light'>
+      <section
+        id='como-funciona'
+        className='py-12 sm:py-20 px-3 sm:px-4 bg-bg-light'>
         <div className='max-w-7xl mx-auto'>
           <div className='text-center mb-10 sm:mb-16'>
-            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Cómo funciona</h2>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>
+              Cómo funciona
+            </h2>
             <p className='text-text-muted text-sm sm:text-lg max-w-2xl mx-auto'>
               Crear un libro personalizado nunca fue tan fácil. En solo 3 pasos
               tendrás una historia única.
@@ -199,8 +205,12 @@ export default function HomePage() {
                 <div className='w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-primary/20 flex items-center justify-center mb-4 sm:mb-6'>
                   <feature.icon className='w-5 h-5 sm:w-7 sm:h-7 text-primary' />
                 </div>
-                <h3 className='text-lg sm:text-xl font-bold mb-2 sm:mb-3'>{feature.title}</h3>
-                <p className='text-text-muted text-sm sm:text-base'>{feature.description}</p>
+                <h3 className='text-lg sm:text-xl font-bold mb-2 sm:mb-3'>
+                  {feature.title}
+                </h3>
+                <p className='text-text-muted text-sm sm:text-base'>
+                  {feature.description}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -211,7 +221,9 @@ export default function HomePage() {
       <section className='py-12 sm:py-20 px-3 sm:px-4'>
         <div className='max-w-7xl mx-auto'>
           <div className='text-center mb-8 sm:mb-12'>
-            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Temas disponibles</h2>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>
+              Temas disponibles
+            </h2>
             <p className='text-text-muted text-sm sm:text-lg'>
               Elige la aventura perfecta para tu pequeño
             </p>
@@ -237,7 +249,9 @@ export default function HomePage() {
                 whileHover={{ scale: 1.05 }}
                 className='px-3 sm:px-6 py-2 sm:py-3 rounded-full bg-surface border border-border hover:border-primary transition-colors cursor-pointer flex items-center gap-1 sm:gap-2'>
                 <span className='text-lg sm:text-2xl'>{cat.emoji}</span>
-                <span className='font-medium text-sm sm:text-base'>{cat.label}</span>
+                <span className='font-medium text-sm sm:text-base'>
+                  {cat.label}
+                </span>
               </motion.div>
             ))}
           </div>
@@ -248,7 +262,9 @@ export default function HomePage() {
       <section id='precios' className='py-20 px-4 bg-bg-light'>
         <div className='max-w-7xl mx-auto'>
           <div className='text-center mb-10 sm:mb-16'>
-            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>Packs de créditos</h2>
+            <h2 className='text-2xl sm:text-4xl font-bold mb-3 sm:mb-4'>
+              Packs de créditos
+            </h2>
             <p className='text-text-muted text-sm sm:text-lg'>
               Compra créditos y crea todos los libros que quieras
             </p>
@@ -290,11 +306,17 @@ export default function HomePage() {
                   </div>
                 )}
                 <div className='text-center'>
-                  <h3 className='text-lg sm:text-xl font-bold mb-2'>{pack.name}</h3>
+                  <h3 className='text-lg sm:text-xl font-bold mb-2'>
+                    {pack.name}
+                  </h3>
                   <div className='mb-3 sm:mb-4'>
-                    <span className='text-2xl sm:text-4xl font-bold'>€{pack.price}</span>
+                    <span className='text-2xl sm:text-4xl font-bold'>
+                      €{pack.price}
+                    </span>
                   </div>
-                  <p className='text-text-muted text-sm sm:text-base mb-4 sm:mb-6'>{pack.description}</p>
+                  <p className='text-text-muted text-sm sm:text-base mb-4 sm:mb-6'>
+                    {pack.description}
+                  </p>
                   <Link
                     href='/editor'
                     className={`block w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold text-sm sm:text-base transition-colors ${
@@ -321,7 +343,9 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className='py-12 sm:py-20 px-3 sm:px-4'>
         <div className='max-w-4xl mx-auto text-center'>
-          <h2 className='text-2xl sm:text-4xl font-bold mb-4 sm:mb-6'>¿Listo para crear magia?</h2>
+          <h2 className='text-2xl sm:text-4xl font-bold mb-4 sm:mb-6'>
+            ¿Listo para crear magia?
+          </h2>
           <p className='text-base sm:text-xl text-text-muted mb-6 sm:mb-8'>
             Dale a tu hijo un regalo único que recordará siempre
           </p>
@@ -346,7 +370,9 @@ export default function HomePage() {
                 <span className='text-primary'>Libros</span>
                 <span className='text-secondary'>IA</span>
               </span>
-              <span className='text-text-muted ml-2 text-xs sm:text-base'>by IconicoSpace</span>
+              <span className='text-text-muted ml-2 text-xs sm:text-base'>
+                by IconicoSpace
+              </span>
             </div>
 
             <div className='text-text-muted text-xs sm:text-sm text-center sm:text-right'>
