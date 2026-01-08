@@ -877,7 +877,9 @@ function EditorContent() {
                   <div className='space-y-3'>
                     <button
                       onClick={handleGenerateStory}
-                      disabled={isGenerating || !kidName.trim() || !theme.trim()}
+                      disabled={
+                        isGenerating || !kidName.trim() || !theme.trim()
+                      }
                       className='w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2'>
                       {isGenerating ? (
                         <>
@@ -892,7 +894,8 @@ function EditorContent() {
                       )}
                     </button>
                     <p className='text-xs text-text-muted text-center'>
-                      ✨ Genera los textos gratis. Podrás editarlos antes de añadir ilustraciones.
+                      ✨ Genera los textos gratis. Podrás editarlos antes de
+                      añadir ilustraciones.
                     </p>
                   </div>
                 ) : book.status === "DRAFT" ? (
@@ -903,7 +906,7 @@ function EditorContent() {
                         📝 Borrador listo
                       </p>
                       <p className='text-xs text-text-muted'>
-                        Edita los textos haciendo doble clic en las miniaturas. 
+                        Edita los textos haciendo doble clic en las miniaturas.
                         Cuando estés satisfecho, genera las ilustraciones.
                       </p>
                     </div>

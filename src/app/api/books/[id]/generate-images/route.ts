@@ -110,7 +110,7 @@ export async function POST(
           console.log(`Página ${page.pageNumber} sin imagePrompt, saltando...`);
           continue;
         }
-        
+
         try {
           console.log(`Generando imagen página ${page.pageNumber}...`);
           const imageUrl = await generateImage(page.imagePrompt);

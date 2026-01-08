@@ -23,6 +23,9 @@ import {
   Clock,
   Image as ImageIcon,
   RefreshCw,
+  Download,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 
 interface UserData {
@@ -98,6 +101,8 @@ export default function AdminDashboard({
   const [creditAmount, setCreditAmount] = useState(10);
   const [isUpdating, setIsUpdating] = useState(false);
   const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null);
+  const [bookDetailModal, setBookDetailModal] = useState<BookData | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
 
   // Filter functions
   const filteredUsers = users.filter(
@@ -194,6 +199,13 @@ export default function AdminDashboard({
             Generando
           </span>
         );
+      case "DRAFT":
+        return (
+          <span className='inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-500 text-xs font-medium rounded'>
+            <FileText className='w-3 h-3' />
+            Borrador
+          </span>
+        );
       case "ERROR":
       case "FAILED":
         return (
@@ -235,6 +247,54 @@ export default function AdminDashboard({
 
   const getUserPayments = (userId: string) => {
     return recentPayments.filter((payment) => payment.user.id === userId);
+  };
+
+  // Admin book actions
+  const handleDownloadPdf = async (bookId: string, type: "digital" | "print") => {
+    setDownloadingPdf(`${bookId}-${type}`);
+    try {
+      const res = await fetch(`/api/books/${bookId}/pdf/download?type=${type}`);
+      if (!res.ok) throw new Error("Error downloading PDF");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `libro-${bookId.slice(0, 8)}-${type}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert("Error al descargar el PDF");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
+
+  const handleDeleteBook = async (bookId: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este libro? Esta acción no se puede deshacer.")) {
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const res = await fetch("/api/admin/books", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", bookId }),
+      });
+
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert("Error al eliminar el libro");
+      }
+    } catch (error) {
+      alert("Error al eliminar el libro");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -578,6 +638,9 @@ export default function AdminDashboard({
                     <th className='text-center px-4 py-3 text-sm font-medium text-text-muted'>
                       Creado
                     </th>
+                    <th className='text-right px-4 py-3 text-sm font-medium text-text-muted'>
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className='divide-y divide-border'>
@@ -615,6 +678,36 @@ export default function AdminDashboard({
                       </td>
                       <td className='px-4 py-3 text-center text-xs text-text-muted'>
                         {formatDate(book.createdAt)}
+                      </td>
+                      <td className='px-4 py-3'>
+                        <div className='flex items-center justify-end gap-2'>
+                          <button
+                            onClick={() => setBookDetailModal(book)}
+                            className='p-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-500 rounded transition-colors'
+                            title='Ver detalles'>
+                            <Eye className='w-4 h-4' />
+                          </button>
+                          {book.status === "COMPLETED" && (
+                            <button
+                              onClick={() => handleDownloadPdf(book.id, "digital")}
+                              disabled={downloadingPdf === `${book.id}-digital`}
+                              className='p-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-500 rounded transition-colors disabled:opacity-50'
+                              title='Descargar PDF'>
+                              {downloadingPdf === `${book.id}-digital` ? (
+                                <RefreshCw className='w-4 h-4 animate-spin' />
+                              ) : (
+                                <Download className='w-4 h-4' />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteBook(book.id)}
+                            disabled={isUpdating}
+                            className='p-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded transition-colors disabled:opacity-50'
+                            title='Eliminar libro'>
+                            <Trash2 className='w-4 h-4' />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -885,6 +978,127 @@ export default function AdminDashboard({
                 {userDetailModal.role === "ADMIN"
                   ? "Quitar Admin"
                   : "Hacer Admin"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Book Detail Modal */}
+      {bookDetailModal && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4'
+          onClick={() => setBookDetailModal(null)}>
+          <div
+            className='bg-bg-light rounded-2xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto'
+            onClick={(e) => e.stopPropagation()}>
+            <div className='flex items-center justify-between mb-6'>
+              <div className='flex items-center gap-3'>
+                <div className='w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center'>
+                  <Book className='w-6 h-6 text-purple-500' />
+                </div>
+                <div>
+                  <h2 className='text-xl font-bold'>
+                    {bookDetailModal.title || `Libro de ${bookDetailModal.kidName}`}
+                  </h2>
+                  <p className='text-sm text-text-muted'>
+                    Protagonista: {bookDetailModal.kidName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBookDetailModal(null)}
+                className='p-2 hover:bg-surface rounded-lg transition-colors'>
+                <X className='w-5 h-5' />
+              </button>
+            </div>
+
+            {/* Book Info */}
+            <div className='bg-surface rounded-lg p-4 mb-6'>
+              <h3 className='font-semibold mb-3'>Información del libro</h3>
+              <div className='grid grid-cols-2 gap-4 text-sm'>
+                <div>
+                  <p className='text-text-muted'>ID</p>
+                  <p className='font-mono text-xs'>{bookDetailModal.id}</p>
+                </div>
+                <div>
+                  <p className='text-text-muted'>Estado</p>
+                  <div className='mt-1'>{getStatusBadge(bookDetailModal.status)}</div>
+                </div>
+                <div>
+                  <p className='text-text-muted'>Usuario</p>
+                  <p>{bookDetailModal.user.name || bookDetailModal.user.email || "Anónimo"}</p>
+                </div>
+                <div>
+                  <p className='text-text-muted'>Creado</p>
+                  <p>{formatDate(bookDetailModal.createdAt)}</p>
+                </div>
+                <div className='col-span-2'>
+                  <p className='text-text-muted'>Tema</p>
+                  <p>{bookDetailModal.theme}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Book Stats */}
+            <div className='grid grid-cols-3 gap-4 mb-6'>
+              <div className='bg-surface rounded-lg p-4 text-center'>
+                <p className='text-2xl font-bold text-purple-500'>
+                  {bookDetailModal._count.pages}
+                </p>
+                <p className='text-xs text-text-muted'>Páginas</p>
+              </div>
+              <div className='bg-surface rounded-lg p-4 text-center'>
+                <p className='text-2xl font-bold text-blue-500'>
+                  {bookDetailModal.status === "COMPLETED" ? "Sí" : "No"}
+                </p>
+                <p className='text-xs text-text-muted'>Con imágenes</p>
+              </div>
+              <div className='bg-surface rounded-lg p-4 text-center'>
+                <p className='text-2xl font-bold text-green-500'>
+                  {bookDetailModal.status === "COMPLETED" ? "Listo" : "Pendiente"}
+                </p>
+                <p className='text-xs text-text-muted'>PDF</p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className='flex gap-3'>
+              {bookDetailModal.status === "COMPLETED" && (
+                <>
+                  <button
+                    onClick={() => handleDownloadPdf(bookDetailModal.id, "digital")}
+                    disabled={downloadingPdf === `${bookDetailModal.id}-digital`}
+                    className='flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50'>
+                    {downloadingPdf === `${bookDetailModal.id}-digital` ? (
+                      <RefreshCw className='w-5 h-5 animate-spin' />
+                    ) : (
+                      <Download className='w-5 h-5' />
+                    )}
+                    Descargar PDF
+                  </button>
+                  <button
+                    onClick={() => handleDownloadPdf(bookDetailModal.id, "print")}
+                    disabled={downloadingPdf === `${bookDetailModal.id}-print`}
+                    className='flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50'>
+                    {downloadingPdf === `${bookDetailModal.id}-print` ? (
+                      <RefreshCw className='w-5 h-5 animate-spin' />
+                    ) : (
+                      <ImageIcon className='w-5 h-5' />
+                    )}
+                    PDF Impresión
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => {
+                  handleDeleteBook(bookDetailModal.id);
+                  setBookDetailModal(null);
+                }}
+                disabled={isUpdating}
+                className='py-3 px-6 bg-red-500/20 hover:bg-red-500/30 text-red-500 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50'>
+                <Trash2 className='w-5 h-5' />
+                Eliminar
               </button>
             </div>
           </div>
