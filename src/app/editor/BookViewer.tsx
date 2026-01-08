@@ -198,7 +198,8 @@ export default function BookViewer({
                   <Sparkles className='w-3 h-3 sm:w-4 sm:h-4 text-amber-500' />
                 </p>
                 <p className='text-xs sm:text-sm text-text-muted'>
-                  Haz clic en las páginas para editar textos • Genera ilustraciones cuando estés listo
+                  Haz clic en las páginas para editar textos • Genera
+                  ilustraciones cuando estés listo
                 </p>
               </div>
             </div>
@@ -329,7 +330,9 @@ export default function BookViewer({
           ))}
         </div>
         <div className='text-center text-[10px] sm:text-xs text-text-muted pb-1.5 sm:pb-2'>
-          {isDraft ? "Haz clic en una página para editar el texto" : "Doble clic en una miniatura para editar el texto"}
+          {isDraft
+            ? "Haz clic en una página para editar el texto"
+            : "Doble clic en una miniatura para editar el texto"}
         </div>
       </div>
     </div>
@@ -826,7 +829,7 @@ function PageRenderer({
             <div className='absolute bottom-12 left-8 w-6 h-6 border-2 border-secondary/30 rounded' />
             <div className='absolute bottom-6 right-4 w-5 h-5 bg-primary/15 rounded-full' />
           </div>
-          
+
           {/* Icono central con animación suave */}
           <motion.div
             className='relative z-10 flex flex-col items-center'

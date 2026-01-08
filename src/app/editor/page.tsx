@@ -677,9 +677,6 @@ function EditorContent() {
   // RENDER
   // ============================================
 
-  // Estado para sidebar móvil
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   return (
     <div className='h-screen flex flex-col overflow-hidden bg-bg'>
       {/* Header */}
