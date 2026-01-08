@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, BookOpen, Image as ImageIcon, Check } from "lucide-react";
+import { Sparkles, BookOpen, Check } from "lucide-react";
 import ImageGenerationAnimation from "./ImageGenerationAnimation";
 
 interface GeneratingOverlayProps {
@@ -81,9 +81,6 @@ export default function GeneratingOverlay({
           transition={{ duration: 2, repeat: Infinity }}>
           <div className='w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg'>
             {phase === "story" && <BookOpen className='w-10 h-10 text-white' />}
-            {phase === "images" && (
-              <ImageIcon className='w-10 h-10 text-white' />
-            )}
             {phase === "finishing" && (
               <Sparkles className='w-10 h-10 text-white' />
             )}
