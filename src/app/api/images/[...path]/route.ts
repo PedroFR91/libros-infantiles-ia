@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path: pathSegments } = await params;
-  
+
   // Construir la ruta del archivo
   const filePath = path.join(
     process.cwd(),
@@ -30,7 +30,7 @@ export async function GET(
 
   try {
     const fileBuffer = await readFile(filePath);
-    
+
     // Determinar el content-type basado en la extensión
     const ext = path.extname(filePath).toLowerCase();
     const contentTypes: Record<string, string> = {
@@ -41,7 +41,7 @@ export async function GET(
       ".webp": "image/webp",
       ".svg": "image/svg+xml",
     };
-    
+
     const contentType = contentTypes[ext] || "application/octet-stream";
 
     return new NextResponse(fileBuffer, {
