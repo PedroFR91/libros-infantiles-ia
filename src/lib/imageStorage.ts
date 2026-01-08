@@ -38,8 +38,8 @@ export async function downloadAndStoreImage(
     // Guardar en disco
     await fs.writeFile(filePath, buffer);
 
-    // Retornar la URL relativa para servir desde /public
-    const publicUrl = `/images/books/${bookId}/${fileName}`;
+    // Retornar la URL usando la API route para servir la imagen
+    const publicUrl = `/api/images/books/${bookId}/${fileName}`;
 
     console.log(`Imagen guardada: ${filePath} -> ${publicUrl}`);
 
