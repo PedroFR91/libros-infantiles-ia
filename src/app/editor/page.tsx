@@ -153,28 +153,35 @@ function EditorContent() {
         throw new Error("Error al cargar el libro");
       }
       const data = await res.json();
-      
+      const bookResponse = data.book; // La API devuelve { book: {...} }
+
       // Transformar los datos al formato esperado por el componente
       const bookData: BookData = {
-        id: data.id,
-        title: data.title || `Historia de ${data.kidName}`,
-        kidName: data.kidName,
-        theme: data.theme,
-        style: data.style || "cartoon",
-        status: data.status,
-        pages: data.pages.map((p: { pageNumber: number; text: string; imageUrl: string | null; imagePrompt: string | null }) => ({
-          pageNumber: p.pageNumber,
-          text: p.text,
-          imageUrl: p.imageUrl,
-          imagePrompt: p.imagePrompt,
-        })),
+        id: bookResponse.id,
+        title: bookResponse.title || `Historia de ${bookResponse.kidName}`,
+        kidName: bookResponse.kidName,
+        theme: bookResponse.theme,
+        style: bookResponse.style || "cartoon",
+        status: bookResponse.status,
+        pages: bookResponse.pages.map(
+          (p: {
+            pageNumber: number;
+            text: string;
+            imageUrl: string | null;
+            imagePrompt: string | null;
+          }) => ({
+            pageNumber: p.pageNumber,
+            text: p.text,
+            imageUrl: p.imageUrl,
+            imagePrompt: p.imagePrompt,
+          })
+        ),
       };
-      
+
       setBook(bookData);
-      setKidName(data.kidName);
-      setTheme(data.theme);
-      setBookStyle(data.style || "cartoon");
-      
+      setKidName(bookResponse.kidName);
+      setTheme(bookResponse.theme);
+      setBookStyle(bookResponse.style || "cartoon");
     } catch (error) {
       console.error("Error loading book:", error);
       alert("No se pudo cargar el libro");
