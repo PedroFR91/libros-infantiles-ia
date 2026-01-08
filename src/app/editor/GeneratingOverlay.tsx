@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Sparkles, BookOpen, Image as ImageIcon, Check } from "lucide-react";
+import ImageGenerationAnimation from "./ImageGenerationAnimation";
 
 interface GeneratingOverlayProps {
   kidName: string;
@@ -9,6 +10,7 @@ interface GeneratingOverlayProps {
   phase: "story" | "images" | "finishing";
   progress: number;
   status: string;
+  totalPages?: number;
 }
 
 export default function GeneratingOverlay({
@@ -17,6 +19,7 @@ export default function GeneratingOverlay({
   phase,
   progress,
   status,
+  totalPages = 12,
 }: GeneratingOverlayProps) {
   const phases = [
     { id: "story", label: "Historia", icon: BookOpen },
@@ -25,6 +28,19 @@ export default function GeneratingOverlay({
   ];
 
   const currentPhaseIndex = phases.findIndex((p) => p.id === phase);
+
+  // Si estamos generando imágenes, mostrar la animación especial del libro con pincel
+  if (phase === "images") {
+    return (
+      <ImageGenerationAnimation
+        kidName={kidName}
+        currentPage={Math.ceil((progress / 100) * totalPages)}
+        totalPages={totalPages}
+        status={status}
+        progress={progress}
+      />
+    );
+  }
 
   return (
     <div className='flex flex-col items-center justify-center p-8 max-w-lg mx-auto'>

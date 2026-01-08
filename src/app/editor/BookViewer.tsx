@@ -26,6 +26,7 @@ import {
   getTextFontStyles,
 } from "./types";
 import PageEditor from "./PageEditor";
+import { Wand2, Edit3 as EditIcon, Sparkles, Palette } from "lucide-react";
 
 interface BookViewerProps {
   book: BookData;
@@ -39,6 +40,8 @@ interface BookViewerProps {
   onEditText: (edit: { pageNumber: number; text: string } | null) => void;
   onSaveText: () => void;
   onUpdatePageText?: (pageNumber: number, text: string) => Promise<void>;
+  onGenerateImages?: () => void;
+  credits?: number;
 }
 
 export default function BookViewer({
@@ -53,9 +56,15 @@ export default function BookViewer({
   onEditText,
   onSaveText,
   onUpdatePageText,
+  onGenerateImages,
+  credits = 0,
 }: BookViewerProps) {
   const totalPages = book.pages.length;
   const [pageEditorOpen, setPageEditorOpen] = useState<number | null>(null);
+
+  // Detectar si el libro está en modo draft (sin imágenes)
+  const isDraft =
+    book.status === "DRAFT" && book.pages.some((p) => !p.imageUrl);
 
   // Para vista spread (doble página)
   const currentSpread = Math.floor(currentPage / 2);
@@ -172,6 +181,45 @@ export default function BookViewer({
         </div>
       </div>
 
+      {/* Banner de estado DRAFT */}
+      {isDraft && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className='bg-gradient-to-r from-amber-500/20 via-primary/20 to-amber-500/20 border-b border-amber-500/30 px-3 sm:px-4 py-2 sm:py-3'>
+          <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2'>
+            <div className='flex items-center gap-2 sm:gap-3'>
+              <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-500/20 flex items-center justify-center'>
+                <Palette className='w-4 h-4 sm:w-5 sm:h-5 text-amber-500' />
+              </div>
+              <div>
+                <p className='font-semibold text-sm sm:text-base flex items-center gap-2'>
+                  <span>Historia lista</span>
+                  <Sparkles className='w-3 h-3 sm:w-4 sm:h-4 text-amber-500' />
+                </p>
+                <p className='text-xs sm:text-sm text-text-muted'>
+                  Haz clic en las páginas para editar textos • Genera ilustraciones cuando estés listo
+                </p>
+              </div>
+            </div>
+            {onGenerateImages && (
+              <button
+                onClick={onGenerateImages}
+                disabled={credits < 5}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-sm transition-all ${
+                  credits >= 5
+                    ? "bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90"
+                    : "bg-gray-500/20 text-gray-500 cursor-not-allowed"
+                }`}>
+                <Wand2 className='w-4 h-4' />
+                <span className='hidden sm:inline'>Generar Ilustraciones</span>
+                <span className='sm:hidden'>Ilustrar</span>
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* Área de visualización */}
       <div className='flex-1 flex items-center justify-center p-4 overflow-hidden'>
         <AnimatePresence mode='wait'>
@@ -253,8 +301,10 @@ export default function BookViewer({
                   className='w-full h-full object-cover'
                 />
               ) : (
-                <div className='w-full h-full bg-surface flex items-center justify-center'>
-                  <span className='text-[10px] sm:text-xs text-text-muted'>
+                /* Miniatura placeholder para draft */
+                <div className='w-full h-full bg-gradient-to-br from-primary/10 via-secondary/5 to-primary/10 flex flex-col items-center justify-center'>
+                  <Palette className='w-3 h-3 sm:w-4 sm:h-4 text-primary/40' />
+                  <span className='text-[8px] text-text-muted mt-0.5'>
                     {page.pageNumber}
                   </span>
                 </div>
@@ -263,10 +313,12 @@ export default function BookViewer({
               <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
                 <Edit3 className='w-3 h-3 sm:w-4 sm:h-4 text-white' />
               </div>
-              {/* Número de página */}
-              <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[8px] sm:text-[10px] text-center py-0.5'>
-                {page.pageNumber}
-              </div>
+              {/* Número de página - solo si tiene imagen */}
+              {page.imageUrl && (
+                <div className='absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[8px] sm:text-[10px] text-center py-0.5'>
+                  {page.pageNumber}
+                </div>
+              )}
               {/* Indicador de portada */}
               {index === 0 && (
                 <div className='absolute top-0 left-0 right-0 bg-primary/90 text-white text-[6px] sm:text-[8px] text-center py-0.5'>
@@ -277,7 +329,7 @@ export default function BookViewer({
           ))}
         </div>
         <div className='text-center text-[10px] sm:text-xs text-text-muted pb-1.5 sm:pb-2'>
-          Doble clic en una miniatura para editar el texto
+          {isDraft ? "Haz clic en una página para editar el texto" : "Doble clic en una miniatura para editar el texto"}
         </div>
       </div>
     </div>
@@ -758,12 +810,39 @@ function PageRenderer({
       }`}
       style={{ width, height }}
       onClick={onSelect}>
-      {/* Imagen */}
-      {page.imageUrl && (
+      {/* Imagen o placeholder para draft */}
+      {page.imageUrl ? (
         <div
           className='absolute inset-0 bg-cover bg-center'
           style={{ backgroundImage: `url(${page.imageUrl})` }}
         />
+      ) : (
+        /* Placeholder visual para cuando no hay imagen (modo DRAFT) */
+        <div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/10 flex flex-col items-center justify-center p-4'>
+          {/* Patrón decorativo */}
+          <div className='absolute inset-0 opacity-30'>
+            <div className='absolute top-4 left-4 w-8 h-8 border-2 border-primary/30 rounded-full' />
+            <div className='absolute top-8 right-6 w-4 h-4 bg-secondary/20 rounded' />
+            <div className='absolute bottom-12 left-8 w-6 h-6 border-2 border-secondary/30 rounded' />
+            <div className='absolute bottom-6 right-4 w-5 h-5 bg-primary/15 rounded-full' />
+          </div>
+          
+          {/* Icono central con animación suave */}
+          <motion.div
+            className='relative z-10 flex flex-col items-center'
+            animate={{ y: [0, -3, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+            <div className='w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mb-2'>
+              <Palette className='w-6 h-6 sm:w-8 sm:h-8 text-primary/60' />
+            </div>
+            <p className='text-xs sm:text-sm text-text-muted text-center font-medium'>
+              Ilustración pendiente
+            </p>
+            <p className='text-[10px] text-text-muted/70 mt-1'>
+              Haz clic para editar texto
+            </p>
+          </motion.div>
+        </div>
       )}
 
       {/* Texto */}

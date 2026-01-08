@@ -33,6 +33,7 @@ import BookViewer from "./BookViewer";
 import StyleSelector from "./StyleSelector";
 import TextCustomizer from "./TextCustomizer";
 import GeneratingOverlay from "./GeneratingOverlay";
+import DraftBookOverlay from "./DraftBookOverlay";
 
 // Tipos
 import {
@@ -109,6 +110,7 @@ function EditorContent() {
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showDraftOverlay, setShowDraftOverlay] = useState(false);
   const [creditPacks, setCreditPacks] = useState<CreditPack[]>([]);
   const [downloadingPdf, setDownloadingPdf] = useState<
     "digital" | "print" | null
@@ -116,6 +118,7 @@ function EditorContent() {
   const [activeTab, setActiveTab] = useState<"create" | "style" | "text">(
     "create"
   );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ============================================
   // EFECTOS
@@ -279,6 +282,9 @@ function EditorContent() {
 
       setBook(genData.book);
       setCurrentPage(0);
+
+      // Mostrar el overlay explicativo de draft
+      setShowDraftOverlay(true);
     } catch (error) {
       console.error("Error generating story:", error);
       alert("Error al generar la historia. Por favor, inténtalo de nuevo.");
@@ -1173,10 +1179,30 @@ function EditorContent() {
               onEditText={setEditingText}
               onSaveText={handleSaveText}
               onUpdatePageText={handleUpdatePageText}
+              onGenerateImages={handleGenerateImages}
+              credits={credits}
             />
           )}
         </main>
       </div>
+
+      {/* Overlay explicativo cuando el libro está en DRAFT (historia generada, sin imágenes) */}
+      <DraftBookOverlay
+        kidName={kidName || book?.kidName || ""}
+        theme={theme || book?.theme || ""}
+        pageCount={book?.pages.length || 12}
+        credits={credits}
+        onGenerateImages={() => {
+          setShowDraftOverlay(false);
+          handleGenerateImages();
+        }}
+        onEditTexts={() => {
+          setShowDraftOverlay(false);
+          // El usuario puede hacer clic en las páginas para editar
+        }}
+        isVisible={showDraftOverlay}
+        onClose={() => setShowDraftOverlay(false)}
+      />
 
       {/* Modal de Créditos */}
       <AnimatePresence>
