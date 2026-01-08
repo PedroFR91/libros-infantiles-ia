@@ -10,23 +10,19 @@ async function fixImageUrls() {
       SET "imageUrl" = REPLACE("imageUrl", '/images/books/', '/api/images/books/') 
       WHERE "imageUrl" LIKE '/images/books/%'
     `);
-    
-    console.log("Filas actualizadas:", result);
-    
-    // Verificar las URLs actualizadas
-    const pages = await prisma.bookPage.findMany({
-            },
-            take: 5
-        });
 
-        console.log("Ejemplo de URLs actualizadas:");
-        pages.forEach(p => console.log(p.imageUrl));
+        console.log("Filas actualizadas:", result);
 
-    } catch (error) {
-        console.error("Error:", error);
-    } finally {
-        await prisma.$disconnect();
-    }
-}
-
-fixImageUrls();
+        // Verificar las URLs actualizadas
+        const pages = await prisma.bookPage.findMany({
+      where: {
+        imageUrl: {
+          contains: '/api/images/books/'
+        }
+      },
+      select: {
+        id: true,
+        imageUrl: true
+      },
+      take: 5
+    });
