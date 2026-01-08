@@ -58,6 +58,8 @@ export async function POST(
     }
 
     // Preparar datos para PDF
+    // Nota: Los campos de personalización (textPosition, textBackground, etc.)
+    // no están en la base de datos actualmente, se usarán valores por defecto
     const bookData = {
       id: book.id,
       title: book.title || `La aventura de ${book.kidName}`,

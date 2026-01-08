@@ -1,11 +1,41 @@
-import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
+import {
+  PDFDocument,
+  rgb,
+  StandardFonts,
+  PDFFont,
+  PDFPage,
+  RGB,
+} from "pdf-lib";
 import * as fs from "fs/promises";
 import * as path from "path";
+
+// Tipos de personalización (deben coincidir con types.ts del editor)
+type TextPosition =
+  | "bottom"
+  | "top"
+  | "center"
+  | "bottom-left"
+  | "bottom-right"
+  | "top-left"
+  | "top-right";
+type TextBackground = "none" | "gradient" | "bubble" | "box" | "banner";
+type TextStyle =
+  | "default"
+  | "handwritten"
+  | "comic"
+  | "elegant"
+  | "playful"
+  | "bold";
 
 interface PageData {
   pageNumber: number;
   text: string;
   imageUrl?: string;
+  // Campos de personalización
+  textPosition?: TextPosition;
+  textBackground?: TextBackground;
+  textStyle?: TextStyle;
+  textColor?: string;
 }
 
 interface BookData {
@@ -20,19 +50,19 @@ const PAGE_CONFIG = {
   digital: {
     width: 576, // 8 inches at 72 DPI (cuadrado)
     height: 576, // 8 inches at 72 DPI
-    margin: 36, // 0.5 inch margin
-    fontSize: 12,
-    titleSize: 20,
-    lineHeight: 1.6,
+    padding: 20, // Padding para el texto
+    fontSize: 14,
+    titleSize: 22,
+    lineHeight: 1.5,
   },
   print: {
     width: 612, // 8.5 inches at 72 DPI (con bleed)
     height: 612, // 8.5 inches at 72 DPI
-    margin: 54, // 0.75 inch margin
     bleed: 18, // 0.25 inch bleed
-    fontSize: 12,
-    titleSize: 20,
-    lineHeight: 1.6,
+    padding: 25,
+    fontSize: 14,
+    titleSize: 22,
+    lineHeight: 1.5,
   },
 };
 
@@ -55,9 +85,7 @@ async function ensureStorageDir() {
 }
 
 // Leer imagen del disco o descargar si es URL externa
-async function getImageBytes(
-  imageUrl: string
-): Promise<Uint8Array | null> {
+async function getImageBytes(imageUrl: string): Promise<Uint8Array | null> {
   try {
     // Si es una URL de nuestra API, leer del disco
     if (
@@ -128,7 +156,208 @@ function wrapText(
   return lines;
 }
 
-// Generar PDF digital - formato libro infantil cuadrado
+// Convertir color hex a RGB
+function hexToRgb(hex: string): RGB {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (result) {
+    return rgb(
+      parseInt(result[1], 16) / 255,
+      parseInt(result[2], 16) / 255,
+      parseInt(result[3], 16) / 255
+    );
+  }
+  return rgb(1, 1, 1); // Blanco por defecto
+}
+
+// Dibujar texto con su posición y estilo (replicando el editor)
+function drawTextOverlay(
+  page: PDFPage,
+  text: string,
+  font: PDFFont,
+  boldFont: PDFFont,
+  fontSize: number,
+  config: { width: number; height: number; padding: number },
+  pageData: PageData,
+  isCover: boolean
+) {
+  if (!text && !isCover) return;
+
+  const { width, height } = page.getSize();
+  const padding = config.padding;
+  const maxWidth = width - padding * 2;
+
+  // Obtener configuración de la página o usar valores por defecto
+  const textPosition = pageData.textPosition || "bottom";
+  const textBackground = pageData.textBackground || "gradient";
+  const textStyle = pageData.textStyle || "default";
+  const textColorHex = pageData.textColor || "#FFFFFF";
+
+  // Seleccionar fuente según estilo
+  const selectedFont =
+    textStyle === "bold" || textStyle === "comic" ? boldFont : font;
+
+  // Wrap del texto
+  const lines = wrapText(text, selectedFont, fontSize, maxWidth * 0.85);
+  const lineHeight = fontSize * 1.5;
+  const textBlockHeight = lines.length * lineHeight + padding;
+
+  // Calcular posición Y según textPosition
+  let textY: number;
+  let textAreaY: number;
+  let textAreaHeight: number = textBlockHeight + padding;
+
+  switch (textPosition) {
+    case "top":
+    case "top-left":
+    case "top-right":
+      textAreaY = height - textAreaHeight;
+      textY = textAreaY + textAreaHeight - padding - fontSize;
+      break;
+    case "center":
+      textAreaY = (height - textAreaHeight) / 2;
+      textY = textAreaY + textAreaHeight - padding - fontSize;
+      break;
+    case "bottom":
+    case "bottom-left":
+    case "bottom-right":
+    default:
+      textAreaY = 0;
+      textY = textAreaHeight - padding - fontSize;
+      break;
+  }
+
+  // Calcular posición X según textPosition
+  const isLeft = textPosition.includes("left");
+  const isRight = textPosition.includes("right");
+  const textMaxWidth = isLeft || isRight ? maxWidth * 0.6 : maxWidth;
+
+  // Dibujar fondo según textBackground
+  switch (textBackground) {
+    case "gradient":
+      // Degradado de negro transparente
+      if (textPosition.includes("top")) {
+        // Degradado de arriba hacia abajo
+        for (let i = 0; i < 5; i++) {
+          const opacity = 0.7 * (1 - i / 5);
+          page.drawRectangle({
+            x: 0,
+            y: height - textAreaHeight - i * 20,
+            width: width,
+            height: textAreaHeight + i * 20 + 20,
+            color: rgb(0, 0, 0),
+            opacity: opacity * 0.15,
+          });
+        }
+      } else {
+        // Degradado de abajo hacia arriba
+        for (let i = 0; i < 5; i++) {
+          const opacity = 0.7 * (1 - i / 5);
+          page.drawRectangle({
+            x: 0,
+            y: 0,
+            width: width,
+            height: textAreaHeight + i * 20,
+            color: rgb(0, 0, 0),
+            opacity: opacity * 0.15,
+          });
+        }
+      }
+      break;
+
+    case "box":
+      // Caja con fondo semi-transparente
+      page.drawRectangle({
+        x: padding / 2,
+        y: textAreaY + padding / 2,
+        width: width - padding,
+        height: textAreaHeight - padding,
+        color: rgb(0, 0, 0),
+        opacity: 0.75,
+      });
+      break;
+
+    case "bubble":
+      // Bocadillo blanco tipo cómic
+      page.drawRectangle({
+        x: padding,
+        y: textAreaY + padding / 2,
+        width: width - padding * 2,
+        height: textAreaHeight - padding,
+        color: rgb(1, 1, 1),
+      });
+      // Borde del bocadillo
+      page.drawRectangle({
+        x: padding,
+        y: textAreaY + padding / 2,
+        width: width - padding * 2,
+        height: textAreaHeight - padding,
+        borderColor: rgb(0.2, 0.2, 0.2),
+        borderWidth: 2,
+      });
+      break;
+
+    case "banner":
+      // Banner con degradado lateral
+      page.drawRectangle({
+        x: 0,
+        y: textAreaY,
+        width: width,
+        height: textAreaHeight,
+        color: rgb(0, 0, 0),
+        opacity: 0.8,
+      });
+      break;
+
+    case "none":
+    default:
+      // Sin fondo, solo sombra en el texto (simulado con texto desplazado)
+      break;
+  }
+
+  // Determinar color del texto
+  const finalTextColor =
+    textBackground === "bubble" ? rgb(0, 0, 0) : hexToRgb(textColorHex);
+
+  // Dibujar el texto
+  let currentY = textY;
+  for (const line of lines) {
+    const lineWidth = selectedFont.widthOfTextAtSize(line, fontSize);
+
+    let textX: number;
+    if (isLeft) {
+      textX = padding;
+    } else if (isRight) {
+      textX = width - padding - lineWidth;
+    } else {
+      textX = (width - lineWidth) / 2;
+    }
+
+    // Sombra del texto (para "none" background)
+    if (textBackground === "none") {
+      page.drawText(line, {
+        x: textX + 2,
+        y: currentY - 2,
+        size: fontSize,
+        font: selectedFont,
+        color: rgb(0, 0, 0),
+        opacity: 0.8,
+      });
+    }
+
+    // Texto principal
+    page.drawText(line, {
+      x: textX,
+      y: currentY,
+      size: fontSize,
+      font: selectedFont,
+      color: finalTextColor,
+    });
+
+    currentY -= lineHeight;
+  }
+}
+
+// Generar PDF digital - replicando exactamente el diseño del editor
 export async function generateDigitalPDF(book: BookData): Promise<string> {
   await ensureStorageDir();
 
@@ -137,29 +366,20 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Colores del tema
-  const bgColor = rgb(0.98, 0.96, 0.93); // Crema cálido
-  const textColor = rgb(0.15, 0.15, 0.15);
-  const subtitleColor = rgb(0.4, 0.4, 0.4);
-  const accentColor = rgb(0.4, 0.3, 0.6); // Morado suave
-
   for (const pageData of book.pages) {
     const page = pdfDoc.addPage([config.width, config.height]);
     const { width, height } = page.getSize();
 
-    // Fondo crema
+    // Fondo blanco por defecto (se cubrirá con la imagen)
     page.drawRectangle({
       x: 0,
       y: 0,
       width,
       height,
-      color: bgColor,
+      color: rgb(0.95, 0.93, 0.9), // Crema suave como fallback
     });
 
-    // Imagen ocupando la parte superior (70% de la página)
-    const imageAreaHeight = height * 0.7;
-    const imageAreaY = height - imageAreaHeight;
-
+    // IMAGEN A PANTALLA COMPLETA (como en el editor)
     if (pageData.imageUrl) {
       const imageBytes = await getImageBytes(pageData.imageUrl);
       if (imageBytes) {
@@ -168,25 +388,25 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
             .embedPng(imageBytes)
             .catch(() => pdfDoc.embedJpg(imageBytes));
 
-          // Calcular dimensiones manteniendo aspect ratio
+          // Calcular dimensiones para CUBRIR toda la página (cover)
           const imgDims = image.scale(1);
           const imgAspect = imgDims.width / imgDims.height;
-          const areaAspect = width / imageAreaHeight;
+          const pageAspect = width / height;
 
           let drawWidth, drawHeight, drawX, drawY;
 
-          if (imgAspect > areaAspect) {
-            // Imagen más ancha - ajustar por ancho
+          if (imgAspect > pageAspect) {
+            // Imagen más ancha - ajustar por altura y centrar horizontalmente
+            drawHeight = height;
+            drawWidth = height * imgAspect;
+            drawX = (width - drawWidth) / 2;
+            drawY = 0;
+          } else {
+            // Imagen más alta - ajustar por ancho y centrar verticalmente
             drawWidth = width;
             drawHeight = width / imgAspect;
             drawX = 0;
-            drawY = imageAreaY + (imageAreaHeight - drawHeight) / 2;
-          } else {
-            // Imagen más alta - ajustar por alto
-            drawHeight = imageAreaHeight;
-            drawWidth = imageAreaHeight * imgAspect;
-            drawX = (width - drawWidth) / 2;
-            drawY = imageAreaY;
+            drawY = (height - drawHeight) / 2;
           }
 
           page.drawImage(image, {
@@ -199,95 +419,43 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
           console.error("Error embebiendo imagen:", error);
         }
       }
-    }
-
-    // Área de texto (30% inferior)
-    const textAreaY = imageAreaY - 10;
-    const textStartY = textAreaY - 20;
-    const maxWidth = width - config.margin * 2;
-
-    // Título solo en primera página
-    if (pageData.pageNumber === 1) {
-      const titleLines = wrapText(
-        book.title,
-        boldFont,
-        config.titleSize,
-        maxWidth
-      );
-      let titleY = textStartY;
-
-      for (const line of titleLines) {
-        const titleWidth = boldFont.widthOfTextAtSize(line, config.titleSize);
-        page.drawText(line, {
-          x: (width - titleWidth) / 2, // Centrado
-          y: titleY,
-          size: config.titleSize,
-          font: boldFont,
-          color: accentColor,
-        });
-        titleY -= config.titleSize * 1.3;
-      }
-
-      const subtitle = `Una historia de ${book.kidName}`;
-      const subtitleWidth = font.widthOfTextAtSize(subtitle, config.fontSize);
-      page.drawText(subtitle, {
-        x: (width - subtitleWidth) / 2,
-        y: titleY - 5,
-        size: config.fontSize,
-        font,
-        color: subtitleColor,
-      });
-
-      // Texto de la primera página debajo del subtítulo
-      if (pageData.text) {
-        const lines = wrapText(
-          pageData.text,
-          font,
-          config.fontSize - 1,
-          maxWidth
-        );
-        let currentY = titleY - 30;
-
-        for (const line of lines) {
-          const lineWidth = font.widthOfTextAtSize(line, config.fontSize - 1);
-          page.drawText(line, {
-            x: (width - lineWidth) / 2,
-            y: currentY,
-            size: config.fontSize - 1,
-            font,
-            color: textColor,
-          });
-          currentY -= (config.fontSize - 1) * config.lineHeight;
-        }
-      }
     } else {
-      // Texto de la historia (páginas 2+)
-      if (pageData.text) {
-        const lines = wrapText(pageData.text, font, config.fontSize, maxWidth);
-        let currentY = textStartY;
-
-        for (const line of lines) {
-          const lineWidth = font.widthOfTextAtSize(line, config.fontSize);
-          page.drawText(line, {
-            x: (width - lineWidth) / 2,
-            y: currentY,
-            size: config.fontSize,
-            font,
-            color: textColor,
-          });
-          currentY -= config.fontSize * config.lineHeight;
-        }
-      }
+      // Si no hay imagen, dibujar placeholder decorativo
+      page.drawRectangle({
+        x: width * 0.2,
+        y: height * 0.3,
+        width: width * 0.6,
+        height: height * 0.4,
+        color: rgb(0.9, 0.87, 0.85),
+      });
     }
 
-    // Número de página (pequeño, abajo a la derecha)
-    page.drawText(`${pageData.pageNumber}`, {
-      x: width - config.margin,
-      y: 15,
-      size: 9,
-      font,
-      color: subtitleColor,
-    });
+    // TEXTO SUPERPUESTO (como en el editor)
+    const isCover = pageData.pageNumber === 1;
+    if (pageData.text) {
+      drawTextOverlay(
+        page,
+        pageData.text,
+        font,
+        boldFont,
+        config.fontSize,
+        config,
+        pageData,
+        isCover
+      );
+    }
+
+    // Número de página (pequeño, esquina)
+    if (pageData.pageNumber > 1) {
+      page.drawText(`${pageData.pageNumber}`, {
+        x: width - 30,
+        y: 15,
+        size: 10,
+        font,
+        color: rgb(1, 1, 1),
+        opacity: 0.7,
+      });
+    }
   }
 
   const pdfBytes = await pdfDoc.save();
@@ -299,7 +467,7 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
   return `/api/books/${book.id}/pdf/download?type=digital`;
 }
 
-// Generar PDF print-ready
+// Generar PDF print-ready - también con diseño del editor
 export async function generatePrintReadyPDF(book: BookData): Promise<string> {
   await ensureStorageDir();
 
@@ -308,24 +476,9 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Colores
-  const bgColor = rgb(1, 1, 1); // Blanco para impresión
-  const textColor = rgb(0.1, 0.1, 0.1);
-  const subtitleColor = rgb(0.35, 0.35, 0.35);
-  const accentColor = rgb(0.35, 0.25, 0.55);
-
   for (const pageData of book.pages) {
     const page = pdfDoc.addPage([config.width, config.height]);
     const { width, height } = page.getSize();
-
-    // Fondo blanco
-    page.drawRectangle({
-      x: 0,
-      y: 0,
-      width,
-      height,
-      color: bgColor,
-    });
 
     // Área segura (sin bleed)
     const safeX = config.bleed;
@@ -333,10 +486,16 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
     const safeWidth = width - config.bleed * 2;
     const safeHeight = height - config.bleed * 2;
 
-    // Imagen ocupando la parte superior
-    const imageAreaHeight = safeHeight * 0.68;
-    const imageAreaY = safeY + safeHeight - imageAreaHeight;
+    // Fondo blanco
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      color: rgb(1, 1, 1),
+    });
 
+    // IMAGEN A PANTALLA COMPLETA (como en el editor)
     if (pageData.imageUrl) {
       const imageBytes = await getImageBytes(pageData.imageUrl);
       if (imageBytes) {
@@ -345,22 +504,23 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
             .embedPng(imageBytes)
             .catch(() => pdfDoc.embedJpg(imageBytes));
 
+          // Calcular dimensiones para CUBRIR toda la página (cover) incluyendo bleed
           const imgDims = image.scale(1);
           const imgAspect = imgDims.width / imgDims.height;
-          const areaAspect = safeWidth / imageAreaHeight;
+          const pageAspect = width / height;
 
           let drawWidth, drawHeight, drawX, drawY;
 
-          if (imgAspect > areaAspect) {
-            drawWidth = safeWidth;
-            drawHeight = safeWidth / imgAspect;
-            drawX = safeX;
-            drawY = imageAreaY + (imageAreaHeight - drawHeight) / 2;
+          if (imgAspect > pageAspect) {
+            drawHeight = height;
+            drawWidth = height * imgAspect;
+            drawX = (width - drawWidth) / 2;
+            drawY = 0;
           } else {
-            drawHeight = imageAreaHeight;
-            drawWidth = imageAreaHeight * imgAspect;
-            drawX = safeX + (safeWidth - drawWidth) / 2;
-            drawY = imageAreaY;
+            drawWidth = width;
+            drawHeight = width / imgAspect;
+            drawX = 0;
+            drawY = (height - drawHeight) / 2;
           }
 
           page.drawImage(image, {
@@ -373,95 +533,43 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
           console.error("Error embebiendo imagen:", error);
         }
       }
+    } else {
+      // Placeholder si no hay imagen
+      page.drawRectangle({
+        x: width * 0.2,
+        y: height * 0.3,
+        width: width * 0.6,
+        height: height * 0.4,
+        color: rgb(0.95, 0.93, 0.9),
+      });
     }
 
-    // Área de texto
-    const textAreaY = imageAreaY - 15;
-    const textStartY = textAreaY - 20;
-    const maxWidth = safeWidth - config.margin;
-
-    // Título en primera página
-    if (pageData.pageNumber === 1) {
-      const titleLines = wrapText(
-        book.title,
-        boldFont,
-        config.titleSize,
-        maxWidth
-      );
-      let titleY = textStartY;
-
-      for (const line of titleLines) {
-        const titleWidth = boldFont.widthOfTextAtSize(line, config.titleSize);
-        page.drawText(line, {
-          x: safeX + (safeWidth - titleWidth) / 2,
-          y: titleY,
-          size: config.titleSize,
-          font: boldFont,
-          color: accentColor,
-        });
-        titleY -= config.titleSize * 1.3;
-      }
-
-      const subtitle = `Una historia de ${book.kidName}`;
-      const subtitleWidth = font.widthOfTextAtSize(subtitle, config.fontSize);
-      page.drawText(subtitle, {
-        x: safeX + (safeWidth - subtitleWidth) / 2,
-        y: titleY - 5,
-        size: config.fontSize,
+    // TEXTO SUPERPUESTO
+    const isCover = pageData.pageNumber === 1;
+    if (pageData.text) {
+      drawTextOverlay(
+        page,
+        pageData.text,
         font,
-        color: subtitleColor,
-      });
-
-      // Texto de la primera página
-      if (pageData.text) {
-        const lines = wrapText(
-          pageData.text,
-          font,
-          config.fontSize - 1,
-          maxWidth
-        );
-        let currentY = titleY - 30;
-
-        for (const line of lines) {
-          const lineWidth = font.widthOfTextAtSize(line, config.fontSize - 1);
-          page.drawText(line, {
-            x: safeX + (safeWidth - lineWidth) / 2,
-            y: currentY,
-            size: config.fontSize - 1,
-            font,
-            color: textColor,
-          });
-          currentY -= (config.fontSize - 1) * config.lineHeight;
-        }
-      }
-    } else {
-      // Texto (páginas 2+)
-      if (pageData.text) {
-        const lines = wrapText(pageData.text, font, config.fontSize, maxWidth);
-        let currentY = textStartY;
-
-        for (const line of lines) {
-          const lineWidth = font.widthOfTextAtSize(line, config.fontSize);
-          page.drawText(line, {
-            x: safeX + (safeWidth - lineWidth) / 2,
-            y: currentY,
-            size: config.fontSize,
-            font,
-            color: textColor,
-          });
-          currentY -= config.fontSize * config.lineHeight;
-        }
-      }
+        boldFont,
+        config.fontSize,
+        { width: safeWidth, height: safeHeight, padding: config.padding },
+        pageData,
+        isCover
+      );
     }
 
     // Número de página
-    page.drawText(`${pageData.pageNumber}`, {
-      x: safeX + safeWidth - 20,
-      y: safeY + 10,
-      size: 9,
-      font,
-      color: subtitleColor,
-    });
+    if (pageData.pageNumber > 1) {
+      page.drawText(`${pageData.pageNumber}`, {
+        x: safeX + safeWidth - 25,
+        y: safeY + 15,
+        size: 10,
+        font,
+        color: rgb(1, 1, 1),
+        opacity: 0.7,
+      });
+    }
   }
 
   const pdfBytes = await pdfDoc.save();
