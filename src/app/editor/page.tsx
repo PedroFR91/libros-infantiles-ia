@@ -119,6 +119,7 @@ function EditorContent() {
     "create"
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loadingBook, setLoadingBook] = useState(false);
 
   // ============================================
   // EFECTOS
@@ -132,11 +133,55 @@ function EditorContent() {
     if (searchParams.get("success") === "true") {
       setTimeout(() => fetchUserData(), 1000);
     }
+
+    // Cargar libro existente si se pasa bookId
+    const bookId = searchParams.get("bookId");
+    if (bookId) {
+      loadExistingBook(bookId);
+    }
   }, [searchParams, sessionStatus, session?.user?.id]);
 
   // ============================================
   // FUNCIONES DE DATOS
   // ============================================
+
+  const loadExistingBook = async (bookId: string) => {
+    setLoadingBook(true);
+    try {
+      const res = await fetch(`/api/books/${bookId}`);
+      if (!res.ok) {
+        throw new Error("Error al cargar el libro");
+      }
+      const data = await res.json();
+      
+      // Transformar los datos al formato esperado por el componente
+      const bookData: BookData = {
+        id: data.id,
+        title: data.title || `Historia de ${data.kidName}`,
+        kidName: data.kidName,
+        theme: data.theme,
+        style: data.style || "cartoon",
+        status: data.status,
+        pages: data.pages.map((p: { pageNumber: number; text: string; imageUrl: string | null; imagePrompt: string | null }) => ({
+          pageNumber: p.pageNumber,
+          text: p.text,
+          imageUrl: p.imageUrl,
+          imagePrompt: p.imagePrompt,
+        })),
+      };
+      
+      setBook(bookData);
+      setKidName(data.kidName);
+      setTheme(data.theme);
+      setBookStyle(data.style || "cartoon");
+      
+    } catch (error) {
+      console.error("Error loading book:", error);
+      alert("No se pudo cargar el libro");
+    } finally {
+      setLoadingBook(false);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -676,6 +721,16 @@ function EditorContent() {
   // ============================================
   // RENDER
   // ============================================
+
+  // Mostrar pantalla de carga mientras se carga el libro
+  if (loadingBook) {
+    return (
+      <div className='h-screen bg-bg flex flex-col items-center justify-center gap-4'>
+        <Loader2 className='w-12 h-12 animate-spin text-primary' />
+        <p className='text-muted text-lg'>Cargando libro...</p>
+      </div>
+    );
+  }
 
   return (
     <div className='h-screen flex flex-col overflow-hidden bg-bg'>
