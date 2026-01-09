@@ -42,7 +42,7 @@ IMPORTANTE: Responde SIEMPRE con un JSON válido, incluso si no puedes ver bien 
 
 export async function POST(request: NextRequest) {
   console.log("[analyze-photo] Iniciando análisis de foto...");
-  
+
   try {
     const formData = await request.formData();
     const photo = formData.get("photo") as File | null;
@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[analyze-photo] Foto recibida: ${photo.name}, tipo: ${photo.type}, tamaño: ${photo.size} bytes`);
+    console.log(
+      `[analyze-photo] Foto recibida: ${photo.name}, tipo: ${photo.type}, tamaño: ${photo.size} bytes`
+    );
 
     // Validar tipo de archivo
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -69,7 +71,9 @@ export async function POST(request: NextRequest) {
 
     // Validar tamaño (máximo 10MB)
     if (photo.size > 10 * 1024 * 1024) {
-      console.log(`[analyze-photo] Error: Imagen muy grande: ${photo.size} bytes`);
+      console.log(
+        `[analyze-photo] Error: Imagen muy grande: ${photo.size} bytes`
+      );
       return NextResponse.json(
         { error: "La imagen es demasiado grande. Máximo 10MB" },
         { status: 400 }
@@ -80,13 +84,15 @@ export async function POST(request: NextRequest) {
     const bytes = await photo.arrayBuffer();
     const base64 = Buffer.from(bytes).toString("base64");
     const mimeType = photo.type;
-    
-    console.log(`[analyze-photo] Imagen convertida a base64, longitud: ${base64.length}`);
+
+    console.log(
+      `[analyze-photo] Imagen convertida a base64, longitud: ${base64.length}`
+    );
 
     // Analizar con GPT-4 Vision
     const openai = getOpenAI();
     console.log("[analyze-photo] Enviando a OpenAI GPT-4o...");
-    
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -112,21 +118,30 @@ export async function POST(request: NextRequest) {
     });
 
     console.log("[analyze-photo] Respuesta de OpenAI recibida");
-    console.log("[analyze-photo] Finish reason:", response.choices[0]?.finish_reason);
-    
+    console.log(
+      "[analyze-photo] Finish reason:",
+      response.choices[0]?.finish_reason
+    );
+
     const content = response.choices[0]?.message?.content;
-    
+
     if (!content) {
       console.log("[analyze-photo] Error: Sin contenido en la respuesta");
-      console.log("[analyze-photo] Response completa:", JSON.stringify(response.choices[0], null, 2));
+      console.log(
+        "[analyze-photo] Response completa:",
+        JSON.stringify(response.choices[0], null, 2)
+      );
       return NextResponse.json(
-        { error: "No se pudo analizar la imagen. El modelo no generó una respuesta." },
+        {
+          error:
+            "No se pudo analizar la imagen. El modelo no generó una respuesta.",
+        },
         { status: 500 }
       );
     }
 
     console.log("[analyze-photo] Contenido recibido:", content);
-    
+
     let analysis;
     try {
       analysis = JSON.parse(content);
@@ -140,10 +155,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!analysis.description) {
-      console.log("[analyze-photo] Advertencia: Sin descripción, usando detalles");
+      console.log(
+        "[analyze-photo] Advertencia: Sin descripción, usando detalles"
+      );
       // Construir descripción desde detalles si no hay una
       const d = analysis.details || {};
-      analysis.description = `${d.gender || "Niño/a"} con pelo ${d.hairColor || "castaño"} ${d.hairStyle || ""}, ojos ${d.eyeColor || "expresivos"}, tono de piel ${d.skinTone || "claro"}`;
+      analysis.description = `${d.gender || "Niño/a"} con pelo ${
+        d.hairColor || "castaño"
+      } ${d.hairStyle || ""}, ojos ${
+        d.eyeColor || "expresivos"
+      }, tono de piel ${d.skinTone || "claro"}`;
     }
 
     console.log("[analyze-photo] Descripción final:", analysis.description);
@@ -155,25 +176,33 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("[analyze-photo] Error:", error);
-    
+
     // Manejar errores específicos de OpenAI
     if (error instanceof Error) {
       if (error.message.includes("content_policy")) {
         return NextResponse.json(
-          { error: "La imagen no pudo ser procesada por políticas de contenido. Intenta con otra foto." },
+          {
+            error:
+              "La imagen no pudo ser procesada por políticas de contenido. Intenta con otra foto.",
+          },
           { status: 400 }
         );
       }
       if (error.message.includes("rate_limit")) {
         return NextResponse.json(
-          { error: "Demasiadas solicitudes. Espera un momento e intenta de nuevo." },
+          {
+            error:
+              "Demasiadas solicitudes. Espera un momento e intenta de nuevo.",
+          },
           { status: 429 }
         );
       }
     }
-    
+
     return NextResponse.json(
-      { error: "Error al analizar la foto. Por favor, intenta con otra imagen." },
+      {
+        error: "Error al analizar la foto. Por favor, intenta con otra imagen.",
+      },
       { status: 500 }
     );
   }
