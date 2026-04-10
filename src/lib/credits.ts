@@ -1,8 +1,9 @@
 import prisma from "./prisma";
+import { Prisma } from "@prisma/client";
 import { CREDIT_COSTS } from "./stripe";
 
-// Tipo del cliente de transacción Prisma: Omit<PrismaClient, runtime methods>
-type TransactionClient = typeof prisma;
+// Tipo del cliente de transacción Prisma
+type TransactionClient = Prisma.TransactionClient;
 
 // Obtener o crear usuario por sessionId
 export async function getOrCreateUser(sessionId: string) {
