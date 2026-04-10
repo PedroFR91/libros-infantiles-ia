@@ -8,6 +8,9 @@ import {
 } from "pdf-lib";
 import * as fs from "fs/promises";
 import * as path from "path";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pdf");
 
 // Tipos de personalización (deben coincidir con types.ts del editor)
 type TextPosition =
@@ -56,13 +59,18 @@ const PAGE_CONFIG = {
     lineHeight: 1.5,
   },
   print: {
-    width: 612, // 8.5 inches at 72 DPI (con bleed)
-    height: 612, // 8.5 inches at 72 DPI
-    bleed: 18, // 0.25 inch bleed
-    padding: 25,
+    // 8.5 x 8.5 inches total (8" trim + 0.25" bleed each side)
+    width: 612, // 8.5 inches at 72pt/inch
+    height: 612,
+    bleed: 18, // 0.25 inch bleed (18pt)
+    trimWidth: 576, // 8 inches (actual book size after cutting)
+    trimHeight: 576,
+    padding: 36, // 0.5 inch safe area inside trim
     fontSize: 14,
     titleSize: 22,
     lineHeight: 1.5,
+    cropMarkLength: 18, // Length of crop marks
+    cropMarkOffset: 9, // Offset from trim edge
   },
 };
 
@@ -84,15 +92,14 @@ async function ensureStorageDir() {
   }
 }
 
-// Leer imagen del disco o descargar si es URL externa
+// Leer imagen del disco, S3 o descargar si es URL externa
 async function getImageBytes(imageUrl: string): Promise<Uint8Array | null> {
   try {
-    // Si es una URL de nuestra API, leer del disco
+    // Si es una URL de nuestra API local, leer del disco
     if (
       imageUrl.startsWith("/api/images/books/") ||
       imageUrl.startsWith("/images/books/")
     ) {
-      // Extraer el path: /api/images/books/bookId/filename.png -> bookId/filename.png
       const match = imageUrl.match(/\/(?:api\/)?images\/books\/([^/]+)\/(.+)$/);
       if (match) {
         const [, bookId, filename] = match;
@@ -100,18 +107,18 @@ async function getImageBytes(imageUrl: string): Promise<Uint8Array | null> {
 
         try {
           const fileBuffer = await fs.readFile(localPath);
-          console.log(`Imagen leída del disco: ${localPath}`);
+          log.debug({ localPath }, "Imagen leída del disco");
           return new Uint8Array(fileBuffer);
         } catch (readError) {
-          console.error(
-            `Error leyendo imagen del disco: ${localPath}`,
-            readError
+          log.error(
+            { err: readError, localPath },
+            "Error leyendo imagen del disco",
           );
         }
       }
     }
 
-    // Si es una URL externa, descargarla
+    // Si es una URL externa (S3, OpenAI, etc.), descargarla via HTTP
     if (imageUrl.startsWith("http")) {
       const response = await fetch(imageUrl);
       if (!response.ok) return null;
@@ -121,7 +128,7 @@ async function getImageBytes(imageUrl: string): Promise<Uint8Array | null> {
 
     return null;
   } catch (error) {
-    console.error("Error obteniendo imagen:", error);
+    log.error({ err: error }, "Error obteniendo imagen");
     return null;
   }
 }
@@ -131,7 +138,7 @@ function wrapText(
   text: string,
   font: PDFFont,
   fontSize: number,
-  maxWidth: number
+  maxWidth: number,
 ): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
@@ -163,7 +170,7 @@ function hexToRgb(hex: string): RGB {
     return rgb(
       parseInt(result[1], 16) / 255,
       parseInt(result[2], 16) / 255,
-      parseInt(result[3], 16) / 255
+      parseInt(result[3], 16) / 255,
     );
   }
   return rgb(1, 1, 1); // Blanco por defecto
@@ -178,7 +185,7 @@ function drawTextOverlay(
   fontSize: number,
   config: { width: number; height: number; padding: number },
   pageData: PageData,
-  isCover: boolean
+  isCover: boolean,
 ) {
   if (!text && !isCover) return;
 
@@ -416,7 +423,7 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
             height: drawHeight,
           });
         } catch (error) {
-          console.error("Error embebiendo imagen:", error);
+          log.error({ err: error }, "Error embebiendo imagen");
         }
       }
     } else {
@@ -441,7 +448,7 @@ export async function generateDigitalPDF(book: BookData): Promise<string> {
         config.fontSize,
         config,
         pageData,
-        isCover
+        isCover,
       );
     }
 
@@ -476,17 +483,23 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+  const bleed = config.bleed;
+
   for (const pageData of book.pages) {
     const page = pdfDoc.addPage([config.width, config.height]);
     const { width, height } = page.getSize();
 
-    // Área segura (sin bleed)
-    const safeX = config.bleed;
-    const safeY = config.bleed;
-    const safeWidth = width - config.bleed * 2;
-    const safeHeight = height - config.bleed * 2;
+    // Trim box (actual book edges after cutting)
+    const trimX = bleed;
+    const trimY = bleed;
+    const trimW = config.trimWidth;
+    const trimH = config.trimHeight;
 
-    // Fondo blanco
+    // Safe area (inside trim, away from cut edges)
+    const safeWidth = trimW - config.padding * 2;
+    const safeHeight = trimH - config.padding * 2;
+
+    // White background
     page.drawRectangle({
       x: 0,
       y: 0,
@@ -495,7 +508,7 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
       color: rgb(1, 1, 1),
     });
 
-    // IMAGEN A PANTALLA COMPLETA (como en el editor)
+    // IMAGE FULL BLEED (covers entire page including bleed area)
     if (pageData.imageUrl) {
       const imageBytes = await getImageBytes(pageData.imageUrl);
       if (imageBytes) {
@@ -504,7 +517,7 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
             .embedPng(imageBytes)
             .catch(() => pdfDoc.embedJpg(imageBytes));
 
-          // Calcular dimensiones para CUBRIR toda la página (cover) incluyendo bleed
+          // Cover the full page including bleed
           const imgDims = image.scale(1);
           const imgAspect = imgDims.width / imgDims.height;
           const pageAspect = width / height;
@@ -530,11 +543,11 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
             height: drawHeight,
           });
         } catch (error) {
-          console.error("Error embebiendo imagen:", error);
+          log.error({ err: error }, "Error embebiendo imagen");
         }
       }
     } else {
-      // Placeholder si no hay imagen
+      // Placeholder
       page.drawRectangle({
         x: width * 0.2,
         y: height * 0.3,
@@ -544,7 +557,7 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
       });
     }
 
-    // TEXTO SUPERPUESTO
+    // TEXT OVERLAY
     const isCover = pageData.pageNumber === 1;
     if (pageData.text) {
       drawTextOverlay(
@@ -555,21 +568,32 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
         config.fontSize,
         { width: safeWidth, height: safeHeight, padding: config.padding },
         pageData,
-        isCover
+        isCover,
       );
     }
 
-    // Número de página
+    // Page number (inside safe area)
     if (pageData.pageNumber > 1) {
       page.drawText(`${pageData.pageNumber}`, {
-        x: safeX + safeWidth - 25,
-        y: safeY + 15,
+        x: trimX + trimW - 25,
+        y: trimY + 15,
         size: 10,
         font,
         color: rgb(1, 1, 1),
         opacity: 0.7,
       });
     }
+
+    // CROP MARKS (drawn last, on top of everything)
+    drawCropMarks(
+      page,
+      trimX,
+      trimY,
+      trimW,
+      trimH,
+      config.cropMarkLength,
+      config.cropMarkOffset,
+    );
   }
 
   const pdfBytes = await pdfDoc.save();
@@ -581,10 +605,60 @@ export async function generatePrintReadyPDF(book: BookData): Promise<string> {
   return `/api/books/${book.id}/pdf/download?type=print`;
 }
 
+/**
+ * Draw crop marks at the four corners of the trim area
+ * These guide the print shop on where to cut
+ */
+function drawCropMarks(
+  page: PDFPage,
+  trimX: number,
+  trimY: number,
+  trimW: number,
+  trimH: number,
+  markLength: number,
+  offset: number,
+) {
+  const markColor = rgb(0, 0, 0);
+  const thickness = 0.5;
+
+  // Corners: [x, y] of each trim corner
+  const corners = [
+    { x: trimX, y: trimY }, // bottom-left
+    { x: trimX + trimW, y: trimY }, // bottom-right
+    { x: trimX, y: trimY + trimH }, // top-left
+    { x: trimX + trimW, y: trimY + trimH }, // top-right
+  ];
+
+  for (const corner of corners) {
+    const isLeft = corner.x === trimX;
+    const isBottom = corner.y === trimY;
+
+    // Horizontal mark
+    const hStart = isLeft ? corner.x - offset - markLength : corner.x + offset;
+    page.drawLine({
+      start: { x: hStart, y: corner.y },
+      end: { x: hStart + markLength, y: corner.y },
+      thickness,
+      color: markColor,
+    });
+
+    // Vertical mark
+    const vStart = isBottom
+      ? corner.y - offset - markLength
+      : corner.y + offset;
+    page.drawLine({
+      start: { x: corner.x, y: vStart },
+      end: { x: corner.x, y: vStart + markLength },
+      thickness,
+      color: markColor,
+    });
+  }
+}
+
 // Obtener ruta del PDF
 export async function getPDFPath(
   bookId: string,
-  type: "digital" | "print"
+  type: "digital" | "print",
 ): Promise<string | null> {
   const filename = `${bookId}-${type}.pdf`;
   const filepath = path.join(STORAGE_DIR, filename);

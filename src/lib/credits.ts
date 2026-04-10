@@ -1,6 +1,9 @@
 import prisma from "./prisma";
 import { CREDIT_COSTS } from "./stripe";
 
+// Tipo del cliente de transacción Prisma: Omit<PrismaClient, runtime methods>
+type TransactionClient = typeof prisma;
+
 // Obtener o crear usuario por sessionId
 export async function getOrCreateUser(sessionId: string) {
   let user = await prisma.user.findUnique({
@@ -22,7 +25,7 @@ export async function getOrCreateUser(sessionId: string) {
 // Verificar si el usuario tiene suficientes créditos
 export async function hasEnoughCredits(
   userId: string,
-  operation: keyof typeof CREDIT_COSTS
+  operation: keyof typeof CREDIT_COSTS,
 ): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -33,81 +36,94 @@ export async function hasEnoughCredits(
   return user.credits >= CREDIT_COSTS[operation];
 }
 
-// Consumir créditos
+// Consumir créditos - Operación atómica para evitar race conditions
 export async function consumeCredits(
   userId: string,
   operation: keyof typeof CREDIT_COSTS,
-  referenceId?: string
+  referenceId?: string,
 ): Promise<boolean> {
   const cost = CREDIT_COSTS[operation];
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { credits: true },
-  });
+  try {
+    // Usamos una transacción interactiva con updateMany + WHERE atómico
+    // para evitar race conditions (double-spend)
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
+      // Intento atómico: solo actualiza si credits >= cost
+      const updateResult = await tx.user.updateMany({
+        where: {
+          id: userId,
+          credits: { gte: cost },
+        },
+        data: {
+          credits: { decrement: cost },
+        },
+      });
 
-  if (!user || user.credits < cost) {
-    return false;
+      // Si no se actualizó ningún registro, no tenía suficientes créditos
+      if (updateResult.count === 0) {
+        throw new Error("INSUFFICIENT_CREDITS");
+      }
+
+      // Obtener el balance actualizado
+      const updatedUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { credits: true },
+      });
+
+      // Registrar en el ledger
+      await tx.creditLedger.create({
+        data: {
+          userId,
+          amount: -cost,
+          reason:
+            operation === "BOOK_GENERATION"
+              ? "book_generation"
+              : "page_regeneration",
+          referenceId,
+          balance: updatedUser?.credits ?? 0,
+        },
+      });
+
+      return true;
+    });
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
+      return false;
+    }
+    throw error;
   }
-
-  const newBalance = user.credits - cost;
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { credits: newBalance },
-    }),
-    prisma.creditLedger.create({
-      data: {
-        userId,
-        amount: -cost,
-        reason:
-          operation === "BOOK_GENERATION"
-            ? "book_generation"
-            : "page_regeneration",
-        referenceId,
-        balance: newBalance,
-      },
-    }),
-  ]);
-
-  return true;
 }
 
-// Añadir créditos (después de compra)
+// Añadir créditos (después de compra) - Operación atómica
 export async function addCredits(
   userId: string,
   amount: number,
-  paymentId: string
+  paymentId: string,
 ): Promise<number> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { credits: true },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
-
-  const newBalance = user.credits + amount;
-
-  await prisma.$transaction([
-    prisma.user.update({
+  const result = await prisma.$transaction(async (tx: TransactionClient) => {
+    // Incremento atómico: evita race conditions si llegan 2 webhooks
+    const updatedUser = await tx.user.update({
       where: { id: userId },
-      data: { credits: newBalance },
-    }),
-    prisma.creditLedger.create({
+      data: { credits: { increment: amount } },
+      select: { credits: true },
+    });
+
+    await tx.creditLedger.create({
       data: {
         userId,
         amount,
         reason: "purchase",
         referenceId: paymentId,
-        balance: newBalance,
+        balance: updatedUser.credits,
       },
-    }),
-  ]);
+    });
 
-  return newBalance;
+    return updatedUser.credits;
+  });
+
+  return result;
 }
 
 // Obtener balance de créditos

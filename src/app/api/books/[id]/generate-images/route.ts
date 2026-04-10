@@ -1,42 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
 import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
-import { generateImage } from "@/lib/openai";
-import { downloadAndStoreImage } from "@/lib/imageStorage";
-import { auth } from "@/lib/auth";
+import {
+  generateCharacterImage,
+  generateImageWithReference,
+  generateImage,
+} from "@/lib/openai";
+import { storeImageBuffer, downloadImageToBuffer } from "@/lib/imageStorage";
+import { getAuthenticatedUserId } from "@/lib/apiAuth";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate-images");
 
 // POST /api/books/[id]/generate-images - Generar imágenes para un libro - CUESTA CRÉDITOS
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
 
-    // Verificar sesión de NextAuth
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      // FALLBACK: Usuario anónimo por sessionId
-      const cookieStore = await cookies();
-      const sessionId = cookieStore.get("sessionId")?.value;
-
-      if (sessionId) {
-        const anonymousUser = await prisma.user.findUnique({
-          where: { sessionId },
-          select: { id: true },
-        });
-        userId = anonymousUser?.id || null;
-      }
-    }
-
+    // Autenticación centralizada (NextAuth + fallback sessionId)
+    const userId = await getAuthenticatedUserId();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    // Rate limiting
+    const rateLimitResponse = checkRateLimit(
+      `genimg:${userId}`,
+      RATE_LIMIT_PRESETS.generation,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Obtener libro del usuario con páginas
     const book = await prisma.book.findFirst({
@@ -54,7 +50,7 @@ export async function POST(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -62,23 +58,25 @@ export async function POST(
     if (!book.pages || book.pages.length === 0) {
       return NextResponse.json(
         { error: "El libro no tiene historia. Genera la historia primero." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Verificar si ya tiene todas las imágenes
-    const pagesWithoutImages = book.pages.filter((p) => !p.imageUrl);
+    const pagesWithoutImages = book.pages.filter(
+      (p: { imageUrl: string | null }) => !p.imageUrl,
+    );
     if (pagesWithoutImages.length === 0) {
       return NextResponse.json(
         { error: "Todas las páginas ya tienen imágenes." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (book.status === "GENERATING") {
       return NextResponse.json(
         { error: "El libro ya está siendo generado" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -91,7 +89,7 @@ export async function POST(
             "No tienes suficientes créditos. Compra un pack para continuar.",
           needsCredits: true,
         },
-        { status: 402 }
+        { status: 402 },
       );
     }
 
@@ -105,23 +103,76 @@ export async function POST(
       // Consumir créditos AHORA (al generar imágenes)
       await consumeCredits(userId, "BOOK_GENERATION", id);
 
-      // Generar imágenes solo para páginas que no tienen
+      // ── Step 1: Character reference image for consistency ──
+      const artStyle = (book as { style?: string }).style || "cartoon";
+      let characterBuffer: Buffer | null = null;
+
+      // Try to reuse an existing character reference
+      if ((book as { characterImageUrl?: string | null }).characterImageUrl) {
+        try {
+          characterBuffer = await downloadImageToBuffer(
+            (book as { characterImageUrl: string }).characterImageUrl,
+          );
+          log.info(
+            { bookId: id },
+            "Reutilizando imagen de referencia existente",
+          );
+        } catch {
+          log.warn(
+            { bookId: id },
+            "No se pudo descargar referencia existente, generando nueva",
+          );
+        }
+      }
+
+      // Generate a fresh character reference if we don't have one
+      if (
+        !characterBuffer &&
+        (book as { characterDescription?: string | null }).characterDescription
+      ) {
+        characterBuffer = await generateCharacterImage(
+          (book as { characterDescription: string }).characterDescription,
+          artStyle,
+        );
+        const characterUrl = await storeImageBuffer(
+          characterBuffer,
+          id,
+          "character-ref",
+        );
+        await prisma.book.update({
+          where: { id },
+          data: { characterImageUrl: characterUrl },
+        });
+        log.info(
+          { bookId: id },
+          "Character reference image generated & stored",
+        );
+      }
+
+      // ── Step 2: Generate page illustrations with reference ──
       for (const page of pagesWithoutImages) {
         if (!page.imagePrompt) {
-          console.log(`Página ${page.pageNumber} sin imagePrompt, saltando...`);
+          log.warn(
+            { bookId: id, page: page.pageNumber },
+            "Sin imagePrompt, saltando",
+          );
           continue;
         }
 
         try {
-          console.log(`Generando imagen página ${page.pageNumber}...`);
-          // Generar imagen con OpenAI (URL temporal)
-          const tempImageUrl = await generateImage(page.imagePrompt);
+          log.info({ bookId: id, page: page.pageNumber }, "Generando imagen");
 
-          // Descargar y almacenar permanentemente
-          const permanentUrl = await downloadAndStoreImage(
-            tempImageUrl,
+          const imageBuffer = characterBuffer
+            ? await generateImageWithReference(
+                page.imagePrompt,
+                characterBuffer,
+              )
+            : await generateImage(page.imagePrompt);
+
+          const permanentUrl = await storeImageBuffer(
+            imageBuffer,
             id,
-            page.pageNumber
+            `page-${page.pageNumber}`,
           );
 
           await prisma.bookPage.update({
@@ -132,13 +183,11 @@ export async function POST(
             },
           });
 
-          console.log(
-            `Imagen página ${page.pageNumber} guardada: ${permanentUrl}`
-          );
+          log.info({ bookId: id, page: page.pageNumber }, "Imagen guardada");
         } catch (error) {
-          console.error(
-            `Error generando imagen para página ${page.pageNumber}:`,
-            error
+          log.error(
+            { err: error, bookId: id, page: page.pageNumber },
+            "Error generando imagen",
           );
           // Continuar con las demás páginas
         }
@@ -174,10 +223,10 @@ export async function POST(
       throw error;
     }
   } catch (error) {
-    console.error("Error generando imágenes:", error);
+    log.error({ err: error }, "Error generando imágenes");
     return NextResponse.json(
       { error: "Error al generar ilustraciones" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

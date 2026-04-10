@@ -1,42 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
 import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
-import { generateStoryText, generateImage } from "@/lib/openai";
-import { downloadAndStoreImage } from "@/lib/imageStorage";
-import { auth } from "@/lib/auth";
+import {
+  generateStoryText,
+  generateCharacterImage,
+  generateImageWithReference,
+  generateImage,
+} from "@/lib/openai";
+import { storeImageBuffer } from "@/lib/imageStorage";
+import { getAuthenticatedUserId } from "@/lib/apiAuth";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate");
 
 // POST /api/books/[id]/generate - Generar libro completo
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
 
-    // PRIMERO: Verificar sesión de NextAuth
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      // FALLBACK: Usuario anónimo por sessionId
-      const cookieStore = await cookies();
-      const sessionId = cookieStore.get("sessionId")?.value;
-
-      if (sessionId) {
-        const anonymousUser = await prisma.user.findUnique({
-          where: { sessionId },
-          select: { id: true },
-        });
-        userId = anonymousUser?.id || null;
-      }
-    }
-
+    // Autenticación centralizada (NextAuth + fallback sessionId)
+    const userId = await getAuthenticatedUserId();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    // Rate limiting: máximo 5 generaciones por minuto por usuario
+    const rateLimitResponse = checkRateLimit(
+      `gen:${userId}`,
+      RATE_LIMIT_PRESETS.generation,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Obtener libro del usuario
     const book = await prisma.book.findFirst({
@@ -50,14 +47,14 @@ export async function POST(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (book.status === "GENERATING") {
       return NextResponse.json(
         { error: "El libro ya está siendo generado" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -72,7 +69,7 @@ export async function POST(
           error:
             "El libro ya fue generado. Usa regenerar página para modificar.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -85,7 +82,7 @@ export async function POST(
             "No tienes suficientes créditos. Compra un pack para continuar.",
           needsCredits: true,
         },
-        { status: 402 }
+        { status: 402 },
       );
     }
 
@@ -108,10 +105,10 @@ export async function POST(
         book.theme,
         [],
         (book as { characterDescription?: string | null }).characterDescription,
-        artStyle
+        artStyle,
       );
 
-      console.log("Character Sheet generado:", story.characterSheet);
+      log.info({ bookId: id }, "Character Sheet generado");
 
       // Actualizar título y guardar characterSheet
       await prisma.book.update({
@@ -125,27 +122,58 @@ export async function POST(
         },
       });
 
-      // Generar imágenes y crear páginas
-      const pagePromises = story.pages.map(async (page, index) => {
+      // ── Character reference image for consistency ──
+      let characterBuffer: Buffer | null = null;
+      if (story.characterSheet) {
+        try {
+          characterBuffer = await generateCharacterImage(
+            story.characterSheet,
+            artStyle,
+          );
+          const characterUrl = await storeImageBuffer(
+            characterBuffer,
+            id,
+            "character-ref",
+          );
+          await prisma.book.update({
+            where: { id },
+            data: { characterImageUrl: characterUrl },
+          });
+          log.info({ bookId: id }, "Character reference image generated");
+        } catch (error) {
+          log.error(
+            { err: error, bookId: id },
+            "Error generando imagen de referencia, continuando sin ella",
+          );
+        }
+      }
+
+      // ── Generate page illustrations ──
+      const pagePromises = story.pages.map(async (page) => {
         let imageUrl = null;
         let thumbnailUrl = null;
 
         try {
-          console.log(`Generando imagen página ${page.pageNumber}...`);
-          // Generar imagen con OpenAI (URL temporal)
-          const tempImageUrl = await generateImage(page.imagePrompt);
-          // Descargar y almacenar permanentemente
-          imageUrl = await downloadAndStoreImage(
-            tempImageUrl,
+          log.info({ bookId: id, page: page.pageNumber }, "Generando imagen");
+
+          const imageBuffer = characterBuffer
+            ? await generateImageWithReference(
+                page.imagePrompt,
+                characterBuffer,
+              )
+            : await generateImage(page.imagePrompt);
+
+          imageUrl = await storeImageBuffer(
+            imageBuffer,
             id,
-            page.pageNumber
+            `page-${page.pageNumber}`,
           );
           thumbnailUrl = imageUrl;
-          console.log(`Imagen página ${page.pageNumber} guardada: ${imageUrl}`);
+          log.info({ bookId: id, page: page.pageNumber }, "Imagen guardada");
         } catch (error) {
-          console.error(
-            `Error generando imagen para página ${page.pageNumber}:`,
-            error
+          log.error(
+            { err: error, bookId: id, page: page.pageNumber },
+            "Error generando imagen",
           );
         }
 
@@ -200,10 +228,10 @@ export async function POST(
       throw error;
     }
   } catch (error) {
-    console.error("Error generando libro:", error);
+    log.error({ err: error }, "Error generando libro");
     return NextResponse.json(
       { error: "Error al generar libro" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

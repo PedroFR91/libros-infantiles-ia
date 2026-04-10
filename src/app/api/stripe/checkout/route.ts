@@ -5,18 +5,39 @@ import { getOrCreateUser } from "@/lib/credits";
 import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
+import { checkoutSchema, validateBody } from "@/lib/validation";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("checkout");
 
 // POST /api/stripe/checkout - Crear sesión de checkout
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { packId } = body as { packId: CreditPackKey };
 
-    if (!packId || !CREDIT_PACKS[packId]) {
+    // Validación con Zod
+    const validation = validateBody(checkoutSchema, body);
+    if (!validation.success) {
       return NextResponse.json({ error: "Pack no válido" }, { status: 400 });
     }
 
-    const pack = CREDIT_PACKS[packId];
+    const { packId } = validation.data;
+    const pack = CREDIT_PACKS[packId as CreditPackKey];
+    if (!pack) {
+      return NextResponse.json({ error: "Pack no válido" }, { status: 400 });
+    }
+
+    // Rate limiting para pagos
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown";
+    const rateLimitResponse = checkRateLimit(
+      `checkout:${clientIp}`,
+      RATE_LIMIT_PRESETS.checkout,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
+
     const stripe = getStripe();
 
     // PRIMERO: Verificar si hay usuario autenticado con NextAuth
@@ -33,11 +54,11 @@ export async function POST(request: NextRequest) {
       if (!user) {
         return NextResponse.json(
           { error: "Usuario no encontrado" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
-      console.log("Checkout para usuario autenticado:", user.email);
+      log.info({ email: user.email }, "Checkout para usuario autenticado");
     } else {
       // Usuario anónimo - usar cookie sessionId
       const cookieStore = await cookies();
@@ -49,7 +70,7 @@ export async function POST(request: NextRequest) {
 
       // Obtener o crear usuario anónimo
       user = await getOrCreateUser(sessionId);
-      console.log("Checkout para usuario anónimo:", sessionId);
+      log.info("Checkout para usuario anónimo");
     }
 
     // Crear sesión de Stripe
@@ -113,10 +134,10 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Error creando checkout:", error);
+    log.error({ err: error }, "Error creando checkout");
     return NextResponse.json(
       { error: "Error al crear checkout" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

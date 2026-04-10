@@ -1,40 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
 import { generateStoryText } from "@/lib/openai";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUserId } from "@/lib/apiAuth";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate-story");
 
 // POST /api/books/[id]/generate-story - Generar solo la historia (textos) - GRATIS
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
 
-    // Verificar sesión de NextAuth
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      // FALLBACK: Usuario anónimo por sessionId
-      const cookieStore = await cookies();
-      const sessionId = cookieStore.get("sessionId")?.value;
-
-      if (sessionId) {
-        const anonymousUser = await prisma.user.findUnique({
-          where: { sessionId },
-          select: { id: true },
-        });
-        userId = anonymousUser?.id || null;
-      }
-    }
-
+    // Autenticación centralizada (NextAuth + fallback sessionId)
+    const userId = await getAuthenticatedUserId();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    // Rate limiting (la historia es "gratis" pero aún usa GPT, así que limitamos)
+    const rateLimitResponse = checkRateLimit(
+      `story:${userId}`,
+      RATE_LIMIT_PRESETS.generation,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Obtener libro del usuario
     const book = await prisma.book.findFirst({
@@ -47,7 +39,7 @@ export async function POST(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -92,10 +84,10 @@ export async function POST(
         book.theme,
         [],
         (book as { characterDescription?: string | null }).characterDescription,
-        artStyle
+        artStyle,
       );
 
-      console.log("Character Sheet generado:", story.characterSheet);
+      log.info({ bookId: id }, "Character Sheet generado");
 
       // Actualizar título y guardar characterSheet
       await prisma.book.update({
@@ -153,10 +145,10 @@ export async function POST(
       throw error;
     }
   } catch (error) {
-    console.error("Error generando historia:", error);
+    log.error({ err: error }, "Error generando historia");
     return NextResponse.json(
       { error: "Error al generar historia" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

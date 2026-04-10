@@ -3,6 +3,9 @@ import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { addCredits } from "@/lib/credits";
 import Stripe from "stripe";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("stripe-webhook");
 
 // POST /api/stripe/webhook - Webhook de Stripe
 export async function POST(request: NextRequest) {
@@ -13,16 +16,16 @@ export async function POST(request: NextRequest) {
     if (!signature) {
       return NextResponse.json(
         { error: "No stripe-signature header" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error("STRIPE_WEBHOOK_SECRET no configurado");
+      log.error("STRIPE_WEBHOOK_SECRET no configurado");
       return NextResponse.json(
         { error: "Webhook secret not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
-      console.error("Error verificando firma webhook:", err);
+      log.error({ err }, "Error verificando firma webhook");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
 
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log("Payment succeeded:", paymentIntent.id);
+        log.info({ paymentId: paymentIntent.id }, "Payment succeeded");
         break;
       }
 
@@ -57,12 +60,12 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        console.log(`Evento no manejado: ${event.type}`);
+        log.debug({ eventType: event.type }, "Evento no manejado");
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Error procesando webhook:", error);
+    log.error({ err: error }, "Error procesando webhook");
     return NextResponse.json({ error: "Webhook error" }, { status: 500 });
   }
 }
@@ -71,7 +74,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const { userId, credits } = session.metadata || {};
 
   if (!userId || !credits) {
-    console.error("Metadata incompleta en checkout session");
+    log.error("Metadata incompleta en checkout session");
     return;
   }
 
@@ -83,12 +86,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
 
   if (!payment) {
-    console.error("Payment no encontrado para session:", session.id);
+    log.error({ sessionId: session.id }, "Payment no encontrado");
     return;
   }
 
   if (payment.status === "COMPLETED") {
-    console.log("Payment ya procesado:", session.id);
+    log.warn({ sessionId: session.id }, "Payment ya procesado");
     return;
   }
 
@@ -104,7 +107,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Añadir créditos
   await addCredits(userId, creditsToAdd, payment.id);
 
-  console.log(`✅ Añadidos ${creditsToAdd} créditos al usuario ${userId}`);
+  log.info({ userId, credits: creditsToAdd }, "Créditos añadidos");
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
@@ -120,5 +123,5 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     });
   }
 
-  console.log("❌ Pago fallido:", paymentIntent.id);
+  log.warn({ paymentId: paymentIntent.id }, "Pago fallido");
 }

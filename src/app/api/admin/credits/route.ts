@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("admin-credits");
 
 // POST /api/admin/credits - Add/remove credits from user
 export async function POST(request: NextRequest) {
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     if (adminUser?.role !== "ADMIN") {
       return NextResponse.json(
         { error: "No tienes permisos de administrador" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!userId || typeof amount !== "number") {
       return NextResponse.json(
         { error: "userId y amount son requeridos" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (!targetUser) {
       return NextResponse.json(
         { error: "Usuario no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -71,10 +74,10 @@ export async function POST(request: NextRequest) {
       newBalance,
     });
   } catch (error) {
-    console.error("Error updating credits:", error);
+    log.error({ err: error }, "Error updating credits");
     return NextResponse.json(
       { error: "Error al actualizar créditos" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

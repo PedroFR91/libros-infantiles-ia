@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
 import { generateDigitalPDF, generatePrintReadyPDF } from "@/lib/pdf";
+import { getAuthenticatedUserId } from "@/lib/apiAuth";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pdf");
 
 // POST /api/books/[id]/pdf - Generar PDF
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get("type") as "digital" | "print") || "digital";
 
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sessionId")?.value;
-
-    if (!sessionId) {
+    // Autenticación centralizada (NextAuth + fallback sessionId)
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -24,7 +26,7 @@ export async function POST(
     const book = await prisma.book.findFirst({
       where: {
         id,
-        user: { sessionId },
+        userId,
       },
       include: {
         pages: {
@@ -36,14 +38,14 @@ export async function POST(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (book.status !== "COMPLETED") {
       return NextResponse.json(
         { error: "El libro debe estar completado para generar PDF" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -64,11 +66,17 @@ export async function POST(
       id: book.id,
       title: book.title || `La aventura de ${book.kidName}`,
       kidName: book.kidName,
-      pages: book.pages.map((p) => ({
-        pageNumber: p.pageNumber,
-        text: p.text || "",
-        imageUrl: p.imageUrl || undefined,
-      })),
+      pages: book.pages.map(
+        (p: {
+          pageNumber: number;
+          text: string | null;
+          imageUrl: string | null;
+        }) => ({
+          pageNumber: p.pageNumber,
+          text: p.text || "",
+          imageUrl: p.imageUrl || undefined,
+        }),
+      ),
     };
 
     // Generar PDF
@@ -92,10 +100,10 @@ export async function POST(
       cached: false,
     });
   } catch (error) {
-    console.error("Error generando PDF:", error);
+    log.error({ err: error }, "Error generando PDF");
     return NextResponse.json(
       { error: "Error al generar PDF" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

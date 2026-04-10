@@ -1,4 +1,7 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("openai");
 
 // Lazy initialization para evitar errores en build time
 let openaiInstance: OpenAI | null = null;
@@ -105,7 +108,7 @@ export async function generateStoryText(
   theme: string,
   categories: string[],
   characterDescription?: string | null,
-  artStyle: string = "cartoon"
+  artStyle: string = "cartoon",
 ): Promise<GeneratedStory> {
   const categoryText =
     categories.length > 0 ? `con elementos de: ${categories.join(", ")}` : "";
@@ -179,7 +182,7 @@ Responde SOLO con el JSON incluyendo el campo "characterSheet":
     imagePrompt: ensureConsistentPrompt(
       page.imagePrompt,
       story.characterSheet,
-      styleDescription
+      styleDescription,
     ),
   }));
 
@@ -190,7 +193,7 @@ Responde SOLO con el JSON incluyendo el campo "characterSheet":
 function ensureConsistentPrompt(
   prompt: string,
   characterSheet: string,
-  artStyle: string
+  artStyle: string,
 ): string {
   // Si el prompt no comienza con la descripción del personaje, añadirla
   const hasCharacter = prompt
@@ -221,7 +224,7 @@ export async function regeneratePageText(
   currentText: string,
   characterSheet: string,
   artStyle: string = "cartoon",
-  customPrompt?: string
+  customPrompt?: string,
 ): Promise<{ text: string; imagePrompt: string }> {
   const styleDescription = ART_STYLES[artStyle] || ART_STYLES.cartoon;
 
@@ -270,38 +273,117 @@ export async function regeneratePageText(
   result.imagePrompt = ensureConsistentPrompt(
     result.imagePrompt,
     characterSheet,
-    styleDescription
+    styleDescription,
   );
 
   return result;
 }
 
-// Generar imagen con DALL-E
-export async function generateImage(prompt: string): Promise<string> {
-  // El prompt ya debe incluir el estilo artístico
+// ── Image Generation (gpt-image-1 — character-consistent) ─────────────
+// DALL-E 3 deprecated 2026-05-12. gpt-image-1 supports reference images
+// via the images.edit endpoint for cross-page character consistency.
+
+/** Image model to use (easy to bump to gpt-image-1.5 later) */
+const IMAGE_MODEL = "gpt-image-1";
+
+/**
+ * Generate a character reference illustration for visual consistency.
+ * Creates a clean, front-facing character portrait on a white background
+ * that is then passed as reference to every page illustration.
+ */
+export async function generateCharacterImage(
+  characterSheet: string,
+  artStyle: string = "cartoon",
+): Promise<Buffer> {
+  const styleDescription = ART_STYLES[artStyle] || ART_STYLES.cartoon;
+
+  const prompt = [
+    `CHARACTER REFERENCE SHEET for a children's book illustration.`,
+    characterSheet + ".",
+    `Full-body front-facing view of the character standing in a relaxed neutral pose.`,
+    `Plain white background, no other characters, no distracting elements.`,
+    `Clear detailed view of face, hair, clothing, and body proportions.`,
+    `Art style: ${styleDescription}.`,
+    IMAGE_STYLE_PROMPT,
+  ].join(" ");
+
+  log.info("Generating character reference image");
+  const openai = getOpenAI();
+  const response = await openai.images.generate({
+    model: IMAGE_MODEL,
+    prompt,
+    n: 1,
+    size: "1024x1024",
+    quality: "medium",
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("No se pudo generar la imagen de referencia del personaje");
+  }
+
+  log.info("Character reference image generated");
+  return Buffer.from(b64, "base64");
+}
+
+/**
+ * Generate a page illustration using a character reference image.
+ * The reference image is passed to gpt-image-1's edit endpoint so the
+ * model preserves the character's face, hair, clothing and proportions.
+ */
+export async function generateImageWithReference(
+  prompt: string,
+  referenceBuffer: Buffer,
+): Promise<Buffer> {
+  const openai = getOpenAI();
+  const referenceFile = await toFile(referenceBuffer, "character-ref.png", {
+    type: "image/png",
+  });
+
+  const fullPrompt = [
+    prompt,
+    `CRITICAL: The main character MUST look exactly like the character in the reference image.`,
+    `Preserve the same face, hairstyle, hair color, eye color, skin tone, clothing, and body proportions.`,
+    IMAGE_STYLE_PROMPT,
+  ].join(" ");
+
+  const response = await openai.images.edit({
+    model: IMAGE_MODEL,
+    image: referenceFile,
+    prompt: fullPrompt,
+    n: 1,
+    size: "1024x1024",
+    quality: "medium",
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("No se pudo generar la imagen con referencia");
+  }
+
+  return Buffer.from(b64, "base64");
+}
+
+/**
+ * Generate a standalone image without character reference (fallback).
+ * Uses gpt-image-1 for better prompt adherence than DALL-E 3.
+ */
+export async function generateImage(prompt: string): Promise<Buffer> {
   const fullPrompt = `${prompt}. ${IMAGE_STYLE_PROMPT}, same character design throughout, consistent art style`;
 
   const openai = getOpenAI();
   const response = await openai.images.generate({
-    model: "dall-e-3",
+    model: IMAGE_MODEL,
     prompt: fullPrompt,
     n: 1,
     size: "1024x1024",
-    quality: "standard",
-    style: "vivid",
+    quality: "medium",
   });
 
-  const imageUrl = response.data?.[0]?.url;
-  if (!imageUrl) {
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
     throw new Error("No se pudo generar la imagen");
   }
 
-  return imageUrl;
-}
-
-// Generar thumbnail (versión pequeña)
-export async function generateThumbnail(imageUrl: string): Promise<string> {
-  // En producción, usaríamos sharp para redimensionar
-  // Por ahora retornamos la misma URL
-  return imageUrl;
+  return Buffer.from(b64, "base64");
 }

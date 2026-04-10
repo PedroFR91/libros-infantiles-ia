@@ -83,6 +83,7 @@ model Book {
   style         String    @default("cartoon")
   status        BookStatus @default(DRAFT)
   characterDescription String? // Descripción física del personaje basada en foto
+  characterImageUrl    String? // URL of character reference illustration for consistency
   
   // Cached PDF URLs
   digitalPdfUrl   String?
@@ -106,6 +107,12 @@ model BookPage {
   imagePrompt   String?
   imageUrl      String?
   thumbnailUrl  String?
+  
+  // Personalización de texto
+  textPosition    String?   // bottom, top, center, bottom-left, etc.
+  textBackground  String?   // none, gradient, bubble, box, banner
+  textStyle       String?   // default, handwritten, comic, elegant, playful, bold
+  textColor       String?   // hex color
   
   // Para refinado
   promptOverride String?

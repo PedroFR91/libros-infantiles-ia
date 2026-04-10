@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("admin-books");
 
 // GET /api/admin/books - Obtener todos los libros con detalles
 export async function GET(request: NextRequest) {
@@ -48,7 +51,7 @@ export async function GET(request: NextRequest) {
       if (!book) {
         return NextResponse.json(
           { error: "Libro no encontrado" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -86,10 +89,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ books });
   } catch (error) {
-    console.error("Error fetching admin books:", error);
+    log.error({ err: error }, "Error fetching admin books");
     return NextResponse.json(
       { error: "Error al obtener libros" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -145,14 +148,14 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json(
           { error: "Acción no válida" },
-          { status: 400 }
+          { status: 400 },
         );
     }
   } catch (error) {
-    console.error("Error en acción admin books:", error);
+    log.error({ err: error }, "Error en acción admin books");
     return NextResponse.json(
       { error: "Error al procesar acción" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

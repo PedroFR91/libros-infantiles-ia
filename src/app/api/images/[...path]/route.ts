@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("images");
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
   const { path: pathSegments } = await params;
 
@@ -14,7 +17,7 @@ export async function GET(
     process.cwd(),
     "public",
     "images",
-    ...pathSegments
+    ...pathSegments,
   );
 
   // Verificar que el archivo existe
@@ -52,7 +55,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error reading image:", error);
+    log.error({ err: error }, "Error reading image");
     return NextResponse.json({ error: "Error reading image" }, { status: 500 });
   }
 }

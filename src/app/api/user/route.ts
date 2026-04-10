@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { getCreditBalance, getCreditHistory } from "@/lib/credits";
 import { auth } from "@/lib/auth";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("user");
 
 // GET /api/user - Obtener información del usuario actual
 export async function GET() {
@@ -10,10 +13,9 @@ export async function GET() {
     // PRIMERO: Verificar si hay usuario autenticado con NextAuth
     const session = await auth();
 
-    console.log(
-      "[API /user] Session:",
-      session?.user?.id,
-      session?.user?.email
+    log.debug(
+      { userId: session?.user?.id, email: session?.user?.email },
+      "Session check",
     );
 
     if (session?.user?.id) {
@@ -30,12 +32,7 @@ export async function GET() {
         },
       });
 
-      console.log(
-        "[API /user] User found:",
-        user?.email,
-        "credits:",
-        user?.credits
-      );
+      log.debug({ email: user?.email, credits: user?.credits }, "User found");
 
       if (user) {
         const history = await getCreditHistory(user.id, 10);
@@ -43,13 +40,21 @@ export async function GET() {
         return NextResponse.json({
           user,
           credits: user.credits,
-          history: history.map((h) => ({
-            id: h.id,
-            amount: h.amount,
-            reason: h.reason,
-            balance: h.balance,
-            createdAt: h.createdAt,
-          })),
+          history: history.map(
+            (h: {
+              id: string;
+              amount: number;
+              reason: string;
+              balance: number;
+              createdAt: Date;
+            }) => ({
+              id: h.id,
+              amount: h.amount,
+              reason: h.reason,
+              balance: h.balance,
+              createdAt: h.createdAt,
+            }),
+          ),
         });
       }
     }
@@ -90,19 +95,27 @@ export async function GET() {
     return NextResponse.json({
       user,
       credits: user.credits,
-      history: history.map((h) => ({
-        id: h.id,
-        amount: h.amount,
-        reason: h.reason,
-        balance: h.balance,
-        createdAt: h.createdAt,
-      })),
+      history: history.map(
+        (h: {
+          id: string;
+          amount: number;
+          reason: string;
+          balance: number;
+          createdAt: Date;
+        }) => ({
+          id: h.id,
+          amount: h.amount,
+          reason: h.reason,
+          balance: h.balance,
+          createdAt: h.createdAt,
+        }),
+      ),
     });
   } catch (error) {
-    console.error("Error obteniendo usuario:", error);
+    log.error({ err: error }, "Error obteniendo usuario");
     return NextResponse.json(
       { error: "Error al obtener usuario" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

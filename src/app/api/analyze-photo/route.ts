@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("analyze-photo");
 
 // Lazy initialization
 let openaiInstance: OpenAI | null = null;
@@ -41,42 +45,50 @@ IMPORTANTE: Responde SIEMPRE con un JSON válido, incluso si no puedes ver bien 
 }`;
 
 export async function POST(request: NextRequest) {
-  console.log("[analyze-photo] Iniciando análisis de foto...");
+  log.info("Iniciando análisis de foto");
+
+  // Rate limiting por IP (no requiere auth)
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rateLimitResponse = checkRateLimit(
+    `photo:${clientIp}`,
+    RATE_LIMIT_PRESETS.photoAnalysis,
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const formData = await request.formData();
     const photo = formData.get("photo") as File | null;
 
     if (!photo) {
-      console.log("[analyze-photo] Error: No se proporcionó foto");
+      log.warn("No se proporcionó foto");
       return NextResponse.json(
         { error: "No se ha proporcionado ninguna foto" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    console.log(
-      `[analyze-photo] Foto recibida: ${photo.name}, tipo: ${photo.type}, tamaño: ${photo.size} bytes`
+    log.info(
+      { name: photo.name, type: photo.type, size: photo.size },
+      "Foto recibida",
     );
 
     // Validar tipo de archivo
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!validTypes.includes(photo.type)) {
-      console.log(`[analyze-photo] Error: Tipo no válido: ${photo.type}`);
+      log.warn({ type: photo.type }, "Tipo no válido");
       return NextResponse.json(
         { error: "Tipo de archivo no válido. Usa JPG, PNG, WebP o GIF" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Validar tamaño (máximo 10MB)
     if (photo.size > 10 * 1024 * 1024) {
-      console.log(
-        `[analyze-photo] Error: Imagen muy grande: ${photo.size} bytes`
-      );
+      log.warn({ size: photo.size }, "Imagen muy grande");
       return NextResponse.json(
         { error: "La imagen es demasiado grande. Máximo 10MB" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -85,13 +97,11 @@ export async function POST(request: NextRequest) {
     const base64 = Buffer.from(bytes).toString("base64");
     const mimeType = photo.type;
 
-    console.log(
-      `[analyze-photo] Imagen convertida a base64, longitud: ${base64.length}`
-    );
+    log.debug({ base64Length: base64.length }, "Imagen convertida a base64");
 
     // Analizar con GPT-4 Vision
     const openai = getOpenAI();
-    console.log("[analyze-photo] Enviando a OpenAI GPT-4o...");
+    log.info("Enviando a OpenAI GPT-4o");
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -117,47 +127,42 @@ export async function POST(request: NextRequest) {
       response_format: { type: "json_object" },
     });
 
-    console.log("[analyze-photo] Respuesta de OpenAI recibida");
-    console.log(
-      "[analyze-photo] Finish reason:",
-      response.choices[0]?.finish_reason
+    log.info(
+      { finishReason: response.choices[0]?.finish_reason },
+      "Respuesta de OpenAI recibida",
     );
 
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
-      console.log("[analyze-photo] Error: Sin contenido en la respuesta");
-      console.log(
-        "[analyze-photo] Response completa:",
-        JSON.stringify(response.choices[0], null, 2)
+      log.error(
+        { choice: response.choices[0] },
+        "Sin contenido en la respuesta",
       );
       return NextResponse.json(
         {
           error:
             "No se pudo analizar la imagen. El modelo no generó una respuesta.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    console.log("[analyze-photo] Contenido recibido:", content);
+    log.debug("Contenido recibido de OpenAI");
 
     let analysis;
     try {
       analysis = JSON.parse(content);
     } catch (parseError) {
-      console.log("[analyze-photo] Error parseando JSON:", parseError);
-      console.log("[analyze-photo] Contenido raw:", content);
+      log.error({ err: parseError, content }, "Error parseando JSON");
       return NextResponse.json(
         { error: "Error procesando la respuesta del análisis." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     if (!analysis.description) {
-      console.log(
-        "[analyze-photo] Advertencia: Sin descripción, usando detalles"
-      );
+      log.warn("Sin descripción, usando detalles");
       // Construir descripción desde detalles si no hay una
       const d = analysis.details || {};
       analysis.description = `${d.gender || "Niño/a"} con pelo ${
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest) {
       }, tono de piel ${d.skinTone || "claro"}`;
     }
 
-    console.log("[analyze-photo] Descripción final:", analysis.description);
+    log.info("Análisis completado");
 
     return NextResponse.json({
       success: true,
@@ -175,7 +180,7 @@ export async function POST(request: NextRequest) {
       details: analysis.details || {},
     });
   } catch (error: unknown) {
-    console.error("[analyze-photo] Error:", error);
+    log.error({ err: error }, "Error analizando foto");
 
     // Manejar errores específicos de OpenAI
     if (error instanceof Error) {
@@ -185,7 +190,7 @@ export async function POST(request: NextRequest) {
             error:
               "La imagen no pudo ser procesada por políticas de contenido. Intenta con otra foto.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       if (error.message.includes("rate_limit")) {
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
             error:
               "Demasiadas solicitudes. Espera un momento e intenta de nuevo.",
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
     }
@@ -203,7 +208,7 @@ export async function POST(request: NextRequest) {
       {
         error: "Error al analizar la foto. Por favor, intenta con otra imagen.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

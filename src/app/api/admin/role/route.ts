@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("admin-role");
 
 // POST /api/admin/role - Change user role
 export async function POST(request: NextRequest) {
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     if (adminUser?.role !== "ADMIN") {
       return NextResponse.json(
         { error: "No tienes permisos de administrador" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!userId || !role || !["USER", "ADMIN"].includes(role)) {
       return NextResponse.json(
         { error: "userId y role válido son requeridos" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (userId === session.user.id && role === "USER") {
       return NextResponse.json(
         { error: "No puedes quitarte tus propios permisos de admin" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -49,10 +52,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, role });
   } catch (error) {
-    console.error("Error updating role:", error);
+    log.error({ err: error }, "Error updating role");
     return NextResponse.json(
       { error: "Error al cambiar rol" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

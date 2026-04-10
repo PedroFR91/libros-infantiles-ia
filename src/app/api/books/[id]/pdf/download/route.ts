@@ -8,11 +8,14 @@ import {
 } from "@/lib/pdf";
 import { auth } from "@/lib/auth";
 import * as fs from "fs/promises";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pdf-download");
 
 // GET /api/books/[id]/pdf/download - Descargar PDF (genera si no existe)
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -59,14 +62,14 @@ export async function GET(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (book.status !== "COMPLETED") {
       return NextResponse.json(
         { error: "El libro debe estar completado para descargar" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -75,17 +78,23 @@ export async function GET(
 
     // Si no existe, generarlo bajo demanda
     if (!pdfPath) {
-      console.log(`Generando PDF ${type} bajo demanda para libro ${id}`);
+      // Generar PDF bajo demanda
 
       const bookData = {
         id: book.id,
         title: book.title || `La aventura de ${book.kidName}`,
         kidName: book.kidName,
-        pages: book.pages.map((p) => ({
-          pageNumber: p.pageNumber,
-          text: p.text || "",
-          imageUrl: p.imageUrl || undefined,
-        })),
+        pages: book.pages.map(
+          (p: {
+            pageNumber: number;
+            text: string | null;
+            imageUrl: string | null;
+          }) => ({
+            pageNumber: p.pageNumber,
+            text: p.text || "",
+            imageUrl: p.imageUrl || undefined,
+          }),
+        ),
       };
 
       if (type === "print") {
@@ -101,7 +110,7 @@ export async function GET(
     if (!pdfPath) {
       return NextResponse.json(
         { error: "No se pudo generar el PDF" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -124,10 +133,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error descargando PDF:", error);
+    log.error({ err: error }, "Error descargando PDF");
     return NextResponse.json(
       { error: "Error al descargar PDF" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

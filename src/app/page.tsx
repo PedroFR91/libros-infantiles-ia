@@ -380,6 +380,35 @@ export default function HomePage() {
               reservados.
             </div>
           </div>
+
+          <div className='mt-4 pt-4 border-t border-border flex flex-wrap justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-text-muted'>
+            <Link
+              href='/privacidad'
+              className='hover:text-text transition-colors'>
+              Privacidad
+            </Link>
+            <Link
+              href='/terminos'
+              className='hover:text-text transition-colors'>
+              Términos de Servicio
+            </Link>
+            <Link href='/cookies' className='hover:text-text transition-colors'>
+              Cookies
+            </Link>
+            <Link href='/legal' className='hover:text-text transition-colors'>
+              Aviso Legal
+            </Link>
+            <Link
+              href='/desistimiento'
+              className='hover:text-text transition-colors'>
+              Desistimiento
+            </Link>
+            <a
+              href='mailto:hola@iconicospace.com'
+              className='hover:text-text transition-colors'>
+              Contacto
+            </a>
+          </div>
         </div>
       </footer>
     </div>

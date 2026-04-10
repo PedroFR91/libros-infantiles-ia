@@ -4,6 +4,11 @@ import { getOrCreateUser } from "@/lib/credits";
 import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { auth } from "@/lib/auth";
+import { createBookSchema, validateBody } from "@/lib/validation";
+import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("books");
 
 // GET /api/books - Listar libros del usuario
 export async function GET() {
@@ -52,10 +57,10 @@ export async function GET() {
 
     return NextResponse.json({ books: user?.books ?? [] });
   } catch (error) {
-    console.error("Error listando libros:", error);
+    log.error({ err: error }, "Error listando libros");
     return NextResponse.json(
       { error: "Error al obtener libros" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -64,20 +69,15 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      kidName,
-      theme,
-      categories = [],
-      style = "cartoon",
-      characterDescription = null,
-    } = body;
 
-    if (!kidName || !theme) {
-      return NextResponse.json(
-        { error: "kidName y theme son requeridos" },
-        { status: 400 }
-      );
+    // Validación con Zod (previene prompt injection y datos inválidos)
+    const validation = validateBody(createBookSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
+
+    const { kidName, theme, categories, style, characterDescription } =
+      validation.data;
 
     // PRIMERO: Verificar sesión de NextAuth
     const session = await auth();
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: "No se pudo obtener usuario" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -136,10 +136,10 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Error creando libro:", error);
+    log.error({ err: error }, "Error creando libro");
     return NextResponse.json(
       { error: "Error al crear libro" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

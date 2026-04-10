@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("books");
 
 // Helper para obtener userId
 async function getUserId(): Promise<string | null> {
@@ -28,7 +31,7 @@ async function getUserId(): Promise<string | null> {
 // GET /api/books/[id] - Obtener libro con páginas
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -53,16 +56,16 @@ export async function GET(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json({ book });
   } catch (error) {
-    console.error("Error obteniendo libro:", error);
+    log.error({ err: error }, "Error obteniendo libro");
     return NextResponse.json(
       { error: "Error al obtener libro" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -70,7 +73,7 @@ export async function GET(
 // PATCH /api/books/[id] - Actualizar libro (título, texto de páginas)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -92,11 +95,20 @@ export async function PATCH(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    const { title, pages, pageNumber, text } = body;
+    const {
+      title,
+      pages,
+      pageNumber,
+      text,
+      textPosition,
+      textBackground,
+      textStyle,
+      textColor,
+    } = body;
 
     // Actualizar título si se proporciona
     if (title) {
@@ -107,27 +119,48 @@ export async function PATCH(
     }
 
     // Actualizar una página específica (desde el editor)
-    if (pageNumber !== undefined && text !== undefined) {
-      await prisma.bookPage.updateMany({
-        where: {
-          bookId: id,
-          pageNumber: pageNumber,
-        },
-        data: { text },
-      });
+    if (pageNumber !== undefined) {
+      const pageData: Record<string, string | null> = {};
+      if (text !== undefined) pageData.text = text;
+      if (textPosition !== undefined) pageData.textPosition = textPosition;
+      if (textBackground !== undefined)
+        pageData.textBackground = textBackground;
+      if (textStyle !== undefined) pageData.textStyle = textStyle;
+      if (textColor !== undefined) pageData.textColor = textColor;
+
+      if (Object.keys(pageData).length > 0) {
+        await prisma.bookPage.updateMany({
+          where: {
+            bookId: id,
+            pageNumber: pageNumber,
+          },
+          data: pageData,
+        });
+      }
     }
 
     // Actualizar páginas si se proporcionan como array
     if (pages && Array.isArray(pages)) {
       for (const page of pages) {
-        if (page.pageNumber && page.text !== undefined) {
-          await prisma.bookPage.updateMany({
-            where: {
-              bookId: id,
-              pageNumber: page.pageNumber,
-            },
-            data: { text: page.text },
-          });
+        if (page.pageNumber !== undefined) {
+          const pageData: Record<string, string | null> = {};
+          if (page.text !== undefined) pageData.text = page.text;
+          if (page.textPosition !== undefined)
+            pageData.textPosition = page.textPosition;
+          if (page.textBackground !== undefined)
+            pageData.textBackground = page.textBackground;
+          if (page.textStyle !== undefined) pageData.textStyle = page.textStyle;
+          if (page.textColor !== undefined) pageData.textColor = page.textColor;
+
+          if (Object.keys(pageData).length > 0) {
+            await prisma.bookPage.updateMany({
+              where: {
+                bookId: id,
+                pageNumber: page.pageNumber,
+              },
+              data: pageData,
+            });
+          }
         }
       }
     }
@@ -144,10 +177,10 @@ export async function PATCH(
 
     return NextResponse.json({ book: updatedBook });
   } catch (error) {
-    console.error("Error actualizando libro:", error);
+    log.error({ err: error }, "Error actualizando libro");
     return NextResponse.json(
       { error: "Error al actualizar libro" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -155,7 +188,7 @@ export async function PATCH(
 // DELETE /api/books/[id] - Eliminar libro
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -176,7 +209,7 @@ export async function DELETE(
     if (!book) {
       return NextResponse.json(
         { error: "Libro no encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -186,10 +219,10 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error eliminando libro:", error);
+    log.error({ err: error }, "Error eliminando libro");
     return NextResponse.json(
       { error: "Error al eliminar libro" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
