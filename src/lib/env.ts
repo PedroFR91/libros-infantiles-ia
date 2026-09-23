@@ -54,7 +54,14 @@ export function validateEnv() {
   }
 }
 
-// Run validation on import in production
-if (typeof process !== "undefined" && process.env.NODE_ENV === "production") {
+// Validar al importar en producción, pero NUNCA durante `next build`:
+// la imagen Docker se construye en CI sin .env y las variables llegan en runtime.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+if (
+  typeof process !== "undefined" &&
+  process.env.NODE_ENV === "production" &&
+  !isBuildPhase
+) {
   validateEnv();
 }
