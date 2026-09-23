@@ -45,3 +45,10 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Secrets (anadido 2026-06-10, ver SECURITY-ROTACION.md)
+.env.production
+.env*.local
+
+# Plantilla sin secretos: sí se versiona
+!.env.example
