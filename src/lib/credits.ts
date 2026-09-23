@@ -127,6 +127,36 @@ export async function addCredits(
   return result;
 }
 
+// Devolver créditos cobrados cuando la operación falla por causa nuestra
+// (error de OpenAI, almacenamiento, etc.). Queda registrado en el ledger.
+export async function refundCredits(
+  userId: string,
+  amount: number,
+  referenceId?: string,
+): Promise<number> {
+  if (amount <= 0) return getCreditBalance(userId);
+
+  return prisma.$transaction(async (tx: TransactionClient) => {
+    const updatedUser = await tx.user.update({
+      where: { id: userId },
+      data: { credits: { increment: amount } },
+      select: { credits: true },
+    });
+
+    await tx.creditLedger.create({
+      data: {
+        userId,
+        amount,
+        reason: "refund",
+        referenceId,
+        balance: updatedUser.credits,
+      },
+    });
+
+    return updatedUser.credits;
+  });
+}
+
 // Obtener balance de créditos
 export async function getCreditBalance(userId: string): Promise<number> {
   const user = await prisma.user.findUnique({

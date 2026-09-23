@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
-import { addCredits } from "@/lib/credits";
+import { Prisma } from "@prisma/client";
 import Stripe from "stripe";
 import { createLogger } from "@/lib/logger";
 
@@ -79,35 +79,73 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 
   const creditsToAdd = parseInt(credits, 10);
-
-  // Actualizar payment
-  const payment = await prisma.payment.findUnique({
-    where: { stripeSessionId: session.id },
-  });
-
-  if (!payment) {
-    log.error({ sessionId: session.id }, "Payment no encontrado");
+  if (!Number.isInteger(creditsToAdd) || creditsToAdd <= 0) {
+    log.error({ credits }, "Metadata de créditos inválida");
     return;
   }
 
-  if (payment.status === "COMPLETED") {
-    log.warn({ sessionId: session.id }, "Payment ya procesado");
-    return;
-  }
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
 
-  // Marcar como completado
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: "COMPLETED",
-      stripePaymentId: session.payment_intent as string,
+  // Idempotente y atómico: el payment solo pasa de PENDING a COMPLETED una vez,
+  // aunque Stripe reenvíe el evento en paralelo. Créditos y ledger van en la
+  // misma transacción, así nunca queda un pago COMPLETED sin créditos abonados.
+  const newBalance = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const claimed = await tx.payment.updateMany({
+        where: { stripeSessionId: session.id, status: "PENDING" },
+        data: { status: "COMPLETED", stripePaymentId: paymentIntentId },
+      });
+
+      if (claimed.count === 0) return null;
+
+      const payment = await tx.payment.findUniqueOrThrow({
+        where: { stripeSessionId: session.id },
+        select: { id: true },
+      });
+
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { credits: { increment: creditsToAdd } },
+        select: { credits: true },
+      });
+
+      await tx.creditLedger.create({
+        data: {
+          userId,
+          amount: creditsToAdd,
+          reason: "purchase",
+          referenceId: payment.id,
+          balance: user.credits,
+        },
+      });
+
+      return user.credits;
     },
-  });
+  );
 
-  // Añadir créditos
-  await addCredits(userId, creditsToAdd, payment.id);
+  if (newBalance === null) {
+    const existing = await prisma.payment.findUnique({
+      where: { stripeSessionId: session.id },
+      select: { status: true },
+    });
+    if (!existing) {
+      log.error({ sessionId: session.id }, "Payment no encontrado");
+    } else {
+      log.warn(
+        { sessionId: session.id, status: existing.status },
+        "Payment ya procesado, evento ignorado",
+      );
+    }
+    return;
+  }
 
-  log.info({ userId, credits: creditsToAdd }, "Créditos añadidos");
+  log.info(
+    { userId, credits: creditsToAdd, balance: newBalance },
+    "Créditos añadidos",
+  );
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
+import {
+  hasEnoughCredits,
+  consumeCredits,
+  refundCredits,
+} from "@/lib/credits";
+import { CREDIT_COSTS } from "@/lib/stripe";
 import {
   regeneratePageText,
   generateImageWithReference,
@@ -19,6 +24,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; pageNumber: string }> },
 ) {
+  // Devolución del crédito si algo falla después de cobrarlo
+  let refundOnError: (() => Promise<number>) | null = null;
+
   try {
     const { id, pageNumber: pageNumberStr } = await params;
     const pageNumber = parseInt(pageNumberStr, 10);
@@ -86,12 +94,21 @@ export async function POST(
       );
     }
 
-    // Consumir créditos
-    await consumeCredits(
+    // Consumir créditos (atómico: falla si otro proceso los gastó antes)
+    const referenceId = `${id}-page-${pageNumber}`;
+    const consumed = await consumeCredits(
       book.userId,
       "PAGE_REGENERATION",
-      `${id}-page-${pageNumber}`,
+      referenceId,
     );
+    if (!consumed) {
+      return NextResponse.json(
+        { error: "No tienes suficientes créditos", needsCredits: true },
+        { status: 402 },
+      );
+    }
+    refundOnError = () =>
+      refundCredits(book.userId, CREDIT_COSTS.PAGE_REGENERATION, referenceId);
 
     const updates: {
       text?: string;
@@ -178,6 +195,14 @@ export async function POST(
     });
   } catch (error) {
     log.error({ err: error }, "Error regenerando página");
+    if (refundOnError) {
+      try {
+        await refundOnError();
+        log.info("Crédito devuelto tras fallo de regeneración");
+      } catch (refundError) {
+        log.error({ err: refundError }, "Error devolviendo crédito");
+      }
+    }
     return NextResponse.json(
       { error: "Error al regenerar página" },
       { status: 500 },

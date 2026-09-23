@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { hasEnoughCredits, consumeCredits } from "@/lib/credits";
+import {
+  hasEnoughCredits,
+  consumeCredits,
+  refundCredits,
+} from "@/lib/credits";
+import { CREDIT_COSTS } from "@/lib/stripe";
 import {
   generateStoryText,
   generateCharacterImage,
@@ -92,9 +97,28 @@ export async function POST(
       data: { status: "GENERATING" },
     });
 
+    let creditsConsumed = false;
     try {
-      // Consumir créditos
-      await consumeCredits(book.userId, "BOOK_GENERATION", id);
+      // Consumir créditos (atómico: falla si otro proceso los gastó antes)
+      creditsConsumed = await consumeCredits(
+        book.userId,
+        "BOOK_GENERATION",
+        id,
+      );
+      if (!creditsConsumed) {
+        await prisma.book.update({
+          where: { id },
+          data: { status: book.status },
+        });
+        return NextResponse.json(
+          {
+            error:
+              "No tienes suficientes créditos. Compra un pack para continuar.",
+            needsCredits: true,
+          },
+          { status: 402 },
+        );
+      }
 
       // Obtener estilo artístico del libro (por defecto cartoon)
       const artStyle = (book as { style?: string }).style || "cartoon";
@@ -219,11 +243,23 @@ export async function POST(
         message: "Libro generado exitosamente",
       });
     } catch (error) {
-      // Si falla, marcar como error
+      // Si falla, marcar como error y devolver los créditos cobrados
       await prisma.book.update({
         where: { id },
         data: { status: "ERROR" },
       });
+
+      if (creditsConsumed) {
+        try {
+          await refundCredits(book.userId, CREDIT_COSTS.BOOK_GENERATION, id);
+          log.info({ bookId: id }, "Créditos devueltos tras fallo");
+        } catch (refundError) {
+          log.error(
+            { err: refundError, bookId: id },
+            "Error devolviendo créditos",
+          );
+        }
+      }
 
       throw error;
     }
