@@ -40,6 +40,11 @@ export const RATE_LIMIT_PRESETS = {
   generation: { maxRequests: 5, windowSeconds: 60 } as RateLimitConfig,
   /** Análisis de fotos: moderado */
   photoAnalysis: { maxRequests: 10, windowSeconds: 60 } as RateLimitConfig,
+  /** Análisis de fotos: tope diario por IP (endpoint sin auth → coste OpenAI) */
+  photoAnalysisDaily: {
+    maxRequests: 30,
+    windowSeconds: 24 * 60 * 60,
+  } as RateLimitConfig,
   /** Endpoints generales de lectura */
   general: { maxRequests: 60, windowSeconds: 60 } as RateLimitConfig,
   /** Checkout/pagos: proteger contra abuso */

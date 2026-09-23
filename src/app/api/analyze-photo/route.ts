@@ -56,6 +56,13 @@ export async function POST(request: NextRequest) {
   );
   if (rateLimitResponse) return rateLimitResponse;
 
+  // Tope diario por IP: este endpoint no exige login y cada llamada cuesta dinero
+  const dailyLimitResponse = checkRateLimit(
+    `photo-day:${clientIp}`,
+    RATE_LIMIT_PRESETS.photoAnalysisDaily,
+  );
+  if (dailyLimitResponse) return dailyLimitResponse;
+
   try {
     const formData = await request.formData();
     const photo = formData.get("photo") as File | null;
