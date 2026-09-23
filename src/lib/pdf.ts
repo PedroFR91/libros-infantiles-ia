@@ -7,6 +7,7 @@ import {
   RGB,
 } from "pdf-lib";
 import * as fs from "fs/promises";
+import * as os from "os";
 import * as path from "path";
 import { createLogger } from "@/lib/logger";
 
@@ -74,11 +75,16 @@ const PAGE_CONFIG = {
   },
 };
 
-// Directorio de almacenamiento
+// Directorio de almacenamiento de PDFs. Es una caché regenerable (el PDF se
+// vuelve a generar bajo demanda si no existe), así que no necesita persistir.
+// - PDF_STORAGE_DIR: ruta explícita (p. ej. un volumen Docker)
+// - Con S3 configurado asumimos contenedor efímero → directorio temporal del SO
+// - Sin S3 (desarrollo local) → ./storage/pdfs
 const STORAGE_DIR =
-  process.env.USE_S3 === "true"
-    ? "/tmp"
-    : path.join(process.cwd(), "storage", "pdfs");
+  process.env.PDF_STORAGE_DIR ||
+  (process.env.S3_ENDPOINT && process.env.S3_BUCKET
+    ? path.join(os.tmpdir(), "libros-ia-pdfs")
+    : path.join(process.cwd(), "storage", "pdfs"));
 
 // Directorio de imágenes
 const IMAGES_DIR = path.join(process.cwd(), "public", "images", "books");
@@ -211,7 +217,7 @@ function drawTextOverlay(
   // Calcular posición Y según textPosition
   let textY: number;
   let textAreaY: number;
-  let textAreaHeight: number = textBlockHeight + padding;
+  const textAreaHeight: number = textBlockHeight + padding;
 
   switch (textPosition) {
     case "top":

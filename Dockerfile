@@ -8,6 +8,17 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+# Prisma CLI con TODAS sus dependencias, para ejecutar migraciones en el runner.
+# (El runner no copia node_modules completo y el CLI necesita effect, c12, etc.)
+# Versión fijada a la del package-lock para que coincida con @prisma/client.
+FROM base AS prisma-cli
+WORKDIR /opt/prisma-cli
+COPY package-lock.json ./app-lock.json
+RUN npm init -y >/dev/null \
+  && npm install --no-audit --no-fund --omit=dev \
+     "prisma@$(node -p "require('./app-lock.json').packages['node_modules/prisma'].version")" \
+  && rm -f app-lock.json
+
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -34,10 +45,15 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=prisma-cli /opt/prisma-cli/node_modules /opt/prisma-cli/node_modules
 
 # Entrypoint script for migrations
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# Directorios escribibles: caché de PDFs e imágenes (fallback cuando no hay S3)
+RUN mkdir -p /app/storage/pdfs /app/public/images/books \
+  && chown -R nextjs:nodejs /app/storage /app/public/images
 
 USER nextjs
 
