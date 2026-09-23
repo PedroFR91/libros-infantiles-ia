@@ -28,10 +28,16 @@ cd ~/editorial
 
 ---
 
-## 2. Pull del código actualizado
+## 2. Código: lo despliega GitHub Actions
+
+Cada push a `master` construye la imagen en GitHub, la sube a GHCR y reinicia el contenedor
+por SSH (ver `.github/workflows/deploy.yml`). Requiere los secrets `SERVER_HOST`, `SERVER_USER`
+y `SERVER_SSH_KEY` en el repositorio. En el servidor solo hace falta el fichero `.env` (paso 3).
+
+Si necesitas hacerlo a mano sin Actions:
 
 ```bash
-git pull origin main
+git pull origin master
 ```
 
 Si no tienes git configurado, sube los archivos manualmente:
@@ -74,9 +80,12 @@ STRIPE_SECRET_KEY="sk_live_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."  # Se crea en el paso 5
 
-# Hetzner S3
+# Hetzner S3 (obligatorio en producción: el contenedor no persiste ficheros)
 S3_ACCESS_KEY_ID="..."
 S3_SECRET_ACCESS_KEY="..."
+
+# Cron de libros atascados (genera con: openssl rand -hex 32)
+CRON_SECRET="..."
 ```
 
 Guarda: `Ctrl+O`, `Enter`, `Ctrl+X`.
@@ -241,10 +250,16 @@ curl -X POST https://libros.iconicospace.com/api/stripe/webhook
 
 ### Migraciones Prisma
 
+Se ejecutan automáticamente en `docker-entrypoint.sh` al arrancar el contenedor.
+Si la base de datos ya existía sin historial de migraciones (error `P3005`), el
+entrypoint hace el baseline solo: `prisma db push` (aborta si hubiera pérdida de
+datos) y después `migrate resolve --applied 0_init`.
+
 ```bash
-# Las migraciones se ejecutan automáticamente en docker-entrypoint.sh
-# Si necesitas forzar:
-docker exec -it libros-ia npx prisma migrate deploy
+# Ver estado:
+docker exec -it libros-ia node /opt/prisma-cli/node_modules/prisma/build/index.js migrate status
+# Forzar manualmente:
+docker exec -it libros-ia node /opt/prisma-cli/node_modules/prisma/build/index.js migrate deploy
 ```
 
 ---
