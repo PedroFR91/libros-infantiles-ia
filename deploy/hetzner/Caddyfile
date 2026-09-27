@@ -1,0 +1,4 @@
+libros.iconicospace.com {
+	encode zstd gzip
+	reverse_proxy libros-ia:3000
+}

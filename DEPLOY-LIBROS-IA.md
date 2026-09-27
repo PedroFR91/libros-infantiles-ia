@@ -1,288 +1,91 @@
-# 🚀 DEPLOY LIBROS-IA — Guía paso a paso
+# DEPLOY LIBROS-IA — Hetzner
 
-> **Objetivo:** Tener `libros.iconicospace.com` aceptando pagos reales HOY.  
-> **Tiempo estimado:** 30-45 minutos.  
-> **Requisitos:** Acceso SSH al servidor + API keys.
+> **Objetivo:** `libros.iconicospace.com` cobrando con tarjeta real.
+> **Servidor:** Hetzner CPX32 `libros-infantiles-PDF` · `204.168.194.92` · Helsinki.
+> **Estado 2026-09-28:** el DNS sigue apuntando al AWS antiguo (`18.171.181.210`), que sirve un
+> build de abril. La imagen nueva ya está en GHCR; el deploy falló solo por falta de secrets.
 
----
-
-## 0. Pre-requisitos (cosas que necesitas tener)
-
-| Servicio         | Qué necesitas                      | Dónde conseguirlo                                 |
-| ---------------- | ---------------------------------- | ------------------------------------------------- |
-| **SSH**          | Clave `editorial-prod.pem`         | Tu carpeta de keys                                |
-| **OpenAI**       | API Key (`sk-...`)                 | https://platform.openai.com/api-keys              |
-| **Google OAuth** | Client ID + Secret                 | https://console.cloud.google.com/apis/credentials |
-| **Stripe**       | Live keys (`sk_live_`, `pk_live_`) | https://dashboard.stripe.com/apikeys              |
-| **Resend**       | API Key                            | https://resend.com/api-keys                       |
-| **Hetzner S3**   | Access Key + Secret                | Tu panel de Hetzner                               |
+La app corre en `/opt/libros` con tres contenedores (`deploy/hetzner/docker-compose.yml`):
+Postgres, la app (imagen de GHCR) y Caddy (HTTPS automático). PDFs e imágenes van a volúmenes
+Docker, así que **S3 es opcional**.
 
 ---
 
-## 1. Conectar al servidor
+## 1. Preparar el servidor (una vez, ~10 min)
+
+Desde la raíz de este repo:
 
 ```bash
-ssh -i /ruta/a/editorial-prod.pem ubuntu@18.171.181.210
-cd ~/editorial
+scp -r deploy/hetzner root@204.168.194.92:/root/libros-bootstrap
+ssh root@204.168.194.92 sh /root/libros-bootstrap/bootstrap.sh
 ```
 
----
+Instala Docker, abre 80/443 en ufw, copia compose + Caddyfile a `/opt/libros`, genera
+`.env` con `DB_PASSWORD`, `NEXTAUTH_SECRET` y `CRON_SECRET` aleatorios y programa el cron
+de libros atascados.
 
-## 2. Código: lo despliega GitHub Actions
-
-Cada push a `master` construye la imagen en GitHub, la sube a GHCR y reinicia el contenedor
-por SSH (ver `.github/workflows/deploy.yml`). Requiere los secrets `SERVER_HOST`, `SERVER_USER`
-y `SERVER_SSH_KEY` en el repositorio. En el servidor solo hace falta el fichero `.env` (paso 3).
-
-Si necesitas hacerlo a mano sin Actions:
+## 2. Rellenar `/opt/libros/.env`
 
 ```bash
-git pull origin master
+ssh root@204.168.194.92 nano /opt/libros/.env
 ```
 
-Si no tienes git configurado, sube los archivos manualmente:
+| Variable | Dónde |
+|---|---|
+| `OPENAI_API_KEY` | platform.openai.com/api-keys — pon un límite de gasto mensual |
+| `GOOGLE_CLIENT_ID/SECRET` | console.cloud.google.com → Credentials. Redirect: `https://libros.iconicospace.com/api/auth/callback/google` |
+| `RESEND_API_KEY` | resend.com — dominio `iconicospace.com` verificado (registros DNS en GoDaddy) |
+| `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | dashboard.stripe.com/apikeys — **live** |
+| `STRIPE_WEBHOOK_SECRET` | paso 5 |
+
+## 3. DNS en GoDaddy
+
+`account.godaddy.com` → iconicospace.com → DNS → registro **A** `libros` → `204.168.194.92`
+(TTL 600). Comprobar: `nslookup libros.iconicospace.com 1.1.1.1`.
+
+Caddy pide el certificado en cuanto el DNS resuelve al Hetzner.
+
+## 4. Secrets de GitHub y primer deploy
+
+En github.com/PedroFR91/libros-infantiles-ia → Settings → Secrets → Actions:
+
+| Secret | Valor |
+|---|---|
+| `SERVER_HOST` | `204.168.194.92` |
+| `SERVER_USER` | `root` |
+| `SERVER_SSH_KEY` | clave privada cuya pública esté en `/root/.ssh/authorized_keys` del Hetzner |
+
+Después: `git push` (o Actions → Build & Deploy → Run workflow). El job hace login en GHCR con
+el token del propio workflow, `docker compose pull && up -d` y espera `"healthy"` en `/api/health`.
+
+## 5. Webhook de Stripe
+
+dashboard.stripe.com/webhooks → Add endpoint:
+
+- URL: `https://libros.iconicospace.com/api/stripe/webhook`
+- Eventos: `checkout.session.completed`, `payment_intent.payment_failed`
+
+Copia el `whsec_...` al `.env` y aplica: `cd /opt/libros && docker compose up -d`.
+
+## 6. Verificar
 
 ```bash
-# Desde tu máquina local:
-scp -i /ruta/a/editorial-prod.pem docker-compose.server.yml ubuntu@18.171.181.210:~/editorial/
-scp -i /ruta/a/editorial-prod.pem Caddyfile ubuntu@18.171.181.210:~/editorial/
-scp -i /ruta/a/editorial-prod.pem -r libros-infantiles-ia/ ubuntu@18.171.181.210:~/editorial/libros-infantiles-ia/
+curl -s https://libros.iconicospace.com/api/health      # {"status":"healthy",...}
+curl -s -X POST https://libros.iconicospace.com/api/stripe/webhook -o /dev/null -w "%{http_code}"  # 400 (firma), no 404/502
 ```
 
----
-
-## 3. Configurar variables de entorno
-
-```bash
-cp libros-infantiles-ia/.env.production libros-infantiles-ia/.env
-nano libros-infantiles-ia/.env
-```
-
-**Rellena TODOS los `CHANGE_ME`:**
-
-```env
-# Genera un secret aleatorio:
-# openssl rand -base64 32
-NEXTAUTH_SECRET="pega_aqui_el_resultado"
-
-# Tu API key de OpenAI
-OPENAI_API_KEY="sk-..."
-
-# Google OAuth (redirect URI: https://libros.iconicospace.com/api/auth/callback/google)
-GOOGLE_CLIENT_ID="xxx.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="GOCSPX-..."
-
-# Resend
-RESEND_API_KEY="re_..."
-
-# Stripe LIVE keys (⚠️ NO uses test keys si quieres cobrar de verdad)
-STRIPE_SECRET_KEY="sk_live_..."
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."  # Se crea en el paso 5
-
-# Hetzner S3 (obligatorio en producción: el contenedor no persiste ficheros)
-S3_ACCESS_KEY_ID="..."
-S3_SECRET_ACCESS_KEY="..."
-
-# Cron de libros atascados (genera con: openssl rand -hex 32)
-CRON_SECRET="..."
-```
-
-Guarda: `Ctrl+O`, `Enter`, `Ctrl+X`.
-
----
-
-## 4. Levantar contenedores
-
-```bash
-# Construir e iniciar la base de datos + la app
-docker compose -f docker-compose.server.yml up -d --build libros-db libros-ia
-
-# Verificar que están corriendo
-docker ps | grep libros
-
-# Ver logs en tiempo real
-docker logs -f libros-ia
-```
-
-**Espera a ver:**
-
-```
-▲ Next.js XX.X.X
-- Local: http://localhost:3000
-✓ Ready in XXXms
-```
-
-Si ves errores de `CHANGE_ME`, revisa el `.env`.
-
----
-
-## 5. Registrar Stripe Webhook
-
-1. Ve a https://dashboard.stripe.com/webhooks
-2. Click **"+ Add endpoint"**
-3. **Endpoint URL:** `https://libros.iconicospace.com/api/stripe/webhook`
-4. **Eventos:** selecciona:
-   - `checkout.session.completed`
-   - `payment_intent.payment_failed`
-5. Click **"Add endpoint"**
-6. Copia el **Signing secret** (`whsec_...`)
-7. Actualiza el `.env`:
-
-```bash
-nano libros-infantiles-ia/.env
-# Pega el STRIPE_WEBHOOK_SECRET="whsec_..."
-```
-
-8. Reinicia la app:
-
-```bash
-docker compose -f docker-compose.server.yml up -d --build libros-ia
-```
-
----
-
-## 6. Recargar Caddy (proxy)
-
-```bash
-# El Caddyfile ahora apunta a libros-ia:3000 (contenedor Docker)
-docker restart editorial-proxy
-```
-
----
-
-## 7. Configurar Google OAuth (si no lo has hecho)
-
-1. Ve a https://console.cloud.google.com/apis/credentials
-2. Crea o edita una credencial OAuth 2.0
-3. **Authorized redirect URIs:** añade:
-   ```
-   https://libros.iconicospace.com/api/auth/callback/google
-   ```
-4. Guarda
-
----
-
-## 8. Configurar Resend (dominio)
-
-1. Ve a https://resend.com/domains
-2. Añade `libros.iconicospace.com` (o usa `iconicospace.com` si ya está verificado)
-3. Configura los registros DNS (SPF, DKIM, DMARC) si no los tienes
-
----
-
-## 9. Verificar que todo funciona
-
-### Health check:
-
-```bash
-curl -s https://libros.iconicospace.com/api/health | python3 -m json.tool
-```
-
-Debería responder `{"status": "ok", ...}`.
-
-### Verificar landing:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://libros.iconicospace.com
-# Debe dar 200
-```
-
-### Verificar páginas legales:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://libros.iconicospace.com/privacidad
-curl -s -o /dev/null -w "%{http_code}" https://libros.iconicospace.com/terminos
-curl -s -o /dev/null -w "%{http_code}" https://libros.iconicospace.com/legal
-```
-
-### Verificar SEO:
-
-```bash
-curl -s https://libros.iconicospace.com/robots.txt
-curl -s https://libros.iconicospace.com/sitemap.xml
-```
-
----
-
-## 10. Test de compra real
-
-1. Abre https://libros.iconicospace.com en el navegador
-2. Haz login con Google
-3. Ve a la sección de precios
-4. Compra el pack de **5 créditos (€4.99)** con tu tarjeta real
-5. Verifica:
-   - [ ] Stripe Checkout se abre correctamente
-   - [ ] Tras pagar, vuelves a la app
-   - [ ] Los créditos aparecen en tu perfil
-   - [ ] En Stripe Dashboard aparece el pago completado
-6. Genera un libro de prueba y descarga el PDF
-7. ¡Listo para vender! 🎉
-
----
+Compra real: login con Google → pack de 4,99 € con tu tarjeta → créditos en el perfil →
+generar un libro → descargar PDF → reembolsar desde Stripe si quieres.
 
 ## Troubleshooting
 
-### Error 502 Bad Gateway
-
 ```bash
-docker logs libros-ia --tail 50  # Ver qué falla
-docker compose -f docker-compose.server.yml up -d --build libros-ia  # Rebuild
-docker restart editorial-proxy  # Recargar proxy
+cd /opt/libros
+docker compose ps
+docker compose logs --tail 50 libros-ia    # errores de env o migraciones
+docker compose logs --tail 50 caddy        # certificado HTTPS (¿DNS apunta aquí?)
 ```
 
-### "Database not ready"
+Las migraciones Prisma corren solas en `docker-entrypoint.sh` al arrancar.
 
-```bash
-docker logs libros-db --tail 20
-docker compose -f docker-compose.server.yml up -d libros-db
-# Espera 10s, luego:
-docker compose -f docker-compose.server.yml up -d libros-ia
-```
-
-### Webhook no funciona
-
-```bash
-# Verifica que Stripe puede alcanzar tu endpoint:
-curl -X POST https://libros.iconicospace.com/api/stripe/webhook
-# Debería dar un error de firma (400), NO un 502/404
-```
-
-### Migraciones Prisma
-
-Se ejecutan automáticamente en `docker-entrypoint.sh` al arrancar el contenedor.
-Si la base de datos ya existía sin historial de migraciones (error `P3005`), el
-entrypoint hace el baseline solo: `prisma db push` (aborta si hubiera pérdida de
-datos) y después `migrate resolve --applied 0_init`.
-
-```bash
-# Ver estado:
-docker exec -it libros-ia node /opt/prisma-cli/node_modules/prisma/build/index.js migrate status
-# Forzar manualmente:
-docker exec -it libros-ia node /opt/prisma-cli/node_modules/prisma/build/index.js migrate deploy
-```
-
----
-
-## Checklist final
-
-- [ ] `docker ps` muestra `libros-db` y `libros-ia` corriendo
-- [ ] `curl https://libros.iconicospace.com` → 200
-- [ ] `curl https://libros.iconicospace.com/api/health` → `{"status": "ok"}`
-- [ ] Login con Google funciona
-- [ ] Compra de créditos completada con tarjeta real
-- [ ] Créditos asignados correctamente tras pago
-- [ ] Generación de libro funciona (texto + imágenes)
-- [ ] PDF descargable
-- [ ] Páginas legales accesibles (privacidad, términos, cookies, legal, desistimiento)
-- [ ] Stripe webhook recibiendo eventos (verificar en Stripe Dashboard > Webhooks > Recent events)
-- [ ] `robots.txt` y `sitemap.xml` accesibles
-
----
-
-## ¿Qué sigue después?
-
-1. **Configurar Google Search Console** → Enviar sitemap
-2. **Primer post en redes** → Screenshot de la landing + link
-3. **Brutal Landing Sprint** → Ofrecer landings a 3 conocidos como servicio
-4. **Monitorear** → Revisar Stripe Dashboard diariamente la primera semana
+Cuando el Hetzner funcione, apagar la app del AWS antiguo para no pagar dos servidores.

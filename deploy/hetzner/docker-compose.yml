@@ -1,0 +1,58 @@
+# Producción en Hetzner (libros-infantiles-PDF, 204.168.194.92).
+# Vive en /opt/libros del servidor junto a .env y Caddyfile (los copia bootstrap.sh).
+# La imagen la construye GitHub Actions y la publica en GHCR.
+
+services:
+  libros-db:
+    image: postgres:16-alpine
+    container_name: libros-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: libros_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requerido en .env}
+      POSTGRES_DB: libros_ia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U libros_user -d libros_ia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  libros-ia:
+    image: ghcr.io/pedrofr91/libros-infantiles-ia:latest
+    container_name: libros-ia
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://libros_user:${DB_PASSWORD}@libros-db:5432/libros_ia?schema=public"
+    # Persistencia local de PDFs e imágenes: S3 es opcional con estos volúmenes
+    volumes:
+      - pdfs:/app/storage/pdfs
+      - images:/app/public/images/books
+    depends_on:
+      libros-db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: libros-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - libros-ia
+
+volumes:
+  postgres_data:
+  pdfs:
+  images:
+  caddy_data:
+  caddy_config:
