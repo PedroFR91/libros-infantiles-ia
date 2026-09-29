@@ -77,8 +77,9 @@ export async function POST(request: NextRequest) {
     const baseUrl =
       process.env.AUTH_URL || process.env.BASE_URL || "http://localhost:3000";
 
+    // Sin payment_method_types: Stripe muestra los métodos activos en el
+    // Dashboard (tarjeta, Apple Pay, Google Pay, PayPal...) según el cliente.
     const checkoutSession = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {

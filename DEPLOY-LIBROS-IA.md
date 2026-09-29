@@ -63,7 +63,8 @@ el token del propio workflow, `docker compose pull && up -d` y espera `"healthy"
 dashboard.stripe.com/webhooks → Add endpoint:
 
 - URL: `https://libros.iconicospace.com/api/stripe/webhook`
-- Eventos: `checkout.session.completed`, `payment_intent.payment_failed`
+- Eventos: `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`
 
 Copia el `whsec_...` al `.env` y aplica: `cd /opt/libros && docker compose up -d`.
 

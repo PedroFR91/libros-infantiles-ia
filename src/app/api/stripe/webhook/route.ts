@@ -41,21 +41,37 @@ export async function POST(request: NextRequest) {
 
     // Procesar eventos
     switch (event.type) {
+      // Con métodos asíncronos (SEPA, etc.) la sesión se completa antes de
+      // cobrar: solo abonamos si ya está pagada, o al llegar async_payment_succeeded.
       case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.payment_status === "paid") {
+          await handleCheckoutCompleted(session);
+        } else {
+          log.info(
+            { sessionId: session.id, paymentStatus: session.payment_status },
+            "Checkout completado, pago pendiente",
+          );
+        }
+        break;
+      }
+
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutCompleted(session);
         break;
       }
 
-      case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        log.info({ paymentId: paymentIntent.id }, "Payment succeeded");
+      case "checkout.session.async_payment_failed":
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutFailed(session, event.type);
         break;
       }
 
-      case "payment_intent.payment_failed": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        await handlePaymentFailed(paymentIntent);
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        await handleChargeRefunded(charge);
         break;
       }
 
@@ -148,18 +164,35 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   );
 }
 
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  // Buscar payment por stripePaymentId
-  const payment = await prisma.payment.findFirst({
-    where: { stripePaymentId: paymentIntent.id },
+async function handleCheckoutFailed(
+  session: Stripe.Checkout.Session,
+  eventType: string,
+) {
+  // Solo los PENDING: un pago ya COMPLETED no se toca
+  const { count } = await prisma.payment.updateMany({
+    where: { stripeSessionId: session.id, status: "PENDING" },
+    data: { status: "FAILED" },
   });
 
-  if (payment) {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "FAILED" },
-    });
-  }
+  log.warn({ sessionId: session.id, eventType, updated: count }, "Pago no completado");
+}
 
-  log.warn({ paymentId: paymentIntent.id }, "Pago fallido");
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const paymentIntentId =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id;
+  if (!paymentIntentId) return;
+
+  // Los créditos no se retiran automáticamente (pueden estar ya gastados);
+  // se marca el pago para revisarlo desde el admin.
+  const { count } = await prisma.payment.updateMany({
+    where: { stripePaymentId: paymentIntentId, status: "COMPLETED" },
+    data: { status: "REFUNDED" },
+  });
+
+  log.warn(
+    { paymentIntentId, refunded: charge.amount_refunded, updated: count },
+    "Pago reembolsado",
+  );
 }
