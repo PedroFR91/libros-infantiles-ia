@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { createStory, composeScenePrompt } from "@/lib/story/engine";
+import { createStory, composeScenePrompt, parseGender } from "@/lib/story/engine";
+import {
+  checkIntellectualProperty,
+  ipErrorMessage,
+} from "@/lib/story/contentSafety";
 import { isFlaggedContent } from "@/lib/openai";
-import { startPreview, type PhotoInput } from "@/lib/generation";
+import {
+  startPhotoReference,
+  startPreview,
+  type PhotoInput,
+} from "@/lib/generation";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
 import { AGE_RANGES, type AgeRange } from "@/lib/validation";
@@ -13,10 +21,11 @@ import { toPublicBook } from "@/lib/bookView";
 const log = createLogger("generate-story");
 
 // Portadas de muestra gratis: tope por usuario y global para acotar el coste
-// (≈0,15 € cada una: hojas de referencia + portada)
+// (≈0,40-0,65 $ cada una: hojas de referencia + portada en calidad high con
+// control de calidad y como mucho 1 reintento; ver generation.ts)
 const FREE_PREVIEWS_PER_USER_DAY = 3;
 const FREE_PREVIEWS_PER_DAY = parseInt(
-  process.env.FREE_PREVIEW_DAILY_LIMIT || "200",
+  process.env.FREE_PREVIEW_DAILY_LIMIT || "60",
   10,
 );
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -70,6 +79,20 @@ export async function POST(
       });
     }
 
+    // Personajes y marcas con derechos (antes que la moderación: es local)
+    const ipMatch = checkIntellectualProperty({
+      theme: book.theme,
+      companion: book.companion,
+      dedication: book.dedication,
+    });
+    if (ipMatch) {
+      log.info({ bookId: id, field: ipMatch.field, label: ipMatch.label }, "Tema con propiedad intelectual rechazado");
+      return NextResponse.json(
+        { error: ipErrorMessage(ipMatch), field: ipMatch.field },
+        { status: 400 },
+      );
+    }
+
     const userText = [book.kidName, book.theme, book.companion, book.dedication]
       .filter(Boolean)
       .join("\n");
@@ -109,6 +132,7 @@ export async function POST(
         style: book.style,
         companion: book.companion,
         characterDescription: book.characterDescription,
+        gender: parseGender(book.gender),
       });
 
       await prisma.$transaction([
@@ -135,6 +159,10 @@ export async function POST(
       const previewPending = await canGeneratePreview(userId);
       if (previewPending) {
         startPreview(id, photo);
+      } else if (photo) {
+        // Sin muestra gratis, la hoja con foto se hace igualmente ahora: la
+        // foto no se guarda y al pagar ya no estaría (se perdería el parecido)
+        startPhotoReference(id, photo);
       }
 
       const draftBook = await prisma.book.findUnique({

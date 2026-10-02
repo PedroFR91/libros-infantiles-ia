@@ -34,7 +34,35 @@ export interface BookData {
   unlockedAt?: string | null;
   previewPending?: boolean;
   generating?: boolean;
+  gender?: string | null;
+  freeRedraws?: number;
+  printOrders?: {
+    id: string;
+    status: "AWAITING_APPROVAL" | "PAID" | "IN_PRODUCTION" | "SHIPPED" | "DELIVERED";
+    kind: string;
+    quantity: number;
+    trackingUrl: string | null;
+  }[];
 }
+
+/** Precios que devuelve GET /api/stripe/checkout (con el precio fundador aplicado) */
+export interface PriceInfo {
+  price: number;
+  regular: number;
+  formatted: string;
+  regularFormatted: string;
+}
+
+export interface CheckoutPrices {
+  founder: { active: boolean; remaining: number; percent: number };
+  digital: PriceInfo;
+  repeat: PriceInfo;
+  bundle: PriceInfo;
+  print: PriceInfo;
+  extraCopy: PriceInfo;
+}
+
+export type PurchaseProduct = "digital" | "repeat" | "bundle";
 
 export const AGE_OPTIONS = [
   { id: "3-4", label: "3-4 años", hint: "Frases cortas y repeticiones" },

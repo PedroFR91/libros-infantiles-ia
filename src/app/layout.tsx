@@ -1,19 +1,22 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Fraunces, Nunito } from "next/font/google";
 import { Providers } from "./providers";
 import { Suspense } from "react";
-import { CookieBanner } from "@/components/CookieBanner";
 import { Analytics } from "@/components/Analytics";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Cuerpo: Nunito (redondeada, muy legible). Títulos: Fraunces (clase font-display).
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  display: "swap",
+  axes: ["SOFT", "opsz"],
 });
 
 const siteUrl =
@@ -21,16 +24,16 @@ const siteUrl =
 
 export const metadata: Metadata = {
   title: {
-    default: "LibrosIA - Crea libros infantiles personalizados con IA",
+    default: "LibrosIA · Regala un cuento donde el héroe lleva su nombre",
     template: "%s | LibrosIA",
   },
   description:
-    "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial. 12 páginas ilustradas, descarga en PDF.",
+    "Un cuento ilustrado con su nombre y lo que más le gusta. Lee la historia y mira su portada gratis; si te enamora, lo ilustramos (portada + 12 páginas) y te llega impreso a casa o en PDF.",
   metadataBase: new URL(siteUrl),
   openGraph: {
-    title: "LibrosIA - Crea libros infantiles personalizados con IA",
+    title: "Regala un cuento donde el héroe lleva su nombre",
     description:
-      "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial. Crea la historia gratis.",
+      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y te llega impreso a casa o en PDF.",
     url: siteUrl,
     siteName: "LibrosIA by IconicoSpace",
     locale: "es_ES",
@@ -38,14 +41,18 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "LibrosIA - Libros infantiles personalizados con IA",
+    title: "Regala un cuento donde el héroe lleva su nombre",
     description:
-      "Crea cuentos únicos para tus hijos con ilustraciones generadas por IA. 12 páginas, PDF descargable.",
+      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y te llega impreso a casa o en PDF.",
   },
   robots: {
     index: true,
     follow: true,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#FFF8EE",
 };
 
 export default function RootLayout({
@@ -54,11 +61,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang='es'>
+    <html lang='es' className={`${nunito.variable} ${fraunces.variable}`}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        className='font-sans antialiased'>
         <Providers>{children}</Providers>
-        <CookieBanner />
         <Suspense fallback={null}>
           <Analytics />
         </Suspense>

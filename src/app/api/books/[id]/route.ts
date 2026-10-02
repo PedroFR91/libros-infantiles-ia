@@ -52,6 +52,13 @@ export async function GET(
         pages: {
           orderBy: { pageNumber: "asc" },
         },
+        // Pedido impreso más reciente (para aprobarlo o ver su estado)
+        printOrders: {
+          where: { status: { notIn: ["PENDING_PAYMENT", "CANCELED"] } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, status: true, kind: true, quantity: true, trackingUrl: true },
+        },
       },
     });
 

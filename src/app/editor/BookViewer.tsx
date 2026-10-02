@@ -194,12 +194,11 @@ export default function BookViewer({
               </div>
               <div>
                 <p className='font-semibold text-sm sm:text-base flex items-center gap-2'>
-                  <span>Historia lista</span>
+                  <span>Su historia ya está escrita</span>
                   <Sparkles className='w-3 h-3 sm:w-4 sm:h-4 text-amber-500' />
                 </p>
                 <p className='text-xs sm:text-sm text-text-muted'>
-                  Haz clic en las páginas para editar textos • Genera
-                  ilustraciones cuando estés listo
+                  Toca una página para leerla o cambiar su texto
                 </p>
               </div>
             </div>
@@ -329,10 +328,10 @@ export default function BookViewer({
             </button>
           ))}
         </div>
-        <div className='text-center text-[10px] sm:text-xs text-text-muted pb-1.5 sm:pb-2'>
+        <div className='text-center text-xs sm:text-sm text-text-muted pb-1.5 sm:pb-2'>
           {isDraft
-            ? "Haz clic en una página para editar el texto"
-            : "Doble clic en una miniatura para editar el texto"}
+            ? "Toca una página grande para cambiar su texto"
+            : "Toca una página grande para cambiar su texto o rehacer el dibujo"}
         </div>
       </div>
     </div>

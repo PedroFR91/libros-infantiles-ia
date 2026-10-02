@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Book, Wand2, ChevronRight, Gift } from "lucide-react";
-import { CREDIT_PACKS, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
+import { ArrowRight, Check, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
+import {
+  BUNDLE_PRODUCT,
+  CREDIT_PACKS,
+  GUARANTEE_TEXT,
+  PRINT_PRODUCT,
+  formatEuros,
+} from "@/lib/pricing";
 import {
   SEO_INDEX,
   editorUrlForTheme,
   getSeoPage,
 } from "@/lib/seo-pages";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { ThemeIcon } from "@/components/ThemeIcon";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_APP_URL || "https://libros.iconicospace.com";
@@ -60,6 +69,7 @@ export default async function SeoPage({
   const related = page.related
     .map((s) => SEO_INDEX.find((p) => p.slug === s))
     .filter((p): p is (typeof SEO_INDEX)[number] => Boolean(p));
+  const days = `${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max}`;
 
   const jsonLd = [
     {
@@ -92,8 +102,25 @@ export default async function SeoPage({
     },
   ];
 
+  const steps = [
+    <>
+      Escribe su nombre y lo que le gusta. La historia completa y su portada se
+      crean <strong className='text-text'>gratis, sin tarjeta</strong>, en unos
+      minutos.
+    </>,
+    <>
+      Si te gusta, lo ilustramos entero:{" "}
+      <strong className='text-text'>portada + 12 páginas ilustradas</strong>.
+      Puedes cambiar frases y rehacer dibujos.
+    </>,
+    <>
+      Te llega impreso a casa (21×21 cm, tapa blanda) en {days} días laborables
+      desde que lo apruebas, o lo descargas en PDF al momento.
+    </>,
+  ];
+
   return (
-    <div className='min-h-screen bg-bg'>
+    <div className='min-h-screen bg-bg text-text'>
       <script
         type='application/ld+json'
         dangerouslySetInnerHTML={{
@@ -101,27 +128,10 @@ export default async function SeoPage({
         }}
       />
 
-      <header className='border-b border-border'>
-        <div className='max-w-4xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-3'>
-          <Link href='/' className='flex items-center gap-2'>
-            <div className='w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center'>
-              <Book className='w-5 h-5 sm:w-6 sm:h-6 text-white' aria-hidden />
-            </div>
-            <span className='text-lg sm:text-xl font-bold'>
-              <span className='text-primary'>Libros</span>
-              <span className='text-secondary'>IA</span>
-            </span>
-          </Link>
-          <Link
-            href={ctaHref}
-            className='px-4 sm:px-6 py-2 sm:py-2.5 bg-primary hover:bg-primary-hover text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-colors'>
-            Crear gratis
-          </Link>
-        </div>
-      </header>
+      <SiteHeader ctaHref={ctaHref} ctaLabel='Empezar gratis' />
 
       <main className='max-w-3xl mx-auto px-4 py-8 sm:py-12'>
-        <nav aria-label='Ruta de navegación' className='mb-6 text-sm text-text-muted'>
+        <nav aria-label='Ruta de navegación' className='mb-6 text-[0.95rem] text-text-muted'>
           <ol className='flex flex-wrap items-center gap-1'>
             <li>
               <Link href='/' className='hover:text-text underline-offset-2 hover:underline'>
@@ -146,37 +156,44 @@ export default async function SeoPage({
         </nav>
 
         <article>
-          <h1 className='text-3xl sm:text-4xl font-bold leading-tight mb-4'>
-            <span aria-hidden className='mr-2'>
-              {page.emoji}
-            </span>
+          <p className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-soft text-primary-hover font-bold text-sm mb-4'>
+            <ThemeIcon slug={slug} className='w-4 h-4' />
+            {page.label}
+          </p>
+          <h1 className='font-display font-semibold text-[2.1rem] sm:text-5xl leading-[1.1] tracking-tight mb-5'>
             {page.h1}
           </h1>
-          <p className='text-base sm:text-lg text-text-muted mb-6'>{page.intro}</p>
+          <p className='text-lg sm:text-xl text-text-muted mb-7'>{page.intro}</p>
 
-          <div className='flex flex-col sm:flex-row gap-3 mb-10'>
+          <div className='flex flex-col sm:flex-row sm:items-center gap-3 mb-12'>
             <Link
               href={ctaHref}
-              className='px-6 py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2'>
-              <Wand2 className='w-5 h-5' aria-hidden />
+              className='min-h-13 px-6 py-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-lg text-center transition-colors'>
               {page.ctaLabel}
+              <ArrowRight className='w-5 h-5' aria-hidden />
             </Link>
+            <p className='text-text-muted text-[0.95rem]'>
+              Historia y portada gratis, sin tarjeta.
+            </p>
           </div>
 
           {page.sections.map((section) => (
-            <section key={section.heading} className='mb-8'>
-              <h2 className='text-xl sm:text-2xl font-bold mb-3'>
+            <section key={section.heading} className='mb-9'>
+              <h2 className='font-display font-semibold text-2xl sm:text-[1.7rem] mb-3'>
                 {section.heading}
               </h2>
               {section.paragraphs.map((p, i) => (
-                <p key={i} className='text-text-muted mb-3 leading-relaxed'>
+                <p key={i} className='text-lg text-text-muted mb-3 leading-relaxed'>
                   {p}
                 </p>
               ))}
               {section.bullets && (
-                <ul className='list-disc pl-6 space-y-1.5 text-text-muted'>
+                <ul className='space-y-2 text-lg text-text-muted'>
                   {section.bullets.map((b) => (
-                    <li key={b}>{b}</li>
+                    <li key={b} className='flex items-start gap-2.5'>
+                      <Check className='w-5 h-5 text-primary shrink-0 mt-1' aria-hidden />
+                      <span>{b}</span>
+                    </li>
                   ))}
                 </ul>
               )}
@@ -186,71 +203,91 @@ export default async function SeoPage({
           {/* Cómo funciona y precio (datos reales de pricing.ts) */}
           <section
             aria-labelledby='como-funciona-precio'
-            className='mb-10 p-5 sm:p-6 rounded-2xl bg-surface border border-border'>
-            <h2 id='como-funciona-precio' className='text-xl font-bold mb-3'>
+            className='mb-12 rounded-3xl bg-bg-light border border-border card-shadow p-6 sm:p-8'>
+            <h2
+              id='como-funciona-precio'
+              className='font-display font-semibold text-2xl sm:text-[1.7rem] mb-4'>
               Cómo funciona y cuánto cuesta
             </h2>
-            <ol className='list-decimal pl-6 space-y-2 text-text-muted mb-4'>
-              <li>
-                Escribe su nombre y el tema. La historia completa y una portada
-                de muestra se crean <strong className='text-text'>gratis</strong>{" "}
-                en unos minutos.
-              </li>
-              <li>
-                Si te gusta, desbloquea las ilustraciones (portada y 12 páginas)
-                desde {formatEuros(CREDIT_PACKS.small.price)}.
-              </li>
-              <li>
-                Descarga el PDF para pantalla y para imprimir o pide el libro
-                impreso en tapa dura 20×20 cm por{" "}
-                {formatEuros(PRINT_PRODUCT.price)}, envío incluido (
-                {PRINT_PRODUCT.deliveryDays.min}-{PRINT_PRODUCT.deliveryDays.max}{" "}
-                días).
-              </li>
+            <ol className='space-y-4 mb-6'>
+              {steps.map((text, i) => (
+                <li key={i} className='flex items-start gap-3 text-lg text-text-muted'>
+                  <span
+                    className='w-8 h-8 rounded-full bg-primary text-white font-bold flex items-center justify-center shrink-0'
+                    aria-hidden>
+                    {i + 1}
+                  </span>
+                  <span>{text}</span>
+                </li>
+              ))}
             </ol>
-            <p className='text-sm text-text-muted flex items-start gap-2'>
-              <Gift className='w-4 h-4 mt-0.5 text-primary shrink-0' aria-hidden />
+            <div className='grid sm:grid-cols-2 gap-3 mb-5'>
+              <div className='rounded-2xl border-2 border-primary bg-surface p-4'>
+                <p className='font-bold'>{BUNDLE_PRODUCT.name}</p>
+                <p className='font-display font-semibold text-3xl'>
+                  {formatEuros(BUNDLE_PRODUCT.price)}
+                </p>
+                <p className='text-text-muted text-[0.95rem]'>
+                  Envío a casa incluido · lo apruebas antes de imprimir
+                </p>
+              </div>
+              <div className='rounded-2xl border border-border bg-surface p-4'>
+                <p className='font-bold'>Solo PDF</p>
+                <p className='font-display font-semibold text-3xl'>
+                  {formatEuros(CREDIT_PACKS.digital.price)}
+                </p>
+                <p className='text-text-muted text-[0.95rem]'>
+                  Para leer en pantalla e imprimir en casa
+                </p>
+              </div>
+            </div>
+            <p className='flex items-start gap-2.5 text-text-muted'>
+              <ShieldCheck className='w-5 h-5 mt-0.5 text-success shrink-0' aria-hidden />
               <span>
-                Pago único con Stripe, sin suscripción. La foto del niño es
-                opcional y no se guarda.
+                {GUARANTEE_TEXT} Pago seguro con Stripe. La foto es opcional y
+                no se guarda.{" "}
+                <Link href='/#precios' className='text-primary underline underline-offset-2'>
+                  Ver todos los precios
+                </Link>
               </span>
             </p>
           </section>
 
-          <section aria-labelledby='faq' className='mb-10'>
-            <h2 id='faq' className='text-xl sm:text-2xl font-bold mb-4'>
+          <section aria-labelledby='faq' className='mb-12'>
+            <h2 id='faq' className='font-display font-semibold text-2xl sm:text-[1.7rem] mb-4'>
               Preguntas frecuentes
             </h2>
             <div className='space-y-3'>
               {page.faq.map((f) => (
-                <details
-                  key={f.q}
-                  className='group rounded-xl bg-surface border border-border p-4'>
-                  <summary className='cursor-pointer font-semibold list-none flex items-center justify-between gap-3 focus-visible:outline-2 focus-visible:outline-primary rounded'>
+                <details key={f.q} className='group rounded-2xl bg-surface border border-border'>
+                  <summary className='cursor-pointer list-none flex items-center justify-between gap-3 p-4 font-bold text-lg rounded-2xl [&::-webkit-details-marker]:hidden'>
                     {f.q}
-                    <ChevronRight
-                      className='w-5 h-5 shrink-0 transition-transform group-open:rotate-90'
+                    <ChevronDown
+                      className='w-5 h-5 shrink-0 text-primary transition-transform group-open:rotate-180'
                       aria-hidden
                     />
                   </summary>
-                  <p className='mt-3 text-text-muted'>{f.a}</p>
+                  <p className='px-4 pb-4 -mt-1 text-text-muted'>{f.a}</p>
                 </details>
               ))}
             </div>
           </section>
 
-          <div className='text-center mb-12'>
+          <div className='text-center mb-14 rounded-3xl bg-primary-soft border border-[#F5CDAE] px-5 py-8'>
+            <p className='font-display font-semibold text-2xl mb-4'>
+              ¿Le escribimos su cuento?
+            </p>
             <Link
               href={ctaHref}
-              className='inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-primary hover:bg-primary-hover text-white font-bold text-base sm:text-lg rounded-xl transition-colors'>
-              <Wand2 className='w-5 h-5' aria-hidden />
+              className='min-h-13 px-6 py-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-lg text-center transition-colors'>
               {page.ctaLabel}
+              <ArrowRight className='w-5 h-5' aria-hidden />
             </Link>
           </div>
         </article>
 
         <nav aria-labelledby='relacionados'>
-          <h2 id='relacionados' className='text-lg font-bold mb-3'>
+          <h2 id='relacionados' className='font-display font-semibold text-xl mb-3'>
             También te puede interesar
           </h2>
           <ul className='grid sm:grid-cols-3 gap-3'>
@@ -258,45 +295,22 @@ export default async function SeoPage({
               <li key={r.slug}>
                 <Link
                   href={`/cuentos/${r.slug}`}
-                  className='flex items-center gap-2 p-4 rounded-xl bg-surface border border-border hover:border-primary transition-colors'>
-                  <span aria-hidden className='text-2xl'>
-                    {r.emoji}
-                  </span>
-                  <span className='font-medium'>{r.label}</span>
+                  className='flex items-center gap-3 p-4 h-full rounded-2xl bg-surface border border-border hover:border-primary transition-colors'>
+                  <ThemeIcon slug={r.slug} className='w-5 h-5 text-primary shrink-0' />
+                  <span className='font-semibold'>{r.label}</span>
                 </Link>
               </li>
             ))}
           </ul>
-          <p className='mt-4 text-sm'>
-            <Link href='/cuentos' className='text-primary hover:underline'>
+          <p className='mt-4'>
+            <Link href='/cuentos' className='text-primary font-semibold underline underline-offset-2'>
               Ver todos los temas y ocasiones
             </Link>
           </p>
         </nav>
       </main>
 
-      <footer className='py-8 px-4 border-t border-border'>
-        <div className='max-w-4xl mx-auto flex flex-wrap justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-text-muted'>
-          <Link href='/' className='hover:text-text transition-colors'>
-            Inicio
-          </Link>
-          <Link href='/privacidad' className='hover:text-text transition-colors'>
-            Privacidad
-          </Link>
-          <Link href='/terminos' className='hover:text-text transition-colors'>
-            Términos de Servicio
-          </Link>
-          <Link href='/cookies' className='hover:text-text transition-colors'>
-            Cookies
-          </Link>
-          <Link href='/legal' className='hover:text-text transition-colors'>
-            Aviso Legal
-          </Link>
-          <Link href='/desistimiento' className='hover:text-text transition-colors'>
-            Desistimiento
-          </Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -40,6 +40,7 @@ export async function GET() {
         return NextResponse.json({
           user,
           credits: user.credits,
+          hasPurchased: await hasPurchased(user.id),
           history: history.map(
             (h: {
               id: string;
@@ -95,6 +96,7 @@ export async function GET() {
     return NextResponse.json({
       user,
       credits: user.credits,
+      hasPurchased: await hasPurchased(user.id),
       history: history.map(
         (h: {
           id: string;
@@ -118,4 +120,9 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+// Quien ya compró un cuento ve el precio de "otro cuento" en el siguiente
+async function hasPurchased(userId: string): Promise<boolean> {
+  return (await prisma.payment.count({ where: { userId, status: "COMPLETED" } })) > 0;
 }

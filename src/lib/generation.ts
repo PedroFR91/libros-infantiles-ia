@@ -1,17 +1,13 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { generateIllustration } from "@/lib/openai";
+import { parseBible, parseScene, type StoryBible } from "@/lib/story/engine";
 import {
-  generateIllustration,
-  generateReferenceSheet,
-} from "@/lib/openai";
-import {
-  composeCoverPrompt,
-  composeReferencePrompt,
-  composeScenePrompt,
-  parseBible,
-  parseScene,
-  type StoryBible,
-} from "@/lib/story/engine";
+  ensureReferenceSheets,
+  renderScene,
+  withRetry,
+} from "@/lib/story/illustrate";
+import { QA_MAX_RETRIES } from "@/lib/story/qualityCheck";
 import { storeImageBuffer } from "@/lib/imageStorage";
 import { loadStoredImage, watermarkPreview } from "@/lib/imageTools";
 import { refundCredits } from "@/lib/credits";
@@ -28,10 +24,31 @@ const log = createLogger("generation");
 // petición). Cada página se guarda al terminar, así el editor las muestra
 // según salen consultando GET /api/books/[id]. Si el contenedor se reinicia a
 // mitad, el cron fix-stuck-books pasa el libro a ERROR y devuelve los créditos.
+//
+// Calidad (REVISION-PRODUCTO-2026-10 §5):
+// - Referencias en orden fijo (protagonista primero) y nombradas en el prompt.
+// - Secundarios generados por edición desde la hoja del protagonista.
+// - Portada en calidad "high" y usada como ancla de estilo (última referencia)
+//   en todas las páginas.
+// - Control de calidad por visión de cada página; si no pasa, se rehace solo
+//   esa página (máx. QA_MAX_RETRIES) y si persiste se deja la mejor + log.warn.
+//
+// Coste estimado por libro con gpt-image-1 (1024², 2 personajes de media):
+//   texto (gpt-4.1: biblia + páginas + revisión + pulido) ......... ≈ 0,12 $
+//   hojas de referencia (2 × medium + entradas) ................... ≈ 0,15 $
+//   portada high (0,167 $ + 2 referencias) ........................ ≈ 0,23 $
+//   12 páginas medium (0,042 $ + ~3 entradas × ~0,03 $) ........... ≈ 1,50 $
+//   QA por visión (13 × gpt-4.1-mini) ............................. ≈ 0,04 $
+//   reintentos por QA (≈20 % de páginas) .......................... ≈ 0,30 $
+//   TOTAL ≈ 2,3-2,5 $ por libro (antes ≈ 1,6-1,8 $). La portada de muestra
+//   gratis (referencias + portada high, máx. 1 reintento) ≈ 0,40-0,65 $.
+//   Con gpt-image-2 (sin input_fidelity) debería quedar ≈ 1,6-2 $: medir con
+//   scripts/eval-engine.ts --full antes de cambiar IMAGE_MODEL.
 
 const PARALLEL_PAGES = 3;
 const running = new Set<string>(); // ilustraciones de pago en curso
 const previews = new Map<string, Promise<void>>(); // portadas de muestra en curso
+const photoRefs = new Map<string, Promise<void>>(); // hojas con foto sin muestra
 
 export type PhotoInput = { buffer: Buffer; mimeType: string };
 
@@ -52,6 +69,20 @@ export function startPreview(bookId: string, photo?: PhotoInput | null) {
     )
     .finally(() => previews.delete(bookId));
   previews.set(bookId, task);
+}
+
+/**
+ * Si no hay portada de muestra (tope diario), al menos se hace ya la hoja del
+ * protagonista con la foto: la foto no se guarda y al pagar ya no estaría.
+ */
+export function startPhotoReference(bookId: string, photo: PhotoInput) {
+  if (previews.has(bookId) || photoRefs.has(bookId)) return;
+  const task = runPhotoReference(bookId, photo)
+    .catch((error) =>
+      log.error({ err: error, bookId }, "Error en la hoja de referencia con foto"),
+    )
+    .finally(() => photoRefs.delete(bookId));
+  photoRefs.set(bookId, task);
 }
 
 /**
@@ -93,8 +124,15 @@ async function runPreview(bookId: string, photo?: PhotoInput | null) {
   const bible = parseBible(book?.bible);
   if (!book || !bible || book.coverPreviewUrl) return;
 
-  const refs = await ensureReferences(bookId, book.style, bible, photo);
-  const cover = await generateCover(bookId, book.style, bible, refs);
+  const refs = await ensureReferences(bookId, book, bible, photo);
+  // Muestra gratis: como mucho 1 reintento por QA para acotar el coste
+  const cover = await generateCover(
+    bookId,
+    book.style,
+    bible,
+    refs,
+    Math.min(1, QA_MAX_RETRIES),
+  );
 
   const preview = await watermarkPreview(cover);
   const previewUrl = await storeImageBuffer(preview, bookId, "cover-preview", "jpg");
@@ -121,10 +159,20 @@ async function runPreview(bookId: string, photo?: PhotoInput | null) {
   log.info({ bookId }, "Portada de muestra lista");
 }
 
+async function runPhotoReference(bookId: string, photo: PhotoInput) {
+  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  const bible = parseBible(book?.bible);
+  const protagonist = bible?.characters.find((c) => c.role === "protagonist");
+  if (!book || !bible || !protagonist || protagonist.refUrl) return;
+  await ensureReferences(bookId, book, bible, photo, [protagonist.id]);
+  log.info({ bookId }, "Hoja del protagonista con foto lista");
+}
+
 async function runIllustrations(bookId: string, userId: string) {
-  // Si paga mientras se genera la muestra, esperar y reutilizar sus
-  // referencias y su portada en lugar de generarlas dos veces
+  // Si paga mientras se genera la muestra (o la hoja con foto), esperar y
+  // reutilizar sus referencias y su portada en lugar de generarlas dos veces
   await previews.get(bookId);
+  await photoRefs.get(bookId);
 
   const book = await prisma.book.findUnique({
     where: { id: bookId },
@@ -133,17 +181,28 @@ async function runIllustrations(bookId: string, userId: string) {
   if (!book) return;
 
   const bible = parseBible(book.bible);
+  // Sin foto: si la hoja hecha con foto se perdió, ensureReferenceSheets
+  // avisa y la rehace con los rasgos en texto (Book.characterDescription)
   const refs = bible
-    ? await ensureReferences(bookId, book.style, bible, null)
+    ? await ensureReferences(bookId, book, bible, null)
     : await legacyReference(book.characterImageUrl);
   await heartbeat(bookId);
 
-  // Portada: la limpia de la muestra si existe; si no, se genera ahora
+  // Portada: la limpia de la muestra si existe; si no, se genera ahora.
+  // En v2 es además el ancla de estilo de todas las páginas.
+  let styleAnchor: Buffer | null = null;
   const coverPage = book.pages.find((p) => p.pageNumber === 1);
   if (coverPage) {
     let coverUrl = book.coverImageUrl;
+    if (coverUrl && bible) {
+      styleAnchor = await loadStoredImage(coverUrl).catch((error) => {
+        log.warn({ err: error, bookId }, "Portada no disponible como ancla de estilo");
+        return null;
+      });
+    }
     if (!coverUrl && bible) {
-      const cover = await generateCover(bookId, book.style, bible, refs);
+      const cover = await generateCover(bookId, book.style, bible, refs, QA_MAX_RETRIES);
+      styleAnchor = cover;
       coverUrl = await storeImageBuffer(cover, bookId, "cover");
       await prisma.book.update({
         where: { id: bookId },
@@ -170,19 +229,29 @@ async function runIllustrations(bookId: string, userId: string) {
   await runPool(pending, PARALLEL_PAGES, async (page) => {
     try {
       const scene = parseScene(page.scene);
-      const prompt =
-        bible && scene
-          ? composeScenePrompt(bible, scene, book.style)
-          : page.imagePrompt || "";
-      const pageRefs = bible && scene
-        ? scene.characters
-            .map((id) => refs.get(id))
-            .filter((b): b is Buffer => !!b)
-        : [...refs.values()];
-
-      const image = await withRetry(() =>
-        generateIllustration(prompt, pageRefs, "medium"),
-      );
+      let image: Buffer;
+      let prompt: string;
+      if (bible && scene) {
+        const rendered = await renderScene({
+          bible,
+          style: book.style,
+          scene,
+          refs,
+          styleAnchor,
+          quality: "medium",
+          beforeRetry: () => heartbeat(bookId),
+          context: { bookId, page: page.pageNumber },
+        });
+        image = rendered.image;
+        prompt = rendered.prompt;
+      } else {
+        // Libros del motor v1: prompt guardado y la referencia del protagonista
+        prompt = page.imagePrompt || "";
+        const pageRefs = [...refs.values()];
+        image = await withRetry(() =>
+          generateIllustration(prompt, pageRefs, "medium"),
+        );
+      }
       const url = await storeImageBuffer(image, bookId, `page-${page.pageNumber}`);
       await prisma.bookPage.update({
         where: { id: page.id },
@@ -245,29 +314,22 @@ async function heartbeat(bookId: string) {
 /** Genera las hojas de referencia que falten y devuelve id → imagen */
 async function ensureReferences(
   bookId: string,
-  style: string,
+  book: { style: string; characterDescription: string | null },
   bible: StoryBible,
   photo?: PhotoInput | null,
+  onlyIds?: string[],
 ): Promise<Map<string, Buffer>> {
-  const refs = new Map<string, Buffer>();
-
-  await Promise.all(
-    bible.characters.map(async (character) => {
-      if (character.refUrl) {
-        try {
-          refs.set(character.id, await loadStoredImage(character.refUrl));
-          return;
-        } catch (error) {
-          log.warn({ err: error, bookId, character: character.id }, "Referencia perdida, se regenera");
-        }
-      }
-      const usePhoto = character.role === "protagonist" && photo ? photo : null;
-      const prompt = composeReferencePrompt(character, style, !!usePhoto);
-      const image = await withRetry(() => generateReferenceSheet(prompt, usePhoto));
-      character.refUrl = await storeImageBuffer(image, bookId, `ref-${character.id}`);
-      refs.set(character.id, image);
-    }),
-  );
+  const refs = await ensureReferenceSheets({
+    bible,
+    style: book.style,
+    photo,
+    traits: book.characterDescription,
+    onlyIds,
+    load: loadStoredImage,
+    store: (character, image) =>
+      storeImageBuffer(image, bookId, `ref-${character.id}`),
+    context: { bookId },
+  });
 
   const protagonist = bible.characters.find((c) => c.role === "protagonist");
   await prisma.book.update({
@@ -280,19 +342,25 @@ async function ensureReferences(
   return refs;
 }
 
+/** Portada en calidad alta: es la cara del libro y el ancla de estilo */
 async function generateCover(
   bookId: string,
   style: string,
   bible: StoryBible,
   refs: Map<string, Buffer>,
+  maxRetries: number,
 ): Promise<Buffer> {
-  const coverRefs = bible.cover.characters
-    .map((id) => refs.get(id))
-    .filter((b): b is Buffer => !!b);
   log.info({ bookId }, "Generando portada");
-  return withRetry(() =>
-    generateIllustration(composeCoverPrompt(bible, style), coverRefs, "medium"),
-  );
+  const rendered = await renderScene({
+    bible,
+    style,
+    cover: true,
+    refs,
+    quality: "high",
+    maxRetries,
+    context: { bookId, page: 1 },
+  });
+  return rendered.image;
 }
 
 // Libros del motor v1: una sola referencia del protagonista
@@ -362,19 +430,4 @@ async function runPool<T>(
     }
   });
   await Promise.all(lanes);
-}
-
-async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (attempt < attempts) {
-        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
-      }
-    }
-  }
-  throw lastError;
 }

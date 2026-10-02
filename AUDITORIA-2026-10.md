@@ -118,6 +118,8 @@ Hasta el primer libro: unos 10-12 clics, 2 esperas y un paso roto tras el pago.
 
 ## 5. Impresión física y envío
 
+> **Decisión del 02/10/2026:** solo España y **Bubok** (imprenta española) en **tapa blanda 21×21 cm**, a **29,90 € con envío incluido** (coste ≈10,65 € con envío a la península → margen ≈18 €). Pedido manual desde su web subiendo el PDF de imprenta. Pendiente de confirmar con Bubok: impresión de ejemplares únicos sin publicarlos, embalaje neutro, IVA incluido o no y tarifas a Baleares y Canarias. **Podiprint** (Antequera) queda como opción de tapa dura y de automatización. Lo que sigue de esta sección es el análisis previo con proveedores internacionales.
+
 ### Proveedor recomendado
 | | **Gelato (principal)** | **Prodigi (alternativa)** |
 |---|---|---|

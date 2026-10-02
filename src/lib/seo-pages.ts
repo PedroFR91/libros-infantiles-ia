@@ -1,29 +1,37 @@
 // Páginas SEO de /cuentos/[slug]: datos puros (sin dependencias de servidor).
 //
-// - SEO_INDEX es ligero (slug, etiqueta, emoji) y es lo que usan la landing,
+// - SEO_INDEX es ligero (slug, tipo, etiqueta) y es lo que usan la landing,
 //   el índice /cuentos y el sitemap.
 // - SEO_CONTENT tiene el texto largo de cada página; solo lo importan las
 //   páginas de servidor.
 //
 // Reglas de contenido: nada de testimonios, cifras de clientes ni promesas que
 // no estén en el flujo real. Los precios NO van en estos textos: la plantilla
-// los lee de src/lib/pricing.ts.
+// los lee de src/lib/pricing.ts. Sin emojis: los iconos salen de
+// src/components/ThemeIcon.tsx. Formato único: "portada + 12 páginas ilustradas".
+
+// ─── Editable por temporada ──────────────────────────────────────────────
+// Fecha límite para pedir el libro IMPRESO y recibirlo en Navidad
+// (aprobación + 7-10 días laborables + margen de mensajería en diciembre).
+// La usan la landing y las páginas SEO. Ponla a null para ocultar el aviso.
+export const CHRISTMAS_DEADLINE: string | null = "5 de diciembre";
+// ─────────────────────────────────────────────────────────────────────────
 
 export const SEO_INDEX = [
-  { slug: "dinosaurios", kind: "tema", label: "Cuentos de dinosaurios", emoji: "🦕" },
-  { slug: "espacio", kind: "tema", label: "Cuentos del espacio", emoji: "🚀" },
-  { slug: "princesas", kind: "tema", label: "Cuentos de princesas", emoji: "👑" },
-  { slug: "piratas", kind: "tema", label: "Cuentos de piratas", emoji: "🏴‍☠️" },
-  { slug: "superheroes", kind: "tema", label: "Cuentos de superhéroes", emoji: "🦸" },
-  { slug: "animales", kind: "tema", label: "Cuentos de animales", emoji: "🦁" },
-  { slug: "futbol", kind: "tema", label: "Cuentos de fútbol", emoji: "⚽" },
-  { slug: "sirenas", kind: "tema", label: "Cuentos de sirenas y del océano", emoji: "🧜" },
-  { slug: "magia", kind: "tema", label: "Cuentos de magia", emoji: "✨" },
-  { slug: "regalo-cumpleanos", kind: "ocasion", label: "Regalo de cumpleaños", emoji: "🎂" },
-  { slug: "regalo-navidad", kind: "ocasion", label: "Regalo de Navidad", emoji: "🎄" },
-  { slug: "reyes-magos", kind: "ocasion", label: "Regalo de Reyes Magos", emoji: "👑" },
-  { slug: "hermano-mayor", kind: "ocasion", label: "Hermano mayor: llega un bebé", emoji: "👶" },
-  { slug: "primer-dia-de-cole", kind: "ocasion", label: "Primer día de cole", emoji: "🎒" },
+  { slug: "dinosaurios", kind: "tema", label: "Cuentos de dinosaurios" },
+  { slug: "espacio", kind: "tema", label: "Cuentos del espacio" },
+  { slug: "princesas", kind: "tema", label: "Cuentos de princesas" },
+  { slug: "piratas", kind: "tema", label: "Cuentos de piratas" },
+  { slug: "superheroes", kind: "tema", label: "Cuentos de superhéroes" },
+  { slug: "animales", kind: "tema", label: "Cuentos de animales" },
+  { slug: "futbol", kind: "tema", label: "Cuentos de fútbol" },
+  { slug: "sirenas", kind: "tema", label: "Cuentos de sirenas y del océano" },
+  { slug: "magia", kind: "tema", label: "Cuentos de magia" },
+  { slug: "regalo-cumpleanos", kind: "ocasion", label: "Regalo de cumpleaños" },
+  { slug: "regalo-navidad", kind: "ocasion", label: "Regalo de Navidad" },
+  { slug: "reyes-magos", kind: "ocasion", label: "Regalo de Reyes Magos" },
+  { slug: "hermano-mayor", kind: "ocasion", label: "Hermano mayor: llega un bebé" },
+  { slug: "primer-dia-de-cole", kind: "ocasion", label: "Primer día de cole" },
 ] as const;
 
 export type SeoSlug = (typeof SEO_INDEX)[number]["slug"];
@@ -59,7 +67,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   dinosaurios: {
     metaTitle: "Cuento personalizado de dinosaurios para niños",
     metaDescription:
-      "Crea un cuento de dinosaurios donde tu hijo es el protagonista: 12 páginas ilustradas con IA, en PDF o impreso en tapa dura. La historia y la portada de muestra son gratis.",
+      "Crea un cuento de dinosaurios donde tu hijo es el protagonista: portada + 12 páginas ilustradas, en PDF o impreso en casa. La historia y la portada de muestra son gratis.",
     h1: "Cuento personalizado de dinosaurios: tu hijo, explorador del Jurásico",
     intro:
       "Hay una etapa en la que los dinosaurios lo son todo: se saben nombres imposibles, distinguen un herbívoro de un carnívoro a simple vista y duermen abrazados a un triceratops de peluche. Un cuento en el que el propio niño viaja entre dinosaurios convierte esa pasión en una historia que puede leer (o escuchar) una y otra vez, con su nombre en cada página.",
@@ -109,16 +117,16 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   espacio: {
     metaTitle: "Cuento personalizado del espacio y astronautas",
     metaDescription:
-      "Un cuento ilustrado donde tu hijo viaja al espacio como astronauta. Historia y portada de muestra gratis; 12 páginas ilustradas en PDF o libro impreso en tapa dura.",
+      "Un cuento ilustrado donde tu hijo viaja al espacio como astronauta. Historia y portada de muestra gratis; portada + 12 páginas ilustradas en PDF o libro impreso.",
     h1: "Cuento personalizado del espacio: tu hijo, astronauta por un día",
     intro:
-      "Pocas cosas despiertan tanto la imaginación como mirar la Luna y preguntarse qué hay más allá. En este cuento el protagonista se pone el casco, sube a un cohete y vive su propia misión espacial, con su nombre en cada página y unas ilustraciones en las que se reconoce.",
+      "Pocas cosas despiertan tanto la imaginación como mirar la Luna y preguntarse qué hay más allá. En este cuento el protagonista se pone el casco, sube a un cohete y vive su propia misión espacial, con su nombre en cada página y un personaje dibujado inspirado en él.",
     sections: [
       {
         heading: "Qué tipo de historia se crea",
         paragraphs: [
-          "Una aventura de 12 páginas con un objetivo claro: rescatar a un robot perdido, encontrar una estrella que se ha apagado o visitar un planeta donde viven criaturas amables. La IA mantiene al mismo personaje con el mismo aspecto en todas las ilustraciones, así que el niño es reconocible de principio a fin.",
-          "Si subes una foto, solo se usa para describir rasgos como el color del pelo o de los ojos; la foto no se guarda.",
+          "Una aventura de 12 páginas con un objetivo claro: rescatar a un robot perdido, encontrar una estrella que se ha apagado o visitar un planeta donde viven criaturas amables. El personaje mantiene el mismo aspecto en todas las ilustraciones, de principio a fin.",
+          "Si subes una foto, solo sirve para inspirar al personaje (pelo, ojos, piel): es un dibujo, no una foto, y la foto no se guarda.",
         ],
       },
       {
@@ -148,7 +156,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Puedo cambiar el texto si no me convence?",
-        a: "Sí. Puedes editar el texto de cada página antes de desbloquear las ilustraciones y también después.",
+        a: "Sí. Puedes editar el texto de cada página antes de ilustrarlo y también después.",
       },
     ],
     ctaTheme: "un viaje al espacio como astronauta",
@@ -159,7 +167,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   princesas: {
     metaTitle: "Cuento personalizado de princesas (y príncipes)",
     metaDescription:
-      "Crea un cuento de princesas donde tu hija o tu hijo es quien protagoniza la aventura. 12 páginas ilustradas con IA, PDF o tapa dura. Historia y portada de muestra gratis.",
+      "Crea un cuento de princesas donde tu hija o tu hijo es quien protagoniza la aventura. Portada + 12 páginas ilustradas, en PDF o impreso. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de princesas: una princesa que vive su propia aventura",
     intro:
       "Los cuentos de princesas no tienen por qué ir de esperar a nadie. En un cuento personalizado la princesa (o el príncipe) es tu hija o tu hijo, y es quien toma las decisiones: cruza el bosque, habla con el dragón y encuentra la solución. Tú decides el tono de la historia.",
@@ -167,7 +175,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Qué tipo de historia se crea",
         paragraphs: [
-          "Una historia de 12 páginas ambientada en un reino, un castillo o un bosque encantado. La protagonista tiene un objetivo propio: recuperar la corona que ha robado una urraca, hacerse amiga del dragón al que todos temen o organizar el baile más divertido del reino. Las ilustraciones mantienen su aspecto en todas las páginas.",
+          "Una historia de 12 páginas ambientada en un reino, un castillo o un bosque encantado. La protagonista tiene un objetivo propio: recuperar la corona que ha robado una urraca, hacerse amiga del dragón al que todos temen o organizar el baile más divertido del reino. El personaje mantiene el mismo aspecto en todas las ilustraciones.",
         ],
       },
       {
@@ -208,7 +216,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   piratas: {
     metaTitle: "Cuento personalizado de piratas para niños",
     metaDescription:
-      "Un cuento de piratas con tu hijo como capitán: mapas, islas y tesoros en 12 páginas ilustradas con IA. Historia y portada de muestra gratis; PDF o tapa dura.",
+      "Un cuento de piratas con tu hijo como capitán: mapas, islas y tesoros en portada + 12 páginas ilustradas. Historia y portada de muestra gratis; PDF o libro impreso.",
     h1: "Cuento personalizado de piratas: tu hijo, capitán de su propio barco",
     intro:
       "Un mapa con una X, un loro que habla demasiado y una isla que no aparece en ningún atlas. Los cuentos de piratas tienen todo lo que hace falta para una buena aventura, y en este el capitán es tu hijo.",
@@ -246,7 +254,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Puedo pedirlo impreso?",
-        a: "Sí. Tras desbloquear las ilustraciones puedes descargar el PDF y, si quieres, pedir el libro impreso en tapa dura de 20×20 cm con envío a casa.",
+        a: "Sí. Puedes pedirlo directamente impreso + PDF, con envío a casa incluido, o empezar por el PDF y pasarlo a papel más tarde. El libro impreso mide 21×21 cm y no se imprime hasta que lo apruebas.",
       },
     ],
     ctaTheme: "una aventura pirata en busca de un tesoro",
@@ -257,10 +265,10 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   superheroes: {
     metaTitle: "Cuento personalizado de superhéroes para niños",
     metaDescription:
-      "Tu hijo como superhéroe con su propio poder: un cuento personalizado de 12 páginas ilustradas con IA. Historia y portada de muestra gratis; PDF o impreso.",
+      "Tu hijo como superhéroe con su propio poder: un cuento personalizado con portada + 12 páginas ilustradas. Historia y portada de muestra gratis; PDF o impreso.",
     h1: "Cuento personalizado de superhéroes: tu hijo y su superpoder",
     intro:
-      "Todos los niños tienen algo que los hace especiales. En este cuento ese algo se convierte en un superpoder: el protagonista descubre lo que puede hacer, se pone la capa y ayuda a su barrio, su cole o su familia. Con su nombre y su aspecto en cada ilustración.",
+      "Todos los niños tienen algo que los hace especiales. En este cuento ese algo se convierte en un superpoder: el protagonista descubre lo que puede hacer, se pone la capa y ayuda a su barrio, su cole o su familia. Con su nombre en cada página y un personaje inspirado en él.",
     sections: [
       {
         heading: "Qué tipo de historia se crea",
@@ -306,7 +314,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   animales: {
     metaTitle: "Cuento personalizado de animales para niños",
     metaDescription:
-      "Un cuento de animales donde tu hijo es el protagonista: selva, granja o bosque en 12 páginas ilustradas con IA. Historia y portada de muestra gratis.",
+      "Un cuento de animales donde tu hijo es el protagonista: selva, granja o bosque en portada + 12 páginas ilustradas. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de animales: una aventura en la selva, la granja o el bosque",
     intro:
       "Los animales son el primer gran interés de casi todos los niños. Un cuento en el que tu hijo habla con un león, cuida de un cervatillo o ayuda a los animales de la granja es una forma bonita de unir esa curiosidad con la lectura, y la mascota de casa puede colarse en la historia.",
@@ -356,7 +364,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   futbol: {
     metaTitle: "Cuento personalizado de fútbol para niños",
     metaDescription:
-      "Un cuento de fútbol con tu hijo o hija como protagonista del partido más importante. 12 páginas ilustradas con IA, PDF o tapa dura. Historia y portada de muestra gratis.",
+      "Un cuento de fútbol con tu hijo o hija como protagonista del partido más importante. Portada + 12 páginas ilustradas, en PDF o impreso. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de fútbol: el partido más importante de su vida",
     intro:
       "Si en casa se habla de fútbol a todas horas, si el balón duerme junto a la cama o si los entrenamientos del sábado son sagrados, este cuento es para tu hijo o tu hija. Es la estrella del equipo, con su nombre en la camiseta y en cada página.",
@@ -394,7 +402,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Puede ser una niña futbolista?",
-        a: "Por supuesto. La protagonista es quien tú indiques, con su nombre y, si subes una foto, con sus rasgos (la foto no se guarda).",
+        a: "Por supuesto. La protagonista es quien tú indiques, con su nombre y, si subes una foto, con un personaje dibujado inspirado en sus rasgos (la foto no se guarda).",
       },
     ],
     ctaTheme: "un partido de fútbol muy especial",
@@ -405,7 +413,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   sirenas: {
     metaTitle: "Cuento personalizado de sirenas y del fondo del mar",
     metaDescription:
-      "Un cuento submarino con sirenas, delfines y tesoros donde tu hijo o hija es protagonista. 12 páginas ilustradas con IA; historia y portada de muestra gratis.",
+      "Un cuento submarino con sirenas, delfines y tesoros donde tu hijo o hija es protagonista. Portada + 12 páginas ilustradas; historia y portada de muestra gratis.",
     h1: "Cuento personalizado de sirenas: una aventura en el fondo del océano",
     intro:
       "Bajo el agua todo es posible: hablar con los delfines, visitar ciudades de coral o descubrir un barco hundido. En este cuento tu hija o tu hijo se sumerge en el océano como sirena, tritón o pequeño explorador submarino.",
@@ -413,7 +421,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Qué tipo de historia se crea",
         paragraphs: [
-          "Una aventura marina de 12 páginas con un objetivo: encontrar una perla perdida, ayudar a una tortuga atrapada o descubrir de dónde viene una canción misteriosa. Las ilustraciones mantienen al protagonista reconocible en todas las páginas, también con cola de sirena.",
+          "Una aventura marina de 12 páginas con un objetivo: encontrar una perla perdida, ayudar a una tortuga atrapada o descubrir de dónde viene una canción misteriosa. El personaje mantiene el mismo aspecto en todas las ilustraciones, también con cola de sirena.",
         ],
       },
       {
@@ -454,7 +462,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   magia: {
     metaTitle: "Cuento personalizado de magia, hadas y brujas buenas",
     metaDescription:
-      "Un cuento de magia donde tu hijo aprende hechizos, conoce hadas o va a una escuela de magos. 12 páginas ilustradas con IA. Historia y portada de muestra gratis.",
+      "Un cuento de magia donde tu hijo aprende hechizos, conoce hadas o va a una escuela de magos. Portada + 12 páginas ilustradas. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de magia: su primer hechizo",
     intro:
       "Una varita encontrada en el desván, una escuela de magia escondida detrás del parque o un hada que necesita ayuda. Los cuentos de magia permiten que pase cualquier cosa, y en este el aprendiz de mago es tu hijo.",
@@ -503,15 +511,15 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "regalo-cumpleanos": {
     metaTitle: "Libro personalizado para regalar en un cumpleaños",
     metaDescription:
-      "Un regalo de cumpleaños original: un cuento ilustrado donde el niño es el protagonista, con dedicatoria. PDF en minutos o libro impreso en tapa dura con envío a casa.",
+      "Un regalo de cumpleaños original: un cuento ilustrado donde el niño es el protagonista, con dedicatoria. PDF en minutos o libro impreso con envío a casa.",
     h1: "Un libro personalizado como regalo de cumpleaños",
     intro:
-      "Juguetes van a llegar muchos. Un cuento en el que el niño que cumple años es el protagonista, con su nombre, su aspecto y unas palabras tuyas en la dedicatoria, es de esos regalos que se guardan. Sirve tanto si eres madre o padre como si eres tío, abuela o padrino.",
+      "Juguetes van a llegar muchos. Un cuento en el que el niño que cumple años es el protagonista, con su nombre, un personaje inspirado en él y unas palabras tuyas en la dedicatoria, es de esos regalos que se guardan. Sirve tanto si eres madre o padre como si eres tío, abuela o padrino.",
     sections: [
       {
         heading: "Cómo se prepara el regalo",
         paragraphs: [
-          "Escribes el nombre del niño y un tema que le guste, eliges su edad y, si quieres, añades un compañero y una dedicatoria. La historia y una portada de muestra se crean gratis en unos minutos para que veas cómo queda. Si te convence, desbloqueas las ilustraciones y descargas el PDF. Si lo quieres en papel, puedes pedirlo impreso en tapa dura.",
+          "Escribes el nombre del niño y un tema que le guste, eliges su edad y, si quieres, añades un compañero y una dedicatoria. La historia y una portada de muestra se crean gratis en unos minutos para que veas cómo queda. Si te convence, lo ilustramos entero y te llega impreso a casa con su PDF, o solo en PDF si lo prefieres.",
         ],
       },
       {
@@ -527,20 +535,20 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Consejos para acertar",
         paragraphs: [
-          "Si vas con el tiempo justo, el PDF está listo en minutos: puedes imprimirlo en casa o en una copistería, o enviarlo para leerlo en una tableta. Si quieres el libro de tapa dura, pídelo con al menos 10 días de margen. La dedicatoria es lo que más se recuerda: una frase sencilla con la fecha y quién lo regala basta.",
+          "Si vas con el tiempo justo, el PDF está listo en minutos: puedes imprimirlo en casa o en una copistería, o enviarlo para leerlo en una tableta. Si quieres el libro impreso, pídelo con al menos dos semanas de margen. La dedicatoria es lo que más se recuerda: una frase sencilla con la fecha y quién lo regala basta.",
         ],
       },
       {
         heading: "Para qué edades",
         paragraphs: [
-          "De 3 a 8 años. El texto se adapta a la franja que elijas (3-4, 5-6 o 7-8). Para cumpleaños de mellizos o hermanos, el pack de 2 libros sale más económico.",
+          "De 3 a 8 años. El texto se adapta a la franja que elijas (3-4, 5-6 o 7-8). Para mellizos o hermanos, cada niño puede tener su propio cuento: después del primero, el segundo cuento digital tiene un precio reducido.",
         ],
       },
     ],
     faq: [
       {
         q: "¿Cuánto tarda?",
-        a: "La historia y la portada de muestra, unos minutos. El libro ilustrado completo, unos minutos más tras el pago. El impreso llega en 5-9 días.",
+        a: "La historia y la portada de muestra, unos minutos. El libro ilustrado completo, unos minutos más tras el pago. El impreso llega en 7-10 días laborables desde que lo apruebas.",
       },
       {
         q: "¿Puedo añadir una dedicatoria?",
@@ -555,10 +563,10 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "regalo-navidad": {
     metaTitle: "Cuento personalizado para regalar en Navidad",
     metaDescription:
-      "Regala en Navidad un cuento donde el niño es el protagonista: historia y portada de muestra gratis, PDF en minutos o libro impreso en tapa dura con envío a casa.",
+      "Regala en Navidad un cuento donde el niño es el protagonista: historia y portada de muestra gratis, PDF en minutos o libro impreso con envío a casa.",
     h1: "Un cuento personalizado como regalo de Navidad",
     intro:
-      "La Navidad es época de leer juntos bajo la manta. Un cuento en el que el niño ayuda a Papá Noel, salva la Nochebuena o vive una aventura en la nieve, con su nombre y su aspecto en cada página, es un regalo que se vuelve a sacar cada diciembre.",
+      "La Navidad es época de leer juntos bajo la manta. Un cuento en el que el niño ayuda a Papá Noel, salva la Nochebuena o vive una aventura en la nieve, con su nombre en cada página y un personaje inspirado en él, es un regalo que se vuelve a sacar cada diciembre.",
     sections: [
       {
         heading: "Qué tipo de historia se crea",
@@ -579,7 +587,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Plazos: digital o impreso",
         paragraphs: [
-          "El PDF está listo en minutos después del pago, así que sirve incluso como regalo de última hora. El libro impreso en tapa dura tarda entre 5 y 9 días en llegar, y en diciembre la mensajería va más cargada: pídelo con margen. En la página principal indicamos la fecha recomendada para recibirlo antes de Navidad.",
+          `El PDF está listo en minutos después del pago, así que sirve incluso como regalo de última hora. El libro impreso tarda entre 7 y 10 días laborables en llegar, y en diciembre la mensajería va más cargada: pídelo con margen. ${CHRISTMAS_DEADLINE ? `Para recibirlo en Navidad, pídelo antes del ${CHRISTMAS_DEADLINE}.` : ""}`,
         ],
       },
       {
@@ -592,11 +600,11 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
     faq: [
       {
         q: "¿Llegará a tiempo para Navidad?",
-        a: "El PDF, sí: está listo en minutos. El impreso tarda 5-9 días; pídelo con margen, sobre todo en diciembre.",
+        a: `El PDF, sí: está listo en minutos. El impreso tarda 7-10 días laborables desde que lo apruebas; ${CHRISTMAS_DEADLINE ? `para recibirlo en Navidad, pídelo antes del ${CHRISTMAS_DEADLINE}` : "pídelo con margen, sobre todo en diciembre"}.`,
       },
       {
         q: "¿Se puede regalar a varios niños?",
-        a: "Sí. Los packs de 2 y 4 libros permiten crear un libro distinto para cada niño a mejor precio.",
+        a: "Sí. Cada niño tiene su propio cuento, con su nombre. Después del primero, el segundo cuento digital tiene un precio reducido, y puedes añadir copias impresas extra del mismo libro (por ejemplo, para los abuelos).",
       },
     ],
     ctaTheme: "una aventura de Navidad ayudando a Papá Noel",
@@ -607,7 +615,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "reyes-magos": {
     metaTitle: "Cuento personalizado para regalar en Reyes Magos",
     metaDescription:
-      "Un regalo de Reyes diferente: un cuento ilustrado donde el niño es protagonista, con dedicatoria de Sus Majestades. PDF en minutos o libro impreso en tapa dura.",
+      "Un regalo de Reyes diferente: un cuento ilustrado donde el niño es protagonista, con dedicatoria de Sus Majestades. PDF en minutos o libro impreso.",
     h1: "Un cuento personalizado como regalo de Reyes Magos",
     intro:
       "La noche del 5 de enero es la más mágica del año en España. Un cuento en el que el niño acompaña a Melchor, Gaspar y Baltasar, o ayuda a un paje a encontrar una carta perdida, es un regalo que encaja de lleno con esa ilusión. Y la dedicatoria puede firmarla quien tú quieras.",
@@ -615,7 +623,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Qué tipo de historia se crea",
         paragraphs: [
-          "Una historia de 12 páginas ilustradas en torno a la noche de Reyes: el viaje de los camellos, la cabalgata, los zapatos junto a la ventana o la carta que el niño escribió. El protagonista es tu hijo, con su nombre y su aspecto, y puede ir acompañado de un hermano, un amigo o la mascota de casa.",
+          "Una historia de 12 páginas ilustradas en torno a la noche de Reyes: el viaje de los camellos, la cabalgata, los zapatos junto a la ventana o la carta que el niño escribió. El protagonista es tu hijo, con su nombre y un personaje inspirado en él, y puede ir acompañado de un hermano, un amigo o la mascota de casa.",
         ],
       },
       {
@@ -631,7 +639,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Consejos y plazos",
         paragraphs: [
-          "Si lo quieres impreso, recuerda que tarda entre 5 y 9 días y que entre Navidad y Año Nuevo hay festivos: es mejor pedirlo a mediados de diciembre. El PDF, en cambio, está listo en minutos y se puede imprimir o leer en una tableta la misma mañana del 6. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
+          "Si lo quieres impreso, recuerda que tarda entre 7 y 10 días laborables y que entre Navidad y Año Nuevo hay festivos: es mejor pedirlo a mediados de diciembre. El PDF, en cambio, está listo en minutos y se puede imprimir o leer en una tableta la misma mañana del 6. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
         ],
       },
       {
@@ -648,7 +656,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       },
       {
         q: "¿Envían a toda España?",
-        a: "El libro impreso se envía a toda España y tarda entre 5 y 9 días.",
+        a: "El libro impreso se envía a toda España y tarda entre 7 y 10 días laborables.",
       },
     ],
     ctaTheme: "una aventura la noche de Reyes Magos",
@@ -659,7 +667,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "hermano-mayor": {
     metaTitle: "Cuento personalizado para el hermano mayor: llega un bebé",
     metaDescription:
-      "Un cuento para preparar al hermano o hermana mayor ante la llegada de un bebé, con su nombre y su aspecto. 12 páginas ilustradas con IA. Historia gratis.",
+      "Un cuento para preparar al hermano o hermana mayor ante la llegada de un bebé, con su nombre. Portada + 12 páginas ilustradas. Historia y portada gratis.",
     h1: "Cuento personalizado para el hermano mayor: llega un bebé a casa",
     intro:
       "La llegada de un hermanito es una gran noticia que a veces trae emociones mezcladas: ilusión, celos, miedo a que ya no le quieran igual. Un cuento en el que el hermano o la hermana mayor es el héroe de la historia ayuda a ponerle palabras a todo eso y le recuerda que tiene un papel importante.",
@@ -683,7 +691,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Cuándo regalarlo",
         paragraphs: [
-          "Muchas familias lo leen durante las últimas semanas del embarazo o lo regalan el día que el mayor conoce al bebé, como un regalo solo para él. Si lo quieres impreso, cuenta con 5-9 días de envío. Si las fechas se complican, el PDF está listo en minutos.",
+          "Muchas familias lo leen durante las últimas semanas del embarazo o lo regalan el día que el mayor conoce al bebé, como un regalo solo para él. Si lo quieres impreso, cuenta con 7-10 días laborables de envío. Si las fechas se complican, el PDF está listo en minutos.",
         ],
       },
       {
@@ -697,7 +705,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Puedo adaptar el texto a nuestra familia?",
-        a: "Sí. Puedes editar el texto de cada página antes y después de desbloquear las ilustraciones.",
+        a: "Sí. Puedes editar el texto de cada página antes y después de ilustrarlo.",
       },
     ],
     ctaTheme: "el hermano mayor que da la bienvenida a un bebé",
@@ -708,7 +716,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "primer-dia-de-cole": {
     metaTitle: "Cuento personalizado para el primer día de cole",
     metaDescription:
-      "Un cuento para preparar el primer día de colegio con tu hijo como protagonista: sus nervios, sus nuevos amigos y su valentía. 12 páginas ilustradas con IA.",
+      "Un cuento para preparar el primer día de colegio con tu hijo como protagonista: sus nervios, sus nuevos amigos y su valentía. Portada + 12 páginas ilustradas.",
     h1: "Cuento personalizado para el primer día de cole",
     intro:
       "Empezar el cole, cambiar de etapa o llegar a un colegio nuevo son momentos grandes para un niño. Leer antes una historia en la que él mismo vive ese primer día, con sus nervios y su final feliz, ayuda a que lo desconocido se vuelva un poco más conocido.",
@@ -746,7 +754,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Lo tendré a tiempo?",
-        a: "El PDF está listo en minutos tras el pago. El impreso tarda 5-9 días en llegar, así que pídelo con margen si lo quieres en papel para el primer día.",
+        a: "El PDF está listo en minutos tras el pago. El impreso tarda 7-10 días laborables en llegar, así que pídelo con margen si lo quieres en papel para el primer día.",
       },
     ],
     ctaTheme: "su primer día de cole",

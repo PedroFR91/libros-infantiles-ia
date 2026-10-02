@@ -9,6 +9,7 @@ const log = createLogger("admin-print-orders");
 
 const PRINT_ORDER_STATUSES = [
   "PENDING_PAYMENT",
+  "AWAITING_APPROVAL",
   "PAID",
   "IN_PRODUCTION",
   "SHIPPED",

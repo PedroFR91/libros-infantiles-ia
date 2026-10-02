@@ -27,8 +27,9 @@ Describe de forma detallada:
 2. Estilo de pelo (largo, corto, rizado, liso, con flequillo, etc.)
 3. Color de ojos aproximado
 4. Tono de piel (claro, medio, moreno, etc.)
-5. Rasgos distintivos visibles (gafas, pecas, etc.)
+5. Rasgos distintivos visibles (gafas, pecas, audífonos, silla de ruedas u otros apoyos, etc.)
 6. Género aparente
+7. Edad aparente (años)
 
 IMPORTANTE: Responde SIEMPRE con un JSON válido, incluso si no puedes ver bien la imagen.
 
@@ -40,7 +41,8 @@ IMPORTANTE: Responde SIEMPRE con un JSON válido, incluso si no puedes ver bien 
     "eyeColor": "color de ojos",
     "skinTone": "tono de piel",
     "distinctiveFeatures": ["rasgo1"],
-    "gender": "niño o niña"
+    "gender": "niño o niña",
+    "apparentAge": "edad aparente en años"
   }
 }`;
 
@@ -106,7 +108,8 @@ export async function POST(request: NextRequest) {
 
     log.debug({ base64Length: base64.length }, "Imagen convertida a base64");
 
-    // Analizar con GPT-4 Vision
+    // Analizar con GPT-4o Vision (detail "high": los rasgos finos —ojos, gafas,
+    // pecas, peinado— se pierden con "low")
     const openai = getOpenAI();
     log.info("Enviando a OpenAI GPT-4o");
 
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
               type: "image_url",
               image_url: {
                 url: `data:${mimeType};base64,${base64}`,
-                detail: "low",
+                detail: "high",
               },
             },
           ],

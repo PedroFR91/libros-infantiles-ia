@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { refundCredits } from "@/lib/credits";
-import { sendDraftReminderEmail } from "@/lib/email";
+import {
+  sendDraftReminderEmail,
+  sendLeadPreviewEmail,
+  sendPrintOfferEmail,
+  sendReviewRequestEmail,
+} from "@/lib/email";
 import { isRunning } from "@/lib/generation";
+import { deleteBookImages } from "@/lib/imageStorage";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("cron-fix-stuck");
@@ -40,11 +46,15 @@ export async function GET(request: NextRequest) {
     });
 
     const reminders = await sendDraftReminders();
+    const sequence = await sendSalesSequence();
+    const purged = await purgeOldDrafts();
 
     if (stuckBooks.length === 0) {
       return NextResponse.json({
         fixed: 0,
         reminders,
+        sequence,
+        purged,
         message: "No stuck books found",
       });
     }
@@ -96,6 +106,8 @@ export async function GET(request: NextRequest) {
       fixed,
       refunded,
       reminders,
+      sequence,
+      purged,
       books: stuckBooks.map(
         (b: { id: string; kidName: string; updatedAt: Date }) => ({
           id: b.id,
@@ -152,4 +164,105 @@ async function sendDraftReminders(): Promise<number> {
   }
   if (sent > 0) log.info({ sent }, "Recordatorios de borrador enviados");
   return sent;
+}
+
+// Secuencia de venta (cada email se envía una sola vez por libro):
+// - portada de muestra a quien deja su email en el borrador
+// - oferta del impreso 20-72 h después de ilustrar el digital, si no lo pidió
+// - petición de opinión 3-7 días después
+async function sendSalesSequence() {
+  const now = Date.now();
+  const hoursAgo = (h: number) => new Date(now - h * 60 * 60 * 1000);
+  let leadPreviews = 0;
+  let printOffers = 0;
+  let reviews = 0;
+
+  const leads = await prisma.book.findMany({
+    where: {
+      leadEmail: { not: null },
+      coverPreviewUrl: { not: null },
+      leadPreviewSentAt: null,
+      unlockedAt: null,
+      createdAt: { gt: hoursAgo(24) },
+    },
+    take: 50,
+  });
+  for (const book of leads) {
+    await prisma.book.update({ where: { id: book.id }, data: { leadPreviewSentAt: new Date() } });
+    const ok = await sendLeadPreviewEmail({
+      to: book.leadEmail as string,
+      kidName: book.kidName,
+      title: book.title || `El cuento de ${book.kidName}`,
+      bookId: book.id,
+      coverUrl: book.coverPreviewUrl as string,
+    });
+    if (ok) leadPreviews++;
+  }
+
+  const offers = await prisma.book.findMany({
+    where: {
+      status: "COMPLETED",
+      unlockedAt: { lt: hoursAgo(20), gt: hoursAgo(72) },
+      printOfferSentAt: null,
+      printOrders: { none: { status: { not: "CANCELED" } } },
+    },
+    include: { user: { select: { email: true } } },
+    take: 50,
+  });
+  for (const book of offers) {
+    const to = book.leadEmail ?? book.user.email;
+    await prisma.book.update({ where: { id: book.id }, data: { printOfferSentAt: new Date() } });
+    if (!to) continue;
+    const ok = await sendPrintOfferEmail({
+      to,
+      kidName: book.kidName,
+      title: book.title || `El cuento de ${book.kidName}`,
+      bookId: book.id,
+    });
+    if (ok) printOffers++;
+  }
+
+  const reviewBooks = await prisma.book.findMany({
+    where: {
+      status: "COMPLETED",
+      unlockedAt: { lt: hoursAgo(72), gt: hoursAgo(168) },
+      reviewRequestSentAt: null,
+    },
+    include: { user: { select: { email: true } } },
+    take: 50,
+  });
+  for (const book of reviewBooks) {
+    const to = book.leadEmail ?? book.user.email;
+    await prisma.book.update({ where: { id: book.id }, data: { reviewRequestSentAt: new Date() } });
+    if (!to) continue;
+    if (await sendReviewRequestEmail({ to, kidName: book.kidName })) reviews++;
+  }
+
+  if (leadPreviews + printOffers + reviews > 0) {
+    log.info({ leadPreviews, printOffers, reviews }, "Secuencia de venta enviada");
+  }
+  return { leadPreviews, printOffers, reviews };
+}
+
+// Conservación (política de privacidad): los cuentos nunca pagados se borran
+// a los 12 meses sin actividad, con sus imágenes y el email del borrador
+async function purgeOldDrafts(): Promise<number> {
+  const cutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  const old = await prisma.book.findMany({
+    where: {
+      status: "DRAFT",
+      unlockedAt: null,
+      showcase: false,
+      updatedAt: { lt: cutoff },
+      printOrders: { none: {} },
+    },
+    select: { id: true },
+    take: 100,
+  });
+  for (const book of old) {
+    await deleteBookImages(book.id);
+    await prisma.book.delete({ where: { id: book.id } }).catch(() => undefined);
+  }
+  if (old.length > 0) log.info({ purged: old.length }, "Borradores antiguos eliminados");
+  return old.length;
 }

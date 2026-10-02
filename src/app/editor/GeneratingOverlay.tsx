@@ -98,8 +98,8 @@ export default function GeneratingOverlay({
 
       <p className='text-text-muted text-center mb-6'>{theme}</p>
 
-      {/* Fases */}
-      <div className='flex items-center gap-4 mb-6'>
+      {/* Fases: en vertical en móvil (en fila se salían de la pantalla) */}
+      <div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-6'>
         {phases.map((p, index) => {
           const Icon = p.icon;
           const isActive = index === currentPhaseIndex;
@@ -120,9 +120,9 @@ export default function GeneratingOverlay({
                     ? {
                         scale: [1, 1.1, 1],
                         boxShadow: [
-                          "0 0 0 0 rgba(99,102,241,0.4)",
-                          "0 0 0 10px rgba(99,102,241,0)",
-                          "0 0 0 0 rgba(99,102,241,0)",
+                          "0 0 0 0 rgba(194,65,12,0.35)",
+                          "0 0 0 10px rgba(194,65,12,0)",
+                          "0 0 0 0 rgba(194,65,12,0)",
                         ],
                       }
                     : {}

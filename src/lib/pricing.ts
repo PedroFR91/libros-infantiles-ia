@@ -1,48 +1,75 @@
-// Precios sin dependencias de servidor: se usan también en la landing (cliente).
+// Precios y oferta (REVISION-PRODUCTO-2026-10.md §6). Sin dependencias de
+// servidor: se usan también en la landing y el editor (cliente).
+// Todos los importes en céntimos, IVA incluido.
 
-// Packs a la venta. El cliente compra libros; por dentro se abonan créditos
-// (5 por libro) para que las regeneraciones sigan funcionando igual.
-// Precio de lanzamiento: código promocional en Stripe (allow_promotion_codes).
 export interface PackConfig {
   credits: number;
-  price: number; // céntimos, IVA incluido
+  price: number;
   name: string;
   description: string;
-  popular?: boolean;
 }
 
-export const CREDIT_PACKS: Record<"small" | "medium" | "large", PackConfig> = {
-  small: {
+// Compras de libro digital. Internamente se abonan créditos (5 = 1 libro) para
+// que las regeneraciones funcionen igual; en la interfaz nunca se habla de créditos.
+// - digital: primera compra (el libro que acaba de crear)
+// - repeat: segundo cuento, solo para quien ya ha comprado alguno
+export const CREDIT_PACKS: Record<"digital" | "repeat", PackConfig> = {
+  digital: {
     credits: 5,
-    price: 990, // céntimos, IVA incluido
-    name: "1 libro",
-    description: "Libro ilustrado de 12 páginas en PDF",
+    price: 990,
+    name: "Cuento digital",
+    description: "Portada + 12 páginas ilustradas, en PDF",
   },
-  medium: {
-    credits: 10,
-    price: 1690,
-    name: "2 libros",
-    description: "Ideal para hermanos o para regalar",
-    popular: true,
-  },
-  large: {
-    credits: 20,
-    price: 2990,
-    name: "4 libros",
-    description: "Una colección de aventuras",
+  repeat: {
+    credits: 5,
+    price: 590,
+    name: "Otro cuento digital",
+    description: "Para su hermano, su primo o su mejor amigo",
   },
 };
+
+/** Producto estrella: libro impreso + PDF en un solo pago, envío incluido */
+export const BUNDLE_PRODUCT = {
+  price: 3490,
+  name: "Cuento impreso + PDF",
+  description: "21×21 cm · tapa blanda · envío a casa incluido · PDF al momento",
+};
+
+/** Pasar a papel un libro que ya tiene el PDF */
+export const PRINT_PRODUCT = {
+  price: 2500,
+  name: "Libro impreso",
+  description: "21×21 cm · tapa blanda · envío a domicilio incluido",
+  shippingCountries: ["ES"] as const, // solo España
+  deliveryDays: { min: 7, max: 10 }, // laborables (Bubok)
+};
+
+/** Copias extra del mismo libro al mismo envío (abuelos, tíos) */
+export const EXTRA_COPY = {
+  price: 1990,
+  max: 3,
+};
+
+/**
+ * Precio fundador: descuento automático en los primeros pedidos (sin códigos).
+ * El contador es real: pedidos pagados de digital, pack o impreso.
+ */
+export const FOUNDER_OFFER = {
+  percent: 20,
+  limit: 50,
+};
+
+/** Rehacer dibujos incluidos en cada libro (garantía) */
+export const FREE_REDRAWS = 3;
+
+export const GUARANTEE_TEXT =
+  "Si una ilustración no te convence, la rehacemos gratis. Y si aun así el cuento no te gusta, te devolvemos el dinero del digital.";
 
 export function formatEuros(cents: number): string {
-  return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
+  // Espacio de no separación: "34,90 €" no se parte en dos líneas
+  return `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 }
 
-// Libro impreso en tapa dura (20×20 cm), envío a España incluido.
-// Producción manual en la imprenta en la fase A (ver AUDITORIA-2026-10.md §5).
-export const PRINT_PRODUCT = {
-  price: 3990, // céntimos, IVA y envío incluidos
-  name: "Libro impreso en tapa dura",
-  description: "20×20 cm · tapa dura · envío a domicilio incluido",
-  shippingCountries: ["ES"] as const, // solo España
-  deliveryDays: { min: 5, max: 9 },
-};
+export function withFounderDiscount(cents: number): number {
+  return Math.round((cents * (100 - FOUNDER_OFFER.percent)) / 100);
+}

@@ -1,5 +1,10 @@
 import { Resend } from "resend";
 import { createLogger } from "@/lib/logger";
+import { appUrl } from "@/lib/appUrl";
+import { bookLink } from "@/lib/bookAccess";
+import { GUARANTEE_TEXT, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
+
+export { appUrl };
 
 const log = createLogger("email");
 
@@ -14,15 +19,6 @@ function getResend(): Resend | null {
 const FROM =
   process.env.EMAIL_FROM || "LibrosIA <noreply@libros.iconicospace.com>";
 const REPLY_TO = "hola@iconicospace.com";
-
-export function appUrl(path = ""): string {
-  const base =
-    process.env.AUTH_URL ||
-    process.env.NEXTAUTH_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://libros.iconicospace.com";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
 
 function escapeHtml(value: string): string {
   return value
@@ -88,8 +84,8 @@ export async function sendBookReadyEmail(params: {
       `«${title}» ya está listo`,
       `<p>Hemos terminado todas las ilustraciones del libro de <strong>${escapeHtml(kidName)}</strong>.</p>
 <p>Puedes verlo, retocar páginas y descargar el PDF para leer en pantalla o imprimir.</p>
-<p>Y si quieres tenerlo en papel, puedes pedirlo impreso en tapa dura con envío a casa.</p>`,
-      { href: appUrl(`/editor?bookId=${bookId}`), label: "Ver mi libro" },
+<p>Y si quieres tenerlo en papel, puedes pedirlo impreso con envío a casa.</p>`,
+      { href: await bookLink(bookId), label: "Ver mi libro" },
     ),
   );
 }
@@ -112,8 +108,9 @@ export async function sendDraftReminderEmail(params: {
       `«${title}» está a un paso`,
       `<p>Dejaste escrita la historia de <strong>${escapeHtml(kidName)}</strong>. Solo faltan las ilustraciones para convertirla en su libro.</p>
 ${cover}
-<p>Tu borrador está guardado: entra y desbloquéalo cuando quieras.</p>`,
-      { href: appUrl(`/editor?bookId=${bookId}`), label: "Terminar mi libro" },
+<p>Está guardado: entra cuando quieras para ilustrarlo.</p>
+<p style="font-size:13px;color:#6B5B4E">${escapeHtml(GUARANTEE_TEXT)}</p>`,
+      { href: await bookLink(bookId), label: "Terminar mi libro" },
     ),
   );
 }
@@ -129,8 +126,8 @@ export async function sendPrintOrderConfirmationEmail(params: {
     `Pedido recibido: el libro impreso de ${kidName}`,
     layout(
       "¡Pedido recibido!",
-      `<p>Vamos a imprimir <strong>«${escapeHtml(title)}»</strong> en tapa dura.</p>
-<p>Lo preparamos en 2-4 días laborables y te enviaremos el enlace de seguimiento en cuanto salga hacia tu casa.</p>`,
+      `<p>Vamos a imprimir <strong>«${escapeHtml(title)}»</strong> en papel.</p>
+<p>Llegará en unos 7-10 días laborables y te enviaremos el enlace de seguimiento en cuanto salga hacia tu casa.</p>`,
     ),
   );
 }
@@ -171,6 +168,112 @@ export async function sendPrintOrderAdminEmail(params: {
       `<p>Libro: <strong>${escapeHtml(params.title)}</strong><br>Destinatario: ${escapeHtml(params.shippingName || "-")}<br>Pedido: ${params.orderId}</p>
 <p>Descarga el interior y la cubierta desde el panel y súbelos a la imprenta.</p>`,
       { href: appUrl("/admin"), label: "Abrir panel" },
+    ),
+  );
+}
+
+/** Al dejar el email en el borrador: su portada de muestra y el enlace */
+export async function sendLeadPreviewEmail(params: {
+  to: string;
+  kidName: string;
+  title: string;
+  bookId: string;
+  coverUrl: string;
+}) {
+  const { to, kidName, title, bookId, coverUrl } = params;
+  const cover = coverUrl.startsWith("http") ? coverUrl : appUrl(coverUrl);
+  return send(
+    to,
+    `La portada del cuento de ${kidName}`,
+    layout(
+      `«${title}»`,
+      `<p>Aquí tienes la portada de muestra del cuento de <strong>${escapeHtml(kidName)}</strong> y su historia guardada.</p>
+<p><img src="${cover}" alt="Portada de muestra" width="320" style="border-radius:12px;max-width:100%"></p>
+<p>Cuando quieras, entra y lo ilustramos entero en unos minutos.</p>`,
+      { href: await bookLink(bookId), label: "Ver su cuento" },
+    ),
+  );
+}
+
+/** Justo después de pagar: el libro se está ilustrando (enlace privado) */
+export async function sendIllustratingEmail(params: {
+  to: string;
+  kidName: string;
+  title: string;
+  bookId: string;
+  withPrint: boolean;
+}) {
+  const { to, kidName, title, bookId, withPrint } = params;
+  return send(
+    to,
+    `🎨 Estamos ilustrando el cuento de ${kidName}`,
+    layout(
+      "¡Gracias! Ya lo estamos ilustrando",
+      `<p>Las ilustraciones de <strong>«${escapeHtml(title)}»</strong> estarán listas en unos minutos. Puedes cerrar la página: con este enlace vuelves a tu cuento desde cualquier dispositivo, sin cuenta.</p>
+${withPrint ? `<p><strong>Tu libro impreso:</strong> cuando esté ilustrado, revísalo y pulsa «Aprobar para imprimir». Lo mandamos a imprenta entonces y llega en ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables.</p>` : ""}
+<p style="font-size:13px;color:#6B5B4E">${escapeHtml(GUARANTEE_TEXT)}</p>`,
+      { href: await bookLink(bookId), label: "Abrir mi cuento" },
+    ),
+  );
+}
+
+/** Día siguiente a comprar el digital: oferta para tenerlo en papel */
+export async function sendPrintOfferEmail(params: {
+  to: string;
+  kidName: string;
+  title: string;
+  bookId: string;
+}) {
+  const { to, kidName, title, bookId } = params;
+  return send(
+    to,
+    `¿Y si el cuento de ${kidName} lo tiene en papel?`,
+    layout(
+      `«${title}», en sus manos`,
+      `<p>Muchas familias acaban pidiendo el cuento impreso: es el que se lee cada noche y el que se guarda.</p>
+<p>Pásalo a papel por <strong>${formatEuros(PRINT_PRODUCT.price)}</strong> (21×21 cm, envío a casa incluido). Llega en ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables.</p>`,
+      { href: await bookLink(bookId), label: "Pedirlo impreso" },
+    ),
+  );
+}
+
+/** Unos días después: pedir opinión (sin incentivos para no sesgar reseñas) */
+export async function sendReviewRequestEmail(params: {
+  to: string;
+  kidName: string;
+}) {
+  const { to, kidName } = params;
+  return send(
+    to,
+    `¿Qué le ha parecido a ${kidName} su cuento?`,
+    layout(
+      "Nos encantaría saberlo",
+      `<p>Somos un proyecto pequeño, desde Málaga. Responde a este email con lo que te ha gustado y lo que mejorarías: lo leemos todo.</p>
+<p>Si te apetece, mándanos una foto leyendo el cuento (solo la publicaremos si nos das permiso).</p>`,
+    ),
+  );
+}
+
+/** Recuperar cuentos sin cuenta: lista de enlaces privados */
+export async function sendRecoverEmail(params: {
+  to: string;
+  books: { id: string; title: string }[];
+}) {
+  const { to, books } = params;
+  const items = (
+    await Promise.all(
+      books.map(async (b) => `<li style="margin:8px 0"><a href="${await bookLink(b.id)}" style="color:#C2410C">${escapeHtml(b.title)}</a></li>`),
+    )
+  ).join("");
+  return send(
+    to,
+    "Tus cuentos de LibrosIA",
+    layout(
+      "Aquí tienes tus cuentos",
+      books.length
+        ? `<p>Pulsa en cualquiera para abrirlo en este dispositivo:</p><ul>${items}</ul>`
+        : `<p>No hemos encontrado cuentos con este email. Si pagaste con otro correo, prueba con ese.</p>`,
+      { href: appUrl("/editor"), label: "Crear otro cuento" },
     ),
   );
 }

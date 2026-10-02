@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { PRINT_PRODUCT } from "@/lib/pricing";
+import { EXTRA_COPY, PRINT_PRODUCT } from "@/lib/pricing";
+import { applyDiscount, founderDiscounts } from "@/lib/offer";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { printCheckoutSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
@@ -10,7 +11,7 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("checkout-print");
 
-// POST /api/stripe/checkout-print - Pedido del libro impreso (tapa dura, envío incluido)
+// POST /api/stripe/checkout-print - Pedido del libro impreso (tapa blanda con Bubok, envío incluido)
 // No crea filas en Payment (son solo del producto digital): el pedido vive en PrintOrder.
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: "Datos no válidos" }, { status: 400 });
     }
-    const { bookId } = validation.data;
+    const { bookId, extraCopies } = validation.data;
 
     const book = await prisma.book.findFirst({
       where: { id: bookId, userId },
@@ -46,8 +47,11 @@ export async function POST(request: NextRequest) {
     }
 
     const title = book.title || `El libro de ${book.kidName}`;
+    const discounts = await founderDiscounts();
+    const discounted = discounts.length > 0;
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
+      ...(discounted && { discounts }),
       line_items: [
         {
           price_data: {
@@ -60,6 +64,21 @@ export async function POST(request: NextRequest) {
           },
           quantity: 1,
         },
+        ...(extraCopies > 0
+          ? [
+              {
+                price_data: {
+                  currency: "eur",
+                  product_data: {
+                    name: "Copia extra del mismo libro",
+                    description: "Para los abuelos, los tíos… al mismo envío",
+                  },
+                  unit_amount: EXTRA_COPY.price,
+                },
+                quantity: extraCopies,
+              },
+            ]
+          : []),
       ],
       shipping_address_collection: {
         allowed_countries: [...PRINT_PRODUCT.shippingCountries],
@@ -78,8 +97,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       phone_number_collection: { enabled: true },
-      // Sin códigos promocionales: el de lanzamiento es para el digital y
-      // aplicado al impreso dejaría el pedido sin margen
+      // Sin códigos promocionales: solo el precio fundador automático
       custom_text: {
         submit: {
           message:
@@ -102,7 +120,9 @@ export async function POST(request: NextRequest) {
         userId,
         bookId: book.id,
         stripeSessionId: session.id,
-        amount: PRINT_PRODUCT.price,
+        kind: "upgrade",
+        quantity: 1 + extraCopies,
+        amount: applyDiscount(PRINT_PRODUCT.price + extraCopies * EXTRA_COPY.price, discounted),
         status: "PENDING_PAYMENT",
       },
     });

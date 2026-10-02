@@ -1,221 +1,111 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Book, ArrowLeft, Mail, Globe } from "lucide-react";
 import { getLegalOwner } from "@/lib/legal";
+import { LegalLayout } from "@/components/LegalLayout";
 
 export const metadata: Metadata = {
-  title: "Aviso Legal - LibrosIA",
-  description:
-    "Aviso legal e información del prestador de servicios de LibrosIA",
+  title: "Aviso legal",
+  description: "Aviso legal e información del titular de LibrosIA.",
 };
 
 export default async function LegalPage() {
   const owner = await getLegalOwner();
   return (
-    <div className='min-h-screen bg-bg text-text'>
-      <header className='border-b border-border'>
-        <div className='max-w-4xl mx-auto px-4 py-4 flex items-center gap-4'>
-          <Link
-            href='/'
-            className='flex items-center gap-2 text-text-muted hover:text-text transition-colors'>
-            <ArrowLeft className='w-4 h-4' />
-            Volver
-          </Link>
-          <div className='flex items-center gap-2'>
-            <div className='w-7 h-7 rounded-lg bg-primary flex items-center justify-center'>
-              <Book className='w-4 h-4 text-white' />
-            </div>
-            <span className='font-bold'>
-              <span className='text-primary'>Libros</span>
-              <span className='text-secondary'>IA</span>
-            </span>
-          </div>
-        </div>
-      </header>
+    <LegalLayout title='Aviso legal' updated='2 de octubre de 2026'>
+      <h2>1. Datos del titular</h2>
+      <p>
+        En cumplimiento del artículo 10 de la Ley 34/2002, de Servicios de la
+        Sociedad de la Información y de Comercio Electrónico (LSSI-CE):
+      </p>
+      <div className='overflow-x-auto mb-4 rounded-xl border border-border'>
+        <table>
+          <tbody>
+            <tr>
+              <th scope='row'>Titular</th>
+              <td>
+                {owner.name}
+                {owner.name !== "IconicoSpace" && " (marca comercial IconicoSpace)"}
+              </td>
+            </tr>
+            {owner.taxId && (
+              <tr>
+                <th scope='row'>NIF</th>
+                <td>{owner.taxId}</td>
+              </tr>
+            )}
+            {owner.address && (
+              <tr>
+                <th scope='row'>Domicilio</th>
+                <td>{owner.address}</td>
+              </tr>
+            )}
+            <tr>
+              <th scope='row'>Email</th>
+              <td>
+                <a href={`mailto:${owner.email}`}>{owner.email}</a>
+              </td>
+            </tr>
+            <tr>
+              <th scope='row'>Web</th>
+              <td>libros.iconicospace.com</td>
+            </tr>
+            <tr>
+              <th scope='row'>Actividad</th>
+              <td>
+                Creación y venta de cuentos infantiles personalizados, en
+                formato digital e impreso.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <main className='max-w-4xl mx-auto px-4 py-12'>
-        <h1 className='text-3xl font-bold mb-8'>Aviso Legal</h1>
+      <h2>2. Objeto</h2>
+      <p>
+        Este aviso legal regula el acceso y el uso del sitio web
+        libros.iconicospace.com (LibrosIA).
+      </p>
 
-        <div className='prose prose-lg max-w-none space-y-8 text-text'>
-          <section>
-            <h2 className='text-xl font-bold mb-3'>1. Datos del prestador</h2>
-            <p>
-              En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio,
-              de Servicios de la Sociedad de la Información y de Comercio
-              Electrónico (LSSI-CE), se facilitan los siguientes datos:
-            </p>
-            <div className='bg-surface rounded-xl p-6 border border-border space-y-3'>
-              <div className='flex items-center gap-3'>
-                <Globe className='w-5 h-5 text-primary shrink-0' />
-                <div>
-                  <span className='font-semibold'>Titular:</span>{" "}
-                  {owner.name} (marca comercial IconicoSpace)
-                </div>
-              </div>
-              {owner.taxId && (
-                <div>
-                  <span className='font-semibold'>NIF:</span> {owner.taxId}
-                </div>
-              )}
-              {owner.address && (
-                <div>
-                  <span className='font-semibold'>Domicilio:</span>{" "}
-                  {owner.address}
-                </div>
-              )}
-              <div className='flex items-center gap-3'>
-                <Mail className='w-5 h-5 text-primary shrink-0' />
-                <div>
-                  <span className='font-semibold'>Email de contacto:</span>{" "}
-                  <a
-                    href='mailto:hola@iconicospace.com'
-                    className='text-primary hover:underline'>
-                    hola@iconicospace.com
-                  </a>
-                </div>
-              </div>
-              <div>
-                <span className='font-semibold'>Dominio:</span>{" "}
-                libros.iconicospace.com
-              </div>
-              <div>
-                <span className='font-semibold'>Actividad:</span> Prestación de
-                servicios de generación de contenido digital mediante
-                inteligencia artificial.
-              </div>
-            </div>
-          </section>
+      <h2>3. Acceso y uso</h2>
+      <p>
+        El acceso a la web es libre y gratuito, y crear la historia y la
+        portada de un cuento también lo es. La compra de cuentos ilustrados,
+        en PDF o impresos, se rige por los{" "}
+        <Link href='/terminos'>términos y condiciones</Link>. Te comprometes a
+        usar la web de buena fe y conforme a la ley.
+      </p>
 
-          <section>
-            <h2 className='text-xl font-bold mb-3'>2. Objeto</h2>
-            <p>
-              El presente Aviso Legal regula el acceso y uso del sitio web
-              <strong> libros.iconicospace.com</strong> (en adelante, &quot;el
-              sitio web&quot;), que IconicoSpace pone a disposición de los
-              usuarios de Internet.
-            </p>
-          </section>
+      <h2>4. Propiedad intelectual e industrial</h2>
+      <p>
+        Los contenidos de la web (textos, diseño, código, logotipos y marca)
+        pertenecen a IconicoSpace o a sus licenciantes. Los cuentos que crean
+        los usuarios se rigen por lo indicado en los{" "}
+        <Link href='/terminos'>términos y condiciones</Link>.
+      </p>
 
-          <section>
-            <h2 className='text-xl font-bold mb-3'>
-              3. Condiciones de acceso y uso
-            </h2>
-            <p>
-              El acceso al sitio web es gratuito. La utilización del servicio de
-              generación de libros requiere la compra de créditos según los{" "}
-              <Link href='/terminos' className='text-primary hover:underline'>
-                Términos de Servicio
-              </Link>
-              .
-            </p>
-            <p>
-              El usuario se compromete a hacer un uso adecuado del sitio web y
-              de los servicios, conforme a la legislación vigente, la buena fe,
-              el orden público y las presentes condiciones.
-            </p>
-          </section>
+      <h2>5. Responsabilidad</h2>
+      <p>
+        Trabajamos para que la web funcione bien y sea segura, pero no
+        respondemos de interrupciones o errores por causas ajenas a nosotros
+        ni de daños causados por intrusiones de terceros. Los textos e
+        ilustraciones de los cuentos se generan con inteligencia artificial y
+        puedes revisarlos y editarlos antes de comprar o de imprimir.
+      </p>
 
-          <section>
-            <h2 className='text-xl font-bold mb-3'>
-              4. Propiedad intelectual e industrial
-            </h2>
-            <p>
-              Todos los contenidos del sitio web (textos, imágenes, código
-              fuente, diseño gráfico, logotipos, marcas) son propiedad de
-              IconicoSpace o de sus licenciantes, y están protegidos por las
-              leyes de propiedad intelectual e industrial.
-            </p>
-            <p>
-              Los libros generados por los usuarios mediante la plataforma se
-              rigen por las condiciones establecidas en los{" "}
-              <Link href='/terminos' className='text-primary hover:underline'>
-                Términos de Servicio
-              </Link>
-              .
-            </p>
-          </section>
+      <h2>6. Reclamaciones</h2>
+      <p>
+        Si tienes un problema, escríbenos primero a{" "}
+        <a href={`mailto:${owner.email}`}>{owner.email}</a>. También puedes
+        acudir a los servicios de consumo de tu comunidad autónoma o a la
+        Junta Arbitral de Consumo.
+      </p>
 
-          <section>
-            <h2 className='text-xl font-bold mb-3'>
-              5. Limitación de responsabilidad
-            </h2>
-            <p>IconicoSpace no se hace responsable de:</p>
-            <ul className='list-disc pl-6 space-y-2'>
-              <li>
-                Interrupciones o errores en el acceso al sitio web por causas
-                ajenas.
-              </li>
-              <li>
-                Daños causados por terceros mediante intrusiones ilegítimas.
-              </li>
-              <li>
-                La exactitud o idoneidad del contenido generado por inteligencia
-                artificial.
-              </li>
-              <li>El uso que los usuarios hagan del contenido generado.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className='text-xl font-bold mb-3'>
-              6. Resolución de litigios en línea
-            </h2>
-            <p>
-              La Comisión Europea facilita una plataforma de resolución de
-              litigios en línea disponible en:{" "}
-              <a
-                href='https://ec.europa.eu/consumers/odr'
-                className='text-primary hover:underline'
-                target='_blank'
-                rel='noopener'>
-                https://ec.europa.eu/consumers/odr
-              </a>
-            </p>
-          </section>
-
-          <section>
-            <h2 className='text-xl font-bold mb-3'>7. Legislación aplicable</h2>
-            <p>
-              Este Aviso Legal se rige por la legislación española. Para la
-              resolución de cualquier controversia, las partes se someterán a
-              los Juzgados y Tribunales del domicilio del consumidor.
-            </p>
-          </section>
-
-          <section>
-            <h2 className='text-xl font-bold mb-3'>8. Contacto</h2>
-            <p>
-              Para cualquier consulta relacionada con este aviso legal o con el
-              sitio web, puedes ponerte en contacto con nosotros en:
-            </p>
-            <p className='mt-2'>
-              📧{" "}
-              <a
-                href='mailto:hola@iconicospace.com'
-                className='text-primary hover:underline font-semibold'>
-                hola@iconicospace.com
-              </a>
-            </p>
-          </section>
-        </div>
-      </main>
-
-      <footer className='border-t border-border py-8 px-4'>
-        <div className='max-w-4xl mx-auto flex flex-wrap gap-4 text-sm text-text-muted'>
-          <Link href='/privacidad' className='hover:text-text'>
-            Privacidad
-          </Link>
-          <Link href='/terminos' className='hover:text-text'>
-            Términos
-          </Link>
-          <Link href='/cookies' className='hover:text-text'>
-            Cookies
-          </Link>
-          <Link href='/desistimiento' className='hover:text-text'>
-            Desistimiento
-          </Link>
-        </div>
-      </footer>
-    </div>
+      <h2>7. Legislación aplicable</h2>
+      <p>
+        Este aviso legal se rige por la legislación española. En caso de
+        conflicto con un consumidor, son competentes los juzgados de su
+        domicilio.
+      </p>
+    </LegalLayout>
   );
 }

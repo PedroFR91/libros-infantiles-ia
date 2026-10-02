@@ -5,6 +5,7 @@ import { Download, RefreshCw, Save, ExternalLink } from "lucide-react";
 
 type PrintOrderStatus =
   | "PENDING_PAYMENT"
+  | "AWAITING_APPROVAL"
   | "PAID"
   | "IN_PRODUCTION"
   | "SHIPPED"
@@ -33,13 +34,16 @@ interface PrintOrderData {
   providerOrderId: string | null;
   trackingUrl: string | null;
   notes: string | null;
+  kind?: string;
+  quantity?: number;
   book: { id: string; title: string | null; kidName: string };
   user: { id: string; email: string | null };
 }
 
 const STATUS_OPTIONS: { value: PrintOrderStatus; label: string }[] = [
   { value: "PENDING_PAYMENT", label: "Pendiente de pago" },
-  { value: "PAID", label: "Pagado" },
+  { value: "AWAITING_APPROVAL", label: "Pagado, falta que lo apruebe" },
+  { value: "PAID", label: "Aprobado: mandar a imprenta" },
   { value: "IN_PRODUCTION", label: "En producción" },
   { value: "SHIPPED", label: "Enviado" },
   { value: "DELIVERED", label: "Entregado" },
@@ -48,6 +52,7 @@ const STATUS_OPTIONS: { value: PrintOrderStatus; label: string }[] = [
 
 const STATUS_STYLES: Record<PrintOrderStatus, string> = {
   PENDING_PAYMENT: "bg-gray-500/20 text-gray-400",
+  AWAITING_APPROVAL: "bg-sky-500/20 text-sky-700",
   PAID: "bg-amber-500/20 text-amber-500",
   IN_PRODUCTION: "bg-blue-500/20 text-blue-500",
   SHIPPED: "bg-purple-500/20 text-purple-500",
@@ -156,6 +161,10 @@ function OrderRow({
         </p>
         <p className='text-xs text-text-muted'>
           Protagonista: {order.book.kidName}
+        </p>
+        <p className='text-xs font-semibold mt-1'>
+          {order.kind === "bundle" ? "Pack impreso + PDF" : "Pasar a papel"} ·{" "}
+          {order.quantity ?? 1} {(order.quantity ?? 1) === 1 ? "copia" : "copias"}
         </p>
         <div className='flex flex-col gap-1 mt-2'>
           <a

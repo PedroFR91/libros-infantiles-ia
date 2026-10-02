@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/credits";
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       style,
       characterDescription,
       ageRange,
+      gender,
       companion,
       dedication,
     } =
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
         status: "DRAFT",
         characterDescription,
         ageRange,
+        gender: gender ?? null,
+        accessToken: randomBytes(24).toString("base64url"),
         companion: companion?.trim() || null,
         dedication: dedication?.trim() || null,
       },

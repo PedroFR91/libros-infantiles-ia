@@ -273,7 +273,7 @@ export default function PageEditor({
             {/* Info */}
             <div className='p-2 sm:p-4 border-t border-border bg-surface'>
               <p className='text-[10px] sm:text-xs text-text-muted'>
-                💡 <strong>Gratis:</strong> Editar el texto no consume créditos.
+                💡 <strong>Gratis:</strong> cambiar el texto no cuesta nada.
               </p>
             </div>
           </div>

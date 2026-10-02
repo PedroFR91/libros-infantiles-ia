@@ -71,6 +71,7 @@ export const createBookSchema = z.object({
     .optional()
     .describe("Descripción del personaje desde foto"),
   ageRange: z.enum(AGE_RANGES).default("5-6").describe("Franja de edad"),
+  gender: z.enum(["nino", "nina"]).nullable().optional().describe("Para la concordancia del texto"),
   companion: safeString(MAX_COMPANION_LENGTH)
     .optional()
     .describe("Compañero de aventura (mascota, amigo...)"),
@@ -109,7 +110,10 @@ export const regeneratePageSchema = z.object({
 
 /** POST /api/stripe/checkout */
 export const checkoutSchema = z.object({
-  packId: z.enum(["small", "medium", "large"]),
+  // digital: el libro que acaba de crear · repeat: otro cuento (ya compró antes)
+  // bundle: impreso + PDF en un solo pago (con dirección de envío)
+  product: z.enum(["digital", "repeat", "bundle"]),
+  extraCopies: z.number().int().min(0).max(3).default(0),
   // Libro al que volver tras pagar (para generar sus ilustraciones al regresar)
   bookId: z.string().cuid().optional(),
   // Consentimiento expreso: el contenido digital personalizado se empieza a
@@ -120,6 +124,7 @@ export const checkoutSchema = z.object({
 /** POST /api/stripe/checkout-print */
 export const printCheckoutSchema = z.object({
   bookId: z.string().cuid(),
+  extraCopies: z.number().int().min(0).max(3).default(0),
   // Producto personalizado: sin desistimiento (art. 103.c TRLGDCU)
   acceptedTerms: z.literal(true),
 });
@@ -159,3 +164,8 @@ export function validateBody<T extends z.ZodType>(
 
   return { success: false, error: errorMessages };
 }
+
+/** POST /api/recover - recuperar los cuentos por email (sin cuenta) */
+export const recoverSchema = z.object({
+  email: z.email().max(200),
+});

@@ -57,16 +57,17 @@ export type PdfKind = "digital" | "home" | "print-interior" | "print-cover";
 // ============================================
 
 const MM = 72 / 25.4;
-const TRIM = 8 * 72; // 20,3 cm, formato cuadrado
 const envMm = (name: string, fallback: number) =>
   parseFloat(process.env[name] || "") || fallback;
-// Ajustar con la plantilla del proveedor (Gelato: sangrado 4 mm; Prodigi: sin sangrado)
+// Formato cuadrado del libro (Bubok: 210×210 mm). Ajustar el resto con la guía
+// de la imprenta: sangrado, lomo (según páginas y papel) y envoltura si es tapa dura
+const TRIM = envMm("PRINT_TRIM_MM", 210) * MM;
 const PRINT_BLEED = envMm("PRINT_BLEED_MM", 3) * MM;
-const PRINT_SPINE = envMm("PRINT_SPINE_MM", 6) * MM;
+const PRINT_SPINE = envMm("PRINT_SPINE_MM", 3) * MM;
 const PRINT_COVER_WRAP = envMm("PRINT_COVER_WRAP_MM", 0) * MM;
-const PRINT_MIN_PAGES = parseInt(process.env.PRINT_MIN_PAGES || "30", 10);
+const PRINT_MIN_PAGES = parseInt(process.env.PRINT_MIN_PAGES || "32", 10);
 const SAFE = 0.5 * 72; // margen de seguridad dentro del corte
-const LAYOUT_VERSION = 3; // subirlo invalida todos los PDFs en caché
+const LAYOUT_VERSION = 4; // subirlo invalida todos los PDFs en caché
 
 const COLORS = {
   cream: rgb(0.995, 0.97, 0.92),
@@ -111,7 +112,7 @@ function contentHash(book: PdfBook, kind: PdfKind): string {
         LAYOUT_VERSION,
         kind,
         book,
-        print: [PRINT_BLEED, PRINT_SPINE, PRINT_COVER_WRAP, PRINT_MIN_PAGES],
+        print: [TRIM, PRINT_BLEED, PRINT_SPINE, PRINT_COVER_WRAP, PRINT_MIN_PAGES],
       }),
     )
     .digest("hex")

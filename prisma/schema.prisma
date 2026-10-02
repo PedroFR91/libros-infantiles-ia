@@ -103,6 +103,16 @@ model Book {
   readyEmailSentAt DateTime?
 
   showcase      Boolean   @default(false) // Ejemplo público en la landing
+
+  // Enlace privado del libro (/libro/{id}?t=token): abre el libro sin cuenta
+  accessToken   String?   @unique
+  gender        String?   // "nino" | "nina" | null (concordancia del texto)
+  freeRedraws   Int       @default(3) // dibujos que se pueden rehacer gratis (garantía)
+
+  // Emails de la secuencia de venta
+  leadPreviewSentAt   DateTime? // portada de muestra enviada al dejar el email
+  printOfferSentAt    DateTime? // oferta del impreso tras comprar el digital
+  reviewRequestSentAt DateTime? // petición de opinión
   
   // Cached PDF URLs
   digitalPdfUrl   String?
@@ -216,7 +226,11 @@ model PrintOrder {
   shippingPhone   String?
   shippingAddress Json?            // { line1, line2, city, postal_code, state, country }
 
-  provider        String?          // "gelato" | "prodigi" | "manual"
+  kind            String           @default("upgrade") // "bundle" (impreso + PDF) | "upgrade" (ya tenía el PDF)
+  quantity        Int              @default(1)         // copias del mismo libro al mismo envío
+  approvedAt      DateTime?        // el cliente aprobó el libro para imprenta
+
+  provider        String?          // "bubok" | "manual"
   providerOrderId String?
   trackingUrl     String?
   notes           String?
@@ -230,6 +244,7 @@ model PrintOrder {
 
 enum PrintOrderStatus {
   PENDING_PAYMENT
+  AWAITING_APPROVAL // pagado (pack); se imprime cuando el cliente apruebe el libro
   PAID
   IN_PRODUCTION
   SHIPPED

@@ -18,18 +18,19 @@ export function getOpenAI(): OpenAI {
   return openaiInstance;
 }
 
-// Estilos artísticos disponibles
+// Estilos artísticos disponibles. Sin marcas ni artistas (propiedad
+// intelectual) y sin nada que invite a dibujar letras (bocadillos, rótulos).
 export const ART_STYLES: Record<string, string> = {
   classic:
-    "classic storybook illustration style, warm watercolor textures, soft lighting, reminiscent of Beatrix Potter and classic fairy tale books",
+    "classic storybook illustration style, fine ink linework with warm watercolor washes, soft natural lighting, gentle muted earthy colors, timeless fairy tale picture book feel",
   comic:
-    "comic book style with bold outlines, speech bubbles, dynamic poses, vibrant colors, manga-influenced children's illustration",
+    "bold graphic cartoon style with clean thick outlines, flat vibrant colors, dynamic expressive poses and simple cel shading, single full illustration (no panels, no speech balloons, no lettering)",
   watercolor:
     "delicate watercolor painting style, soft pastel colors, dreamy atmosphere, artistic brush strokes, ethereal lighting",
   cartoon:
-    "modern cartoon style, bright saturated colors, cute character designs, smooth gradients, Disney/Pixar influenced",
+    "modern 3D-look cartoon style for young children, rounded friendly shapes, big expressive eyes, bright saturated colors, smooth soft shading and gentle rim light",
   realistic:
-    "semi-realistic digital illustration, detailed textures, cinematic lighting, photorealistic backgrounds with stylized characters",
+    "soft painterly digital illustration with gentle lighting, simplified painted backgrounds and stylized characters (never photographic)",
   minimalist:
     "minimalist illustration style, clean lines, limited color palette, simple shapes, modern children's book aesthetic",
 };
@@ -283,11 +284,20 @@ export async function regeneratePageText(
 // DALL-E 3 deprecated 2026-05-12. gpt-image-1 supports reference images
 // via the images.edit endpoint for cross-page character consistency.
 
-/** Modelo de imagen (configurable para comparar con gpt-image-1.5 con el banco de pruebas) */
-const IMAGE_MODEL = (process.env.IMAGE_MODEL || "gpt-image-1") as
-  | "gpt-image-1"
-  | "gpt-image-1.5"
-  | "gpt-image-1-mini";
+/**
+ * Modelo de imagen (configurable para comparar con el banco de pruebas):
+ * gpt-image-1 | gpt-image-1.5 | gpt-image-1-mini | gpt-image-2
+ */
+export const IMAGE_MODEL: string = process.env.IMAGE_MODEL || "gpt-image-1";
+
+/**
+ * input_fidelity solo existe en gpt-image-1 y gpt-image-1.5; gpt-image-2
+ * responde 400 si se envía (según terceros) y el mini no lo admite.
+ */
+const SUPPORTS_INPUT_FIDELITY = /^gpt-image-1(\.5)?$/.test(IMAGE_MODEL);
+const highFidelity = SUPPORTS_INPUT_FIDELITY
+  ? { input_fidelity: "high" as const }
+  : {};
 
 /**
  * Generate a character reference illustration for visual consistency.
@@ -398,11 +408,13 @@ type ImageQuality = "low" | "medium" | "high";
 /**
  * Hoja de referencia de un personaje. Si llega la foto del niño se usa como
  * imagen de entrada (fidelidad alta) para que el personaje se le parezca;
- * la foto solo vive en memoria durante esta llamada.
+ * la foto solo vive en memoria durante esta llamada. Sin foto, `styleBase`
+ * (la hoja del protagonista) hace que los secundarios hereden su estilo.
  */
 export async function generateReferenceSheet(
   prompt: string,
   photo?: { buffer: Buffer; mimeType: string } | null,
+  styleBase?: Buffer | null,
 ): Promise<Buffer> {
   const openai = getOpenAI();
   const response = photo
@@ -410,12 +422,21 @@ export async function generateReferenceSheet(
         model: IMAGE_MODEL,
         image: await toFile(photo.buffer, "photo", { type: photo.mimeType }),
         prompt,
-        input_fidelity: "high",
+        ...highFidelity,
         n: 1,
         size: "1024x1024",
         quality: "medium",
       })
-    : await openai.images.generate({
+    : styleBase
+      ? await openai.images.edit({
+          model: IMAGE_MODEL,
+          image: await toFile(styleBase, "style-base.png", { type: "image/png" }),
+          prompt,
+          n: 1,
+          size: "1024x1024",
+          quality: "medium",
+        })
+      : await openai.images.generate({
         model: IMAGE_MODEL,
         prompt,
         n: 1,
@@ -431,6 +452,9 @@ export async function generateReferenceSheet(
 /**
  * Ilustración de una escena con las hojas de referencia de los personajes que
  * aparecen en ella (solo esos, para no "colar" personajes ausentes).
+ * El orden importa: la PRIMERA imagen es la que el modelo conserva con más
+ * fidelidad (cookbook de OpenAI), así que va el protagonista; la portada,
+ * como ancla de estilo, va la última. El prompt nombra cada imagen.
  */
 export async function generateIllustration(
   prompt: string,
@@ -443,11 +467,11 @@ export async function generateIllustration(
         model: IMAGE_MODEL,
         image: await Promise.all(
           references.map((ref, i) =>
-            toFile(ref, `ref-${i}.png`, { type: "image/png" }),
+            toFile(ref, `ref-${i + 1}.png`, { type: "image/png" }),
           ),
         ),
         prompt,
-        input_fidelity: "high",
+        ...highFidelity,
         n: 1,
         size: "1024x1024",
         quality,
