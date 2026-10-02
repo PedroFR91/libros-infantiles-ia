@@ -104,8 +104,8 @@ export default function TerminosPage() {
                 aplique.
               </li>
               <li>
-                Cada libro generado consume créditos según su complejidad
-                (aproximadamente 5 créditos por libro).
+                Cada pack incluye un número de libros: cada libro equivale a 5
+                créditos y regenerar una página consume 1 crédito.
               </li>
               <li>
                 Los créditos comprados <strong>no caducan</strong> mientras tu

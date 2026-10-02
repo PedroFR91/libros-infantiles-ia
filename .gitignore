@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Plantilla sin secretos: sí se versiona
 !.env.example
+
+# PDFs en caché y evaluaciones del motor (regenerables)
+/storage/

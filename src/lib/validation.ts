@@ -10,6 +10,11 @@ const MAX_NAME_LENGTH = 50;
 const MAX_THEME_LENGTH = 200;
 const MAX_CUSTOM_PROMPT_LENGTH = 500;
 const MAX_TEXT_LENGTH = 1000;
+const MAX_COMPANION_LENGTH = 120;
+const MAX_DEDICATION_LENGTH = 300;
+
+export const AGE_RANGES = ["3-4", "5-6", "7-8"] as const;
+export type AgeRange = (typeof AGE_RANGES)[number];
 
 // Caracteres peligrosos para prompt injection
 const PROMPT_INJECTION_PATTERNS = [
@@ -65,6 +70,19 @@ export const createBookSchema = z.object({
     .nullable()
     .optional()
     .describe("Descripción del personaje desde foto"),
+  ageRange: z.enum(AGE_RANGES).default("5-6").describe("Franja de edad"),
+  companion: safeString(MAX_COMPANION_LENGTH)
+    .optional()
+    .describe("Compañero de aventura (mascota, amigo...)"),
+  dedication: safeString(MAX_DEDICATION_LENGTH)
+    .optional()
+    .describe("Dedicatoria de quien regala"),
+});
+
+/** PATCH /api/books/[id] - Datos del libro editables por el usuario */
+export const bookDetailsSchema = z.object({
+  dedication: z.string().max(MAX_DEDICATION_LENGTH).nullable().optional(),
+  leadEmail: z.email().max(200).optional(),
 });
 
 /** PATCH /api/books/[id] - Actualizar libro */
@@ -92,6 +110,18 @@ export const regeneratePageSchema = z.object({
 /** POST /api/stripe/checkout */
 export const checkoutSchema = z.object({
   packId: z.enum(["small", "medium", "large"]),
+  // Libro al que volver tras pagar (para generar sus ilustraciones al regresar)
+  bookId: z.string().cuid().optional(),
+  // Consentimiento expreso: el contenido digital personalizado se empieza a
+  // crear de inmediato y se pierde el desistimiento (art. 103.m TRLGDCU)
+  acceptedTerms: z.literal(true),
+});
+
+/** POST /api/stripe/checkout-print */
+export const printCheckoutSchema = z.object({
+  bookId: z.string().cuid(),
+  // Producto personalizado: sin desistimiento (art. 103.c TRLGDCU)
+  acceptedTerms: z.literal(true),
 });
 
 /** POST /api/admin/credits */

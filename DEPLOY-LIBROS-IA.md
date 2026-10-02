@@ -90,3 +90,54 @@ docker compose logs --tail 50 caddy        # certificado HTTPS (¿DNS apunta aqu
 Las migraciones Prisma corren solas en `docker-entrypoint.sh` al arrancar.
 
 Cuando el Hetzner funcione, apagar la app del AWS antiguo para no pagar dos servidores.
+
+---
+
+## Despliegue en el AWS actual (`18.171.181.210`, mientras no se migra a Hetzner)
+
+En el AWS, libros vive en el compose compartido `~/editorial/docker-compose.yml` (servicio `libros-ia`), que hoy **construye desde el código de enero**. Hay que pasarlo a la imagen de GHCR (pública) y darle volúmenes: sin ellos, las imágenes y los PDFs se pierden cada vez que se recrea el contenedor.
+
+> ⚠️ En ese proyecto **nunca** uses `--remove-orphans`: los "huérfanos" son los contenedores de editorial, definidos en `docker-compose.prod.yml`.
+
+```bash
+ssh -i ~/.ssh/iconicospace/editorial-prod.pem ubuntu@18.171.181.210
+cd ~/editorial
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Copias: BD de libros, compose e imágenes ya generadas dentro del contenedor
+(cd /tmp && sudo -u postgres pg_dump -Fc librosinfantiles_prod) > ~/backups/libros-$TS.dump
+cp -p docker-compose.yml docker-compose.yml.bak-libros-$TS
+docker cp libros-ia:/app/public/images/books ~/backups/libros-images-$TS
+
+# 2. Compose: en el servicio libros-ia, sustituir
+#      build:
+#        context: ./libros-infantiles-ia
+#    por
+#      image: ghcr.io/pedrofr91/libros-infantiles-ia:latest
+#      volumes:
+#        - libros_storage:/app/storage
+#        - libros_images:/app/public/images/books
+#    y añadir `libros_storage:` y `libros_images:` en el bloque `volumes:` final.
+nano docker-compose.yml
+docker compose -f docker-compose.yml config -q && echo OK
+
+# 3. Variables nuevas en libros-infantiles-ia/.env (ver .env.example):
+#    LEGAL_OWNER_NAME, LEGAL_TAX_ID, LEGAL_ADDRESS, ADMIN_EMAIL, CRON_SECRET,
+#    ANALYTICS_* (opcional), STORY_MODEL/IMAGE_MODEL (opcional), PRINT_* (opcional)
+nano libros-infantiles-ia/.env
+
+# 4. Descargar y recrear SOLO libros (aplica las migraciones 1 y 2 al arrancar)
+docker compose -f docker-compose.yml pull libros-ia
+docker compose -f docker-compose.yml up -d --no-deps libros-ia
+docker logs --tail 30 libros-ia
+
+# 5. Devolver las imágenes antiguas al volumen
+docker cp ~/backups/libros-images-$TS/. libros-ia:/app/public/images/books/
+
+# 6. Cron de mantenimiento (libros atascados + recordatorios de borrador), cada 10 min
+( crontab -l 2>/dev/null | grep -v fix-stuck-books; echo "*/10 * * * * curl -fsS -H \"Authorization: Bearer <CRON_SECRET>\" https://libros.iconicospace.com/api/cron/fix-stuck-books >/dev/null 2>&1" ) | crontab -
+```
+
+**Volver atrás:** `cp docker-compose.yml.bak-libros-<TS> docker-compose.yml && docker compose -f docker-compose.yml up -d --no-deps libros-ia` (la BD se restaura con `pg_restore` desde `~/backups/libros-<TS>.dump` si hiciera falta).
+
+**Comprobar:** `curl -s https://libros.iconicospace.com/api/health` → `"healthy"`; crear un libro de prueba (historia + portada de muestra), pagar con `4242 4242 4242 4242` y el código `LANZAMIENTO`, ver cómo aparecen las páginas, descargar los dos PDF, y pedir el impreso para ver llegar el email de aviso y el pedido en el panel de admin.

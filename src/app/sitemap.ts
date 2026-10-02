@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SEO_INDEX } from "@/lib/seo-pages";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl =
@@ -12,6 +13,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1,
     },
+    {
+      url: `${baseUrl}/cuentos`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    ...SEO_INDEX.map((p) => ({
+      url: `${baseUrl}/cuentos/${p.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     {
       url: `${baseUrl}/login`,
       lastModified: now,

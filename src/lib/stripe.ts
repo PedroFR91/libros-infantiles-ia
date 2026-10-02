@@ -26,31 +26,8 @@ export const stripe = {
   },
 };
 
-// Configuración de precios de créditos
-export const CREDIT_PACKS = {
-  small: {
-    credits: 5,
-    price: 499, // centimos
-    priceId: process.env.STRIPE_PRICE_5_CREDITS || "",
-    name: "5 Créditos",
-    description: "Genera 1 libro completo",
-  },
-  medium: {
-    credits: 15,
-    price: 1299,
-    priceId: process.env.STRIPE_PRICE_15_CREDITS || "",
-    name: "15 Créditos",
-    description: "Genera 3 libros completos",
-    popular: true,
-  },
-  large: {
-    credits: 30,
-    price: 2299,
-    priceId: process.env.STRIPE_PRICE_30_CREDITS || "",
-    name: "30 Créditos",
-    description: "Genera 6 libros completos",
-  },
-} as const;
+export { CREDIT_PACKS, formatEuros } from "./pricing";
+import { CREDIT_PACKS } from "./pricing";
 
 // Costes en créditos
 export const CREDIT_COSTS = {

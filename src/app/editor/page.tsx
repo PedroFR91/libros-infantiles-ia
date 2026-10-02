@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,7 +26,11 @@ import {
   Shield,
   Settings,
   Type,
+  AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
+import { track } from "@/lib/analytics";
+import { PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
 
 // Componentes locales
 import BookViewer from "./BookViewer";
@@ -43,6 +47,7 @@ import {
   ViewMode,
   BookStyle,
   BOOK_STYLES,
+  AGE_OPTIONS,
 } from "./types";
 
 export default function EditorPage() {
@@ -72,7 +77,11 @@ function EditorContent() {
 
   // Creación de libro
   const [kidName, setKidName] = useState("");
-  const [theme, setTheme] = useState("");
+  // Las páginas SEO enlazan con ?theme= para empezar con un tema sugerido
+  const [theme, setTheme] = useState(() => searchParams.get("theme") ?? "");
+  const [ageRange, setAgeRange] = useState<string>("5-6");
+  const [companion, setCompanion] = useState("");
+  const [dedication, setDedication] = useState("");
   const [bookStyle, setBookStyle] = useState<BookStyle>("cartoon");
   const [selectedThemeCategories, setSelectedThemeCategories] = useState<
     string[]
@@ -120,6 +129,19 @@ function EditorContent() {
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loadingBook, setLoadingBook] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [buyingPack, setBuyingPack] = useState<string | null>(null);
+  const [printTerms, setPrintTerms] = useState(false);
+  const [orderingPrint, setOrderingPrint] = useState(false);
+  const [dedicationDraft, setDedicationDraft] = useState("");
+  const [notice, setNotice] = useState<{
+    type: "info" | "success" | "error";
+    text: string;
+  } | null>(null);
+
+  // Libro de la URL ya cargado: evita recargarlo (y relanzar la generación
+  // tras el pago) cuando cambian los parámetros o la sesión
+  const handledBookIdRef = useRef<string | null>(null);
 
   // ============================================
   // EFECTOS
@@ -133,19 +155,156 @@ function EditorContent() {
     if (searchParams.get("success") === "true") {
       setTimeout(() => fetchUserData(), 1000);
     }
-
-    // Cargar libro existente si se pasa bookId
-    const bookId = searchParams.get("bookId");
-    if (bookId) {
-      loadExistingBook(bookId);
-    }
   }, [searchParams, sessionStatus, session?.user?.id]);
+
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+
+    if (searchParams.get("print") === "ok") {
+      setNotice({
+        type: "success",
+        text: "¡Pedido impreso recibido! Te enviaremos un email con el seguimiento cuando salga de la imprenta.",
+      });
+    } else if (searchParams.get("print") === "canceled") {
+      setNotice({
+        type: "info",
+        text: "Pedido impreso cancelado. Puedes pedirlo cuando quieras desde este libro.",
+      });
+    }
+
+    if (searchParams.get("canceled")) {
+      setNotice({
+        type: "info",
+        text: "Pago cancelado. Tu historia sigue aquí: puedes desbloquear las ilustraciones cuando quieras.",
+      });
+    }
+
+    const bookId = searchParams.get("bookId");
+    if (!bookId) {
+      // En móvil el formulario vive en el panel lateral: abrirlo de entrada
+      if (window.innerWidth < 1024) setMobileMenuOpen(true);
+      return;
+    }
+    if (handledBookIdRef.current === bookId) return;
+    handledBookIdRef.current = bookId;
+
+    const paid = searchParams.get("paid") === "1";
+    loadExistingBook(bookId).then((loaded) => {
+      if (!loaded) return;
+      // Quitar ?paid de la URL para que recargar no vuelva a lanzar nada
+      window.history.replaceState(null, "", `/editor?bookId=${bookId}`);
+      if (paid && (loaded.status === "DRAFT" || loaded.status === "ERROR")) {
+        track("pago_completado");
+        generateAfterPayment(loaded);
+      }
+    });
+  }, [searchParams, sessionStatus]);
+
+  // Mientras se generan la portada de muestra o las ilustraciones, consultar
+  // el libro cada 3 s: las páginas aparecen según se terminan
+  const pollingBookId = book?.id;
+  const shouldPoll =
+    !!book && (book.status === "GENERATING" || !!book.previewPending);
+  useEffect(() => {
+    if (!pollingBookId || !shouldPoll) return;
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/books/${pollingBookId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setBook((prev) => {
+          if (!prev || prev.id !== data.book.id) return prev;
+          const fresh = mapBook(data.book);
+          return {
+            ...prev,
+            status: fresh.status,
+            coverPreviewUrl: fresh.coverPreviewUrl,
+            previewPending: fresh.previewPending,
+            generating: fresh.generating,
+            unlockedAt: fresh.unlockedAt,
+            pages: prev.pages.map((page) => {
+              const updated = fresh.pages.find((p) => p.pageNumber === page.pageNumber);
+              return updated
+                ? { ...page, imageUrl: updated.imageUrl, thumbnailUrl: updated.thumbnailUrl }
+                : page;
+            }),
+          };
+        });
+      } catch {
+        // reintentar en el siguiente ciclo
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [pollingBookId, shouldPoll]);
+
+  const previousStatusRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const previous = previousStatusRef.current;
+    previousStatusRef.current = book?.status;
+    if (previous !== "GENERATING") return;
+    if (book?.status === "COMPLETED") {
+      track("ilustraciones_generadas");
+      fetchUserData();
+      setNotice({
+        type: "success",
+        text: "¡Tu libro está listo! Descárgalo en PDF o pídelo impreso en tapa dura.",
+      });
+    } else if (book?.status === "ERROR") {
+      fetchUserData();
+      setNotice({
+        type: "error",
+        text: "No pudimos terminar las ilustraciones. Los créditos se han devuelto: pulsa «Reintentar ilustraciones».",
+      });
+    }
+  }, [book?.status]);
+
+  useEffect(() => {
+    setDedicationDraft(book?.dedication ?? "");
+  }, [book?.id, book?.dedication]);
 
   // ============================================
   // FUNCIONES DE DATOS
   // ============================================
 
-  const loadExistingBook = async (bookId: string) => {
+  // Respuesta de la API → estado del editor (conserva todos los campos de página)
+  const mapBook = (raw: BookData): BookData => ({
+    ...raw,
+    title: raw.title || `Historia de ${raw.kidName}`,
+    style: raw.style || "cartoon",
+    pages: [...raw.pages].sort((a, b) => a.pageNumber - b.pageNumber),
+  });
+
+  // Tras volver de Stripe el webhook puede tardar unos segundos en abonar
+  // los créditos: esperar a que lleguen y generar las ilustraciones solo.
+  const generateAfterPayment = async (target: BookData) => {
+    setNotice({
+      type: "success",
+      text: "¡Pago recibido! Estamos preparando las ilustraciones de tu libro...",
+    });
+    for (let attempt = 0; attempt < 20; attempt++) {
+      try {
+        const res = await fetch("/api/user");
+        const data = await res.json();
+        setCredits(data.credits || 0);
+        if ((data.credits || 0) >= 5) {
+          setNotice(null);
+          await handleGenerateImages(target);
+          return;
+        }
+      } catch {
+        // reintentar
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    setNotice({
+      type: "info",
+      text: "Tu pago se está confirmando. En unos segundos pulsa «Generar ilustraciones». Si no aparece, escríbenos a hola@iconicospace.com.",
+    });
+  };
+
+  const loadExistingBook = async (
+    bookId: string,
+  ): Promise<BookData | null> => {
     setLoadingBook(true);
     try {
       const res = await fetch(`/api/books/${bookId}`);
@@ -155,36 +314,20 @@ function EditorContent() {
       const data = await res.json();
       const bookResponse = data.book; // La API devuelve { book: {...} }
 
-      // Transformar los datos al formato esperado por el componente
-      const bookData: BookData = {
-        id: bookResponse.id,
-        title: bookResponse.title || `Historia de ${bookResponse.kidName}`,
-        kidName: bookResponse.kidName,
-        theme: bookResponse.theme,
-        style: bookResponse.style || "cartoon",
-        status: bookResponse.status,
-        pages: bookResponse.pages.map(
-          (p: {
-            pageNumber: number;
-            text: string;
-            imageUrl: string | null;
-            imagePrompt: string | null;
-          }) => ({
-            pageNumber: p.pageNumber,
-            text: p.text,
-            imageUrl: p.imageUrl,
-            imagePrompt: p.imagePrompt,
-          })
-        ),
-      };
+      const bookData = mapBook(bookResponse);
 
       setBook(bookData);
       setKidName(bookResponse.kidName);
       setTheme(bookResponse.theme);
       setBookStyle(bookResponse.style || "cartoon");
+      return bookData;
     } catch (error) {
       console.error("Error loading book:", error);
-      alert("No se pudo cargar el libro");
+      setNotice({
+        type: "error",
+        text: "No se pudo cargar el libro. Si acabas de pagar, inicia sesión con el email de la compra o escríbenos a hola@iconicospace.com.",
+      });
+      return null;
     } finally {
       setLoadingBook(false);
     }
@@ -294,13 +437,16 @@ function EditorContent() {
           style: bookStyle,
           categories: [...selectedThemeCategories, ...selectedVisualCategories],
           characterDescription: characterDescription || undefined,
+          ageRange,
+          companion: companion.trim() || undefined,
+          dedication: dedication.trim() || undefined,
         }),
       });
 
-      const { book: newBook } = await createRes.json();
+      const { book: newBook, error: createError } = await createRes.json();
 
       if (!newBook) {
-        throw new Error("No se pudo crear el libro");
+        throw new Error(createError || "No se pudo crear el libro");
       }
 
       setGeneratingProgress(30);
@@ -313,13 +459,17 @@ function EditorContent() {
             clearInterval(progressInterval);
             return prev;
           }
-          return Math.min(prev + 5, 90);
+          return Math.min(prev + 2, 90);
         });
-      }, 1000);
+      }, 1500);
 
-      // Generar SOLO la historia (textos) - GRATIS
+      // Generar SOLO la historia (gratis). La foto viaja para dibujar al
+      // protagonista en la portada de muestra; no se guarda.
+      const storyBody = new FormData();
+      if (kidPhoto) storyBody.append("photo", kidPhoto);
       const genRes = await fetch(`/api/books/${newBook.id}/generate-story`, {
         method: "POST",
+        ...(kidPhoto && { body: storyBody }),
       });
 
       clearInterval(progressInterval);
@@ -335,14 +485,25 @@ function EditorContent() {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      setBook(genData.book);
+      setBook(mapBook(genData.book));
       setCurrentPage(0);
+
+      // El borrador queda en la URL: recargar o volver atrás no lo pierde
+      handledBookIdRef.current = genData.book.id;
+      window.history.replaceState(null, "", `/editor?bookId=${genData.book.id}`);
+      track("borrador_creado", { estilo: bookStyle, foto: !!kidPhoto });
 
       // Mostrar el overlay explicativo de draft
       setShowDraftOverlay(true);
     } catch (error) {
       console.error("Error generating story:", error);
-      alert("Error al generar la historia. Por favor, inténtalo de nuevo.");
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error && error.message
+            ? error.message
+            : "Error al generar la historia. Por favor, inténtalo de nuevo.",
+      });
     } finally {
       setIsGenerating(false);
       setGeneratingStatus("");
@@ -353,8 +514,11 @@ function EditorContent() {
   // GENERACIÓN DE IMÁGENES (CUESTA 5 CRÉDITOS)
   // ============================================
 
-  const handleGenerateImages = async () => {
-    if (!book) return;
+  // `targetBook` permite lanzarlo justo tras cargar el libro (vuelta de Stripe),
+  // antes de que el estado `book` se haya actualizado
+  const handleGenerateImages = async (targetBook?: BookData) => {
+    const book_ = targetBook ?? book;
+    if (!book_) return;
 
     // Verificar créditos con el API
     try {
@@ -374,163 +538,38 @@ function EditorContent() {
     }
 
     setIsGenerating(true);
-    setGeneratingStatus("Creando ilustraciones...");
-    setGeneratingPhase("images");
-    setGeneratingProgress(10);
-
     try {
-      // Progreso visual
-      const progressInterval = setInterval(() => {
-        setGeneratingProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return Math.min(prev + 3, 90);
-        });
-      }, 2000);
-
-      // Generar imágenes - CUESTA CRÉDITOS
-      const genRes = await fetch(`/api/books/${book.id}/generate-images`, {
+      // Responde al momento (202) y genera en segundo plano: el sondeo del
+      // libro va mostrando cada página según termina
+      const genRes = await fetch(`/api/books/${book_.id}/generate-images`, {
         method: "POST",
       });
-
-      clearInterval(progressInterval);
-
       const genData = await genRes.json();
 
       if (genData.needsCredits) {
         setShowCreditsModal(true);
         return;
       }
-
-      if (genData.error) {
-        throw new Error(genData.error);
+      if (genRes.status === 202 || genRes.status === 409) {
+        setBook((prev) =>
+          prev && prev.id === book_.id
+            ? { ...prev, status: "GENERATING" }
+            : { ...book_, status: "GENERATING" },
+        );
+        setNotice(null);
+        fetchUserData();
+        return;
       }
-
-      setGeneratingPhase("finishing");
-      setGeneratingStatus("¡Finalizando tu libro!");
-      setGeneratingProgress(95);
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setGeneratingProgress(100);
-
-      setBook(genData.book);
-      setCredits((prev) => prev - 5);
+      throw new Error(genData.error || "Error al iniciar las ilustraciones");
     } catch (error) {
       console.error("Error generating images:", error);
-      alert(
-        "Error al generar las ilustraciones. Por favor, inténtalo de nuevo."
-      );
-    } finally {
-      setIsGenerating(false);
-      setGeneratingStatus("");
-    }
-  };
-
-  // ============================================
-  // GENERACIÓN DE LIBRO COMPLETO (flujo legacy)
-  // ============================================
-
-  const handleGenerateBook = async () => {
-    if (!kidName.trim() || !theme.trim()) {
-      alert("Por favor, introduce el nombre del niño y el tema de la historia");
-      return;
-    }
-
-    // Verificar créditos con el API
-    try {
-      const res = await fetch("/api/user");
-      const data = await res.json();
-      const currentCredits = data.credits || 0;
-      setCredits(currentCredits);
-
-      if (currentCredits < 5) {
-        setShowCreditsModal(true);
-        return;
-      }
-    } catch (error) {
-      console.error("Error checking credits:", error);
-      alert("Error al verificar créditos. Inténtalo de nuevo.");
-      return;
-    }
-
-    setIsGenerating(true);
-    setGeneratingStatus("Creando tu libro...");
-    setGeneratingPhase("story");
-    setGeneratingProgress(10);
-
-    try {
-      // Crear libro
-      const createRes = await fetch("/api/books", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kidName: kidName.trim(),
-          theme: theme.trim(),
-          style: bookStyle,
-          categories: [...selectedThemeCategories, ...selectedVisualCategories],
-          characterDescription: characterDescription || undefined,
-        }),
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error && error.message
+            ? error.message
+            : "No pudimos empezar las ilustraciones. Inténtalo de nuevo.",
       });
-
-      const { book: newBook } = await createRes.json();
-
-      if (!newBook) {
-        throw new Error("No se pudo crear el libro");
-      }
-
-      setGeneratingProgress(20);
-      setGeneratingStatus("Escribiendo la historia...");
-
-      // Progreso visual
-      const progressInterval = setInterval(() => {
-        setGeneratingProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          const increment = prev < 40 ? 8 : prev < 60 ? 4 : prev < 80 ? 2 : 1;
-          return Math.min(prev + increment, 90);
-        });
-      }, 2000);
-
-      setTimeout(() => {
-        setGeneratingPhase("images");
-        setGeneratingStatus("Creando ilustraciones mágicas...");
-      }, 5000);
-
-      // Generar contenido
-      const genRes = await fetch(`/api/books/${newBook.id}/generate`, {
-        method: "POST",
-      });
-
-      clearInterval(progressInterval);
-
-      const genData = await genRes.json();
-
-      if (genData.needsCredits) {
-        setShowCreditsModal(true);
-        return;
-      }
-
-      if (genData.error) {
-        throw new Error(genData.error);
-      }
-
-      setGeneratingPhase("finishing");
-      setGeneratingStatus("¡Finalizando tu libro!");
-      setGeneratingProgress(95);
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setGeneratingProgress(100);
-
-      setBook(genData.book);
-      setCredits((prev) => prev - 5);
-      setCurrentPage(0);
-    } catch (error) {
-      console.error("Error generating book:", error);
-      alert("Error al generar el libro. Por favor, inténtalo de nuevo.");
     } finally {
       setIsGenerating(false);
       setGeneratingStatus("");
@@ -555,7 +594,8 @@ function EditorContent() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customPrompt: "" }),
+          // Solo la imagen: el texto puede haberlo editado el usuario
+          body: JSON.stringify({ customPrompt: "", regenerateText: false }),
         }
       );
 
@@ -601,14 +641,16 @@ function EditorContent() {
       });
 
       if (res.ok) {
-        setBook({
-          ...book,
-          pages: book.pages.map((p) =>
-            p.pageNumber === editingText.pageNumber
-              ? { ...p, text: editingText.text }
-              : p
-          ),
-        });
+        setBook((prev) =>
+          prev && {
+            ...prev,
+            pages: prev.pages.map((p) =>
+              p.pageNumber === editingText.pageNumber
+                ? { ...p, text: editingText.text }
+                : p,
+            ),
+          },
+        );
       }
     } catch (error) {
       console.error("Error saving text:", error);
@@ -622,12 +664,14 @@ function EditorContent() {
     if (!book) return;
 
     // Actualizar localmente primero
-    setBook({
-      ...book,
-      pages: book.pages.map((p) =>
-        p.pageNumber === pageNumber ? { ...p, text } : p
-      ),
-    });
+    setBook((prev) =>
+      prev && {
+        ...prev,
+        pages: prev.pages.map((p) =>
+          p.pageNumber === pageNumber ? { ...p, text } : p,
+        ),
+      },
+    );
 
     // Guardar en el servidor
     try {
@@ -655,14 +699,80 @@ function EditorContent() {
     if (!book) return;
 
     // Actualizar localmente primero
-    setBook({
-      ...book,
-      pages: book.pages.map((p) =>
-        p.pageNumber === pageNumber ? { ...p, ...updates } : p
-      ),
-    });
+    setBook((prev) =>
+      prev && {
+        ...prev,
+        pages: prev.pages.map((p) =>
+          p.pageNumber === pageNumber ? { ...p, ...updates } : p,
+        ),
+      },
+    );
 
-    // TODO: Guardar en el servidor cuando tengamos el endpoint
+    try {
+      await fetch(`/api/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageNumber, ...updates }),
+      });
+    } catch (error) {
+      console.error("Error saving page style:", error);
+    }
+  };
+
+  const handleSaveDedication = async () => {
+    if (!book) return;
+    const value = dedicationDraft.trim();
+    try {
+      const res = await fetch(`/api/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dedication: value || null }),
+      });
+      if (!res.ok) throw new Error();
+      setBook({ ...book, dedication: value || null });
+      setNotice({ type: "success", text: "Dedicatoria guardada." });
+    } catch {
+      setNotice({ type: "error", text: "No se pudo guardar la dedicatoria." });
+    }
+  };
+
+  const handleSaveLeadEmail = async (email: string): Promise<boolean> => {
+    if (!book) return false;
+    try {
+      const res = await fetch(`/api/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadEmail: email }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleOrderPrint = async () => {
+    if (!book || !printTerms) return;
+    setOrderingPrint(true);
+    try {
+      const res = await fetch("/api/stripe/checkout-print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id, acceptedTerms: true }),
+      });
+      const data = await res.json();
+      if (!data.url) throw new Error(data.error);
+      window.location.href = data.url;
+      return;
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error && error.message
+            ? error.message
+            : "No se pudo abrir el pago del libro impreso.",
+      });
+    }
+    setOrderingPrint(false);
   };
 
   // ============================================
@@ -680,6 +790,7 @@ function EditorContent() {
       );
 
       if (!res.ok) throw new Error("Error downloading PDF");
+      track("pdf_descargado", { tipo: type });
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -703,22 +814,52 @@ function EditorContent() {
   // ============================================
 
   const handleBuyCredits = async (packId: string) => {
+    if (!acceptedTerms) return;
+    setBuyingPack(packId);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId }),
+        body: JSON.stringify({
+          packId,
+          acceptedTerms: true,
+          // Para volver a este libro y generarlo al terminar de pagar
+          ...(book && book.status !== "COMPLETED" && { bookId: book.id }),
+        }),
       });
 
       const data = await res.json();
 
       if (data.url) {
+        track("checkout_iniciado", { pack: packId });
         window.location.href = data.url;
+        return;
       }
+      throw new Error(data.error || "Sin URL de pago");
     } catch (error) {
       console.error("Error creating checkout:", error);
-      alert("Error al crear el checkout");
+      setShowCreditsModal(false);
+      setNotice({
+        type: "error",
+        text: "No se pudo abrir el pago. Inténtalo de nuevo en unos segundos.",
+      });
     }
+    setBuyingPack(null);
+  };
+
+  // Páginas ya ilustradas (la portada de muestra no cuenta hasta pagar)
+  const illustratedCount = (b: BookData) =>
+    b.pages.filter(
+      (p) =>
+        p.imageUrl &&
+        (p.pageNumber !== 1 || !b.coverPreviewUrl || p.imageUrl !== b.coverPreviewUrl),
+    ).length;
+
+  const handleNewBook = () => {
+    setBook(null);
+    setNotice(null);
+    handledBookIdRef.current = null;
+    window.history.replaceState(null, "", "/editor");
   };
 
   // ============================================
@@ -751,8 +892,10 @@ function EditorContent() {
             {/* Botón menú móvil */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className='lg:hidden p-2 rounded-lg bg-surface border border-border hover:border-primary transition-colors'>
-              <Settings className='w-5 h-5' />
+              aria-label='Abrir panel para crear y editar el libro'
+              className='lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold'>
+              <Wand2 className='w-4 h-4' />
+              {book ? "Opciones" : "Crear"}
             </button>
             <Link href='/' className='flex items-center gap-2'>
               <div className='w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center'>
@@ -828,6 +971,31 @@ function EditorContent() {
           </div>
         </div>
       </header>
+
+      {notice && (
+        <div
+          role='status'
+          className={`flex-shrink-0 flex items-start gap-2 px-4 py-3 text-sm border-b ${
+            notice.type === "error"
+              ? "bg-red-500/10 border-red-500/30 text-red-600"
+              : notice.type === "success"
+                ? "bg-green-500/10 border-green-500/30 text-green-700"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-700"
+          }`}>
+          {notice.type === "error" ? (
+            <AlertTriangle className='w-4 h-4 mt-0.5 flex-shrink-0' />
+          ) : (
+            <CheckCircle className='w-4 h-4 mt-0.5 flex-shrink-0' />
+          )}
+          <p className='flex-1'>{notice.text}</p>
+          <button
+            onClick={() => setNotice(null)}
+            aria-label='Cerrar aviso'
+            className='p-0.5 rounded hover:bg-black/10'>
+            <X className='w-4 h-4' />
+          </button>
+        </div>
+      )}
 
       {/* Contenido Principal */}
       <div className='flex-1 flex overflow-hidden relative'>
@@ -929,6 +1097,68 @@ function EditorContent() {
                   />
                 </div>
 
+                {!book && (
+                  <>
+                    {/* Edad: ajusta longitud del texto y vocabulario */}
+                    <fieldset>
+                      <legend className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
+                        Edad del lector
+                      </legend>
+                      <div className='grid grid-cols-3 gap-2'>
+                        {AGE_OPTIONS.map((option) => (
+                          <button
+                            key={option.id}
+                            type='button'
+                            onClick={() => setAgeRange(option.id)}
+                            aria-pressed={ageRange === option.id}
+                            title={option.hint}
+                            className={`py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
+                              ageRange === option.id
+                                ? "bg-primary text-white border-primary"
+                                : "bg-surface border-border hover:border-primary"
+                            }`}>
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    <div>
+                      <label
+                        htmlFor='companion'
+                        className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
+                        ¿Le acompaña alguien? (opcional)
+                      </label>
+                      <input
+                        id='companion'
+                        type='text'
+                        value={companion}
+                        onChange={(e) => setCompanion(e.target.value)}
+                        maxLength={120}
+                        placeholder='Ej: su perro Toby, un labrador marrón'
+                        className='w-full px-3 sm:px-4 py-2.5 bg-surface border border-border rounded-lg sm:rounded-xl text-sm text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all'
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor='dedication'
+                        className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
+                        Dedicatoria (opcional)
+                      </label>
+                      <textarea
+                        id='dedication'
+                        value={dedication}
+                        onChange={(e) => setDedication(e.target.value)}
+                        maxLength={300}
+                        rows={2}
+                        placeholder='Ej: Para Sofía, con todo el cariño de los abuelos'
+                        className='w-full px-3 sm:px-4 py-2.5 bg-surface border border-border rounded-lg sm:rounded-xl text-sm text-text placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none'
+                      />
+                    </div>
+                  </>
+                )}
+
                 {/* Foto del niño */}
                 <div>
                   <label className='block text-xs sm:text-sm font-medium text-text-muted mb-1.5 sm:mb-2'>
@@ -977,6 +1207,14 @@ function EditorContent() {
                       ✨ {characterDescription}
                     </p>
                   )}
+                  <p className='mt-1.5 text-[11px] leading-snug text-text-muted'>
+                    🔒 La foto solo se usa para dibujar al personaje con sus
+                    rasgos y <strong>no se guarda</strong>. Al subirla
+                    confirmas que eres su madre, padre o tutor.{" "}
+                    <Link href='/privacidad' className='underline'>
+                      Más info
+                    </Link>
+                  </p>
                 </div>
 
                 {/* Botones de Generación - Flujo de 2 pasos */}
@@ -1033,17 +1271,73 @@ function EditorContent() {
                           <Loader2 className='w-4 h-4 sm:w-5 sm:h-5 animate-spin' />
                           <span className='truncate'>{generatingStatus}</span>
                         </>
+                      ) : credits >= 5 ? (
+                        <>
+                          <ImageIcon className='w-4 h-4 sm:w-5 sm:h-5' />
+                          Generar ilustraciones
+                        </>
                       ) : (
                         <>
                           <ImageIcon className='w-4 h-4 sm:w-5 sm:h-5' />
-                          Generar ilustraciones (5 créditos)
+                          Desbloquear ilustraciones ·{" "}
+                          {creditPacks.find((p) => p.id === "small")
+                            ?.priceFormatted ?? "9,90 €"}
                         </>
                       )}
                     </button>
                     <button
-                      onClick={() => setBook(null)}
+                      onClick={handleNewBook}
                       className='w-full py-2 text-text-muted hover:text-red-500 text-xs sm:text-sm transition-colors'>
                       Descartar y empezar de nuevo
+                    </button>
+                  </div>
+                ) : book.status === "GENERATING" ? (
+                  <div className='space-y-2 sm:space-y-3'>
+                    <div className='p-2.5 sm:p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg sm:rounded-xl'>
+                      <p className='text-xs sm:text-sm text-blue-600 font-medium mb-1'>
+                        🎨 Ilustrando tu libro ·{" "}
+                        {illustratedCount(book)} de {book.pages.length}
+                      </p>
+                      <div
+                        className='h-1.5 rounded-full bg-blue-500/20 overflow-hidden mb-2'
+                        role='progressbar'
+                        aria-valuemin={0}
+                        aria-valuemax={book.pages.length}
+                        aria-valuenow={illustratedCount(book)}>
+                        <div
+                          className='h-full bg-blue-500 transition-all duration-700'
+                          style={{
+                            width: `${(illustratedCount(book) / Math.max(book.pages.length, 1)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <p className='text-xs text-text-muted'>
+                        Las páginas aparecen según se terminan (unos 3-5
+                        minutos). Puedes cerrar la página: el libro se guarda
+                        y te avisamos por email si nos lo has dejado.
+                      </p>
+                    </div>
+                  </div>
+                ) : book.status === "ERROR" ? (
+                  <div className='space-y-2 sm:space-y-3'>
+                    <div className='p-2.5 sm:p-3 bg-red-500/10 border border-red-500/30 rounded-lg sm:rounded-xl'>
+                      <p className='text-xs sm:text-sm text-red-600 font-medium mb-1'>
+                        ⚠️ Las ilustraciones no se completaron
+                      </p>
+                      <p className='text-xs text-text-muted'>
+                        Los créditos cobrados se han devuelto. Puedes
+                        reintentarlo sin pagar de nuevo.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleGenerateImages();
+                        setMobileMenuOpen(false);
+                      }}
+                      disabled={isGenerating}
+                      className='w-full py-3 sm:py-4 bg-secondary hover:bg-secondary/80 disabled:opacity-50 text-white font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
+                      <RefreshCw className='w-4 h-4 sm:w-5 sm:h-5' />
+                      Reintentar ilustraciones
                     </button>
                   </div>
                 ) : (
@@ -1054,12 +1348,71 @@ function EditorContent() {
                         ✅ ¡Libro completado!
                       </p>
                     </div>
+                    {/* Libro impreso: tapa dura con envío incluido */}
+                    <div className='p-3 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/10 border border-primary/40 space-y-2'>
+                      <p className='text-sm font-bold'>📦 Tenlo en papel</p>
+                      <p className='text-xs text-text-muted'>
+                        {PRINT_PRODUCT.description}. Llega en{" "}
+                        {PRINT_PRODUCT.deliveryDays.min}-
+                        {PRINT_PRODUCT.deliveryDays.max} días laborables.
+                      </p>
+                      <label className='flex items-start gap-2 text-[11px] leading-snug text-text-muted cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={printTerms}
+                          onChange={(e) => setPrintTerms(e.target.checked)}
+                          className='mt-0.5 w-3.5 h-3.5 accent-primary flex-shrink-0'
+                        />
+                        <span>
+                          He revisado textos e ilustraciones y acepto que, al
+                          ser personalizado, no admite desistimiento (si llega
+                          con un defecto de impresión, lo reponemos).
+                        </span>
+                      </label>
+                      <button
+                        onClick={handleOrderPrint}
+                        disabled={!printTerms || orderingPrint}
+                        className='w-full py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 text-sm'>
+                        {orderingPrint ? (
+                          <Loader2 className='w-4 h-4 animate-spin' />
+                        ) : (
+                          <>Pedir impreso · {formatEuros(PRINT_PRODUCT.price)}</>
+                        )}
+                      </button>
+                    </div>
                     <button
-                      onClick={() => setBook(null)}
-                      className='w-full py-2.5 sm:py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
+                      onClick={handleNewBook}
+                      className='w-full py-2.5 sm:py-3 bg-surface border border-border hover:border-primary font-bold rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base'>
                       <Sparkles className='w-4 h-4 sm:w-5 sm:h-5' />
                       Crear nuevo libro
                     </button>
+                  </div>
+                )}
+
+                {/* Dedicatoria editable (sale en el PDF y en el impreso) */}
+                {book && book.status !== "GENERATING" && (
+                  <div className='space-y-2 pt-3 sm:pt-4 border-t border-border'>
+                    <label
+                      htmlFor='dedication-edit'
+                      className='block text-xs sm:text-sm font-medium text-text-muted'>
+                      Dedicatoria
+                    </label>
+                    <textarea
+                      id='dedication-edit'
+                      value={dedicationDraft}
+                      onChange={(e) => setDedicationDraft(e.target.value)}
+                      maxLength={300}
+                      rows={2}
+                      placeholder='Ej: Para Sofía, con todo el cariño de los abuelos'
+                      className='w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text placeholder-text-muted focus:border-primary outline-none resize-none'
+                    />
+                    {dedicationDraft.trim() !== (book.dedication ?? "") && (
+                      <button
+                        onClick={handleSaveDedication}
+                        className='w-full py-2 bg-surface border border-border hover:border-primary rounded-lg text-xs sm:text-sm font-medium'>
+                        Guardar dedicatoria
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1079,7 +1432,7 @@ function EditorContent() {
                       ) : (
                         <Download className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
                       )}
-                      PDF
+                      PDF para leer en pantalla
                     </button>
                     <button
                       onClick={() => handleDownloadPDF("print")}
@@ -1090,7 +1443,7 @@ function EditorContent() {
                       ) : (
                         <ImageIcon className='w-3.5 h-3.5 sm:w-4 sm:h-4' />
                       )}
-                      PDF formato impresión
+                      PDF para imprimir en casa
                     </button>
                   </div>
                 )}
@@ -1218,10 +1571,16 @@ function EditorContent() {
                   <h3 className='text-xl font-bold mb-2'>
                     Crea tu primer libro
                   </h3>
-                  <p className='text-text-muted max-w-md'>
+                  <p className='text-text-muted max-w-md px-4'>
                     Introduce el nombre del protagonista y el tema para generar
                     una historia única con ilustraciones mágicas.
                   </p>
+                  <button
+                    onClick={() => setMobileMenuOpen(true)}
+                    className='lg:hidden mt-6 px-6 py-3 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl inline-flex items-center gap-2'>
+                    <Sparkles className='w-5 h-5' />
+                    Empezar mi libro gratis
+                  </button>
                 </div>
               </div>
             )
@@ -1241,7 +1600,7 @@ function EditorContent() {
               onEditText={setEditingText}
               onSaveText={handleSaveText}
               onUpdatePageText={handleUpdatePageText}
-              onGenerateImages={handleGenerateImages}
+              onGenerateImages={() => handleGenerateImages()}
               credits={credits}
             />
           )}
@@ -1254,6 +1613,12 @@ function EditorContent() {
         theme={theme || book?.theme || ""}
         pageCount={book?.pages.length || 12}
         credits={credits}
+        unlockPrice={
+          creditPacks.find((p) => p.id === "small")?.priceFormatted ?? "9,90 €"
+        }
+        coverPreviewUrl={book?.coverPreviewUrl}
+        previewPending={book?.previewPending}
+        onSaveEmail={handleSaveLeadEmail}
         onGenerateImages={() => {
           setShowDraftOverlay(false);
           handleGenerateImages();
@@ -1283,26 +1648,55 @@ function EditorContent() {
               onClick={(e) => e.stopPropagation()}>
               <div className='flex items-center justify-between mb-4 sm:mb-6'>
                 <h2 className='text-xl sm:text-2xl font-bold'>
-                  Comprar Créditos
+                  {book && book.status !== "COMPLETED"
+                    ? "Desbloquea tu libro"
+                    : "Comprar libros"}
                 </h2>
                 <button
                   onClick={() => setShowCreditsModal(false)}
+                  aria-label='Cerrar'
                   className='p-2 hover:bg-surface rounded-lg transition-colors'>
                   <X className='w-5 h-5' />
                 </button>
               </div>
 
-              <p className='text-sm sm:text-base text-text-muted mb-4 sm:mb-6'>
-                Tienes <span className='text-primary font-bold'>{credits}</span>{" "}
-                créditos. Compra más para seguir creando libros.
+              <p className='text-sm sm:text-base text-text-muted mb-4'>
+                {book && book.status !== "COMPLETED"
+                  ? `Las ${book.pages.length} ilustraciones de «${book.title || book.kidName}» se crean en cuanto completes el pago. Incluye PDF para leer en pantalla y para imprimir.`
+                  : "Cada libro incluye 12 páginas ilustradas, PDF para pantalla y para imprimir, y regeneración de páginas."}
               </p>
+
+              <label className='flex items-start gap-2 mb-4 p-3 rounded-xl bg-surface border border-border text-xs sm:text-sm cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className='mt-0.5 w-4 h-4 accent-primary flex-shrink-0'
+                />
+                <span className='text-text-muted'>
+                  Acepto los{" "}
+                  <Link href='/terminos' target='_blank' className='underline'>
+                    términos
+                  </Link>{" "}
+                  y que el libro se cree inmediatamente. Al ser contenido
+                  digital personalizado,{" "}
+                  <Link
+                    href='/desistimiento'
+                    target='_blank'
+                    className='underline'>
+                    pierdo el derecho de desistimiento
+                  </Link>
+                  .
+                </span>
+              </label>
 
               <div className='space-y-3 sm:space-y-4'>
                 {creditPacks.map((pack) => (
                   <button
                     key={pack.id}
                     onClick={() => handleBuyCredits(pack.id)}
-                    className={`w-full p-3 sm:p-4 rounded-xl text-left transition-all ${
+                    disabled={!acceptedTerms || buyingPack !== null}
+                    className={`w-full p-3 sm:p-4 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                       pack.popular
                         ? "bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary"
                         : "bg-surface border border-border hover:border-primary"
@@ -1325,7 +1719,11 @@ function EditorContent() {
                       </div>
                       <div className='text-right'>
                         <div className='text-lg sm:text-xl font-bold'>
-                          {pack.priceFormatted}
+                          {buyingPack === pack.id ? (
+                            <Loader2 className='w-5 h-5 animate-spin' />
+                          ) : (
+                            pack.priceFormatted
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1335,7 +1733,8 @@ function EditorContent() {
 
               <div className='mt-4 sm:mt-6 text-center text-xs sm:text-sm text-text-muted'>
                 <ShoppingCart className='w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1' />
-                Pago seguro con Stripe
+                Pago seguro con Stripe · ¿Tienes un código? Lo puedes poner al
+                pagar
               </div>
             </motion.div>
           </motion.div>

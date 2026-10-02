@@ -4,6 +4,10 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import Stripe from "stripe";
 import { createLogger } from "@/lib/logger";
+import {
+  sendPrintOrderAdminEmail,
+  sendPrintOrderConfirmationEmail,
+} from "@/lib/email";
 
 const log = createLogger("stripe-webhook");
 
@@ -87,6 +91,11 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  if (session.metadata?.type === "print") {
+    await handlePrintPaid(session);
+    return;
+  }
+
   const { userId, credits } = session.metadata || {};
 
   if (!userId || !credits) {
@@ -112,25 +121,34 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     async (tx: Prisma.TransactionClient) => {
       const claimed = await tx.payment.updateMany({
         where: { stripeSessionId: session.id, status: "PENDING" },
-        data: { status: "COMPLETED", stripePaymentId: paymentIntentId },
+        data: {
+          status: "COMPLETED",
+          stripePaymentId: paymentIntentId,
+          customerEmail: session.customer_details?.email ?? null,
+          // Importe real cobrado (con código promocional puede ser menor)
+          ...(session.amount_total != null && { amount: session.amount_total }),
+        },
       });
 
       if (claimed.count === 0) return null;
 
+      // El dueño es el de la fila Payment: si el comprador anónimo inició
+      // sesión antes del webhook, la fusión ya la movió a su cuenta
       const payment = await tx.payment.findUniqueOrThrow({
         where: { stripeSessionId: session.id },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
+      const ownerId = payment.userId;
 
       const user = await tx.user.update({
-        where: { id: userId },
+        where: { id: ownerId },
         data: { credits: { increment: creditsToAdd } },
         select: { credits: true },
       });
 
       await tx.creditLedger.create({
         data: {
-          userId,
+          userId: ownerId,
           amount: creditsToAdd,
           reason: "purchase",
           referenceId: payment.id,
@@ -168,6 +186,15 @@ async function handleCheckoutFailed(
   session: Stripe.Checkout.Session,
   eventType: string,
 ) {
+  if (session.metadata?.type === "print") {
+    const { count } = await prisma.printOrder.updateMany({
+      where: { stripeSessionId: session.id, status: "PENDING_PAYMENT" },
+      data: { status: "CANCELED" },
+    });
+    log.warn({ sessionId: session.id, eventType, updated: count }, "Pedido impreso no pagado");
+    return;
+  }
+
   // Solo los PENDING: un pago ya COMPLETED no se toca
   const { count } = await prisma.payment.updateMany({
     where: { stripeSessionId: session.id, status: "PENDING" },
@@ -191,8 +218,68 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     data: { status: "REFUNDED" },
   });
 
+  // Pedido impreso reembolsado: queda cancelado (si no ha salido aún, no imprimir)
+  const printCanceled = await prisma.printOrder.updateMany({
+    where: {
+      stripePaymentId: paymentIntentId,
+      status: { in: ["PAID", "IN_PRODUCTION"] },
+    },
+    data: { status: "CANCELED", notes: "Reembolsado en Stripe" },
+  });
+  if (printCanceled.count > 0) {
+    log.warn({ paymentIntentId }, "Pedido impreso cancelado por reembolso");
+  }
+
   log.warn(
     { paymentIntentId, refunded: charge.amount_refunded, updated: count },
     "Pago reembolsado",
   );
+}
+
+// Pedido impreso pagado: guardar destinatario y avisar (producción manual, fase A)
+async function handlePrintPaid(session: Stripe.Checkout.Session) {
+  const shipping = session.collected_information?.shipping_details;
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
+
+  // Idempotente: solo PENDING_PAYMENT → PAID una vez
+  const { count } = await prisma.printOrder.updateMany({
+    where: { stripeSessionId: session.id, status: "PENDING_PAYMENT" },
+    data: {
+      status: "PAID",
+      stripePaymentId: paymentIntentId,
+      email: session.customer_details?.email ?? null,
+      shippingName: shipping?.name ?? session.customer_details?.name ?? null,
+      shippingPhone: session.customer_details?.phone ?? null,
+      shippingAddress: shipping?.address
+        ? {
+            line1: shipping.address.line1,
+            line2: shipping.address.line2,
+            city: shipping.address.city,
+            postal_code: shipping.address.postal_code,
+            state: shipping.address.state,
+            country: shipping.address.country,
+          }
+        : undefined,
+    },
+  });
+  if (count === 0) {
+    log.warn({ sessionId: session.id }, "Pedido impreso ya procesado o inexistente");
+    return;
+  }
+
+  const order = await prisma.printOrder.findUnique({
+    where: { stripeSessionId: session.id },
+    include: { book: { select: { title: true, kidName: true } } },
+  });
+  if (!order) return;
+  const title = order.book.title || `El libro de ${order.book.kidName}`;
+  log.info({ orderId: order.id }, "Pedido impreso pagado");
+
+  await sendPrintOrderAdminEmail({ orderId: order.id, title, shippingName: order.shippingName });
+  if (order.email) {
+    await sendPrintOrderConfirmationEmail({ to: order.email, kidName: order.book.kidName, title });
+  }
 }

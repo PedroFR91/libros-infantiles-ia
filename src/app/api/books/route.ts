@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { createBookSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
 import { createLogger } from "@/lib/logger";
+import { toPublicBook } from "@/lib/bookView";
 
 const log = createLogger("books");
 
@@ -30,12 +31,12 @@ export async function GET() {
           },
         },
       });
-      return NextResponse.json({ books: user?.books ?? [] });
+      return NextResponse.json({ books: (user?.books ?? []).map(toPublicBook) });
     }
 
     // FALLBACK: Usuario anónimo por sessionId
     const cookieStore = await cookies();
-    let sessionId = cookieStore.get("sessionId")?.value;
+    const sessionId = cookieStore.get("sessionId")?.value;
 
     if (!sessionId) {
       return NextResponse.json({ books: [] });
@@ -55,7 +56,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ books: user?.books ?? [] });
+    return NextResponse.json({ books: (user?.books ?? []).map(toPublicBook) });
   } catch (error) {
     log.error({ err: error }, "Error listando libros");
     return NextResponse.json(
@@ -76,7 +77,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { kidName, theme, categories, style, characterDescription } =
+    const {
+      kidName,
+      theme,
+      categories,
+      style,
+      characterDescription,
+      ageRange,
+      companion,
+      dedication,
+    } =
       validation.data;
 
     // PRIMERO: Verificar sesión de NextAuth
@@ -115,6 +125,9 @@ export async function POST(request: NextRequest) {
         style,
         status: "DRAFT",
         characterDescription,
+        ageRange,
+        companion: companion?.trim() || null,
+        dedication: dedication?.trim() || null,
       },
     });
 

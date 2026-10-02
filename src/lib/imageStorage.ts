@@ -75,8 +75,9 @@ export async function storeImageBuffer(
   buffer: Buffer,
   bookId: string,
   label: string,
+  ext: "png" | "jpg" = "png",
 ): Promise<string> {
-  const fileName = `${label}-${randomUUID().slice(0, 8)}.png`;
+  const fileName = `${label}-${randomUUID().slice(0, 8)}.${ext}`;
 
   if (USE_S3) {
     return await storeToS3(buffer, bookId, fileName);
@@ -119,7 +120,7 @@ async function storeToS3(
       Bucket: S3_BUCKET,
       Key: key,
       Body: buffer,
-      ContentType: "image/png",
+      ContentType: fileName.endsWith(".jpg") ? "image/jpeg" : "image/png",
       CacheControl: "public, max-age=31536000, immutable",
     }),
   );

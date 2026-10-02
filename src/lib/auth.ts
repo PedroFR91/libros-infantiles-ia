@@ -42,28 +42,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             where: { sessionId },
           });
 
-          if (anonymousUser && anonymousUser.credits > 0) {
+          // Siempre que haya sesión anónima: aunque no tenga créditos puede
+          // tener borradores gratis que no deben perderse al iniciar sesión
+          if (anonymousUser && !anonymousUser.email) {
             // El usuario que está haciendo login
             const existingUser = await prisma.user.findUnique({
               where: { email: user.email },
             });
 
-            if (existingUser) {
-              // Transferir créditos al usuario existente
+            if (existingUser && existingUser.id !== anonymousUser.id) {
+              const creditMerge =
+                anonymousUser.credits > 0
+                  ? [
+                      prisma.user.update({
+                        where: { id: existingUser.id },
+                        data: { credits: { increment: anonymousUser.credits } },
+                      }),
+                      prisma.creditLedger.create({
+                        data: {
+                          userId: existingUser.id,
+                          amount: anonymousUser.credits,
+                          reason: "session_merge",
+                          referenceId: anonymousUser.id,
+                          balance:
+                            existingUser.credits + anonymousUser.credits,
+                        },
+                      }),
+                    ]
+                  : [];
+
               await prisma.$transaction([
-                prisma.user.update({
-                  where: { id: existingUser.id },
-                  data: { credits: { increment: anonymousUser.credits } },
-                }),
-                prisma.creditLedger.create({
-                  data: {
-                    userId: existingUser.id,
-                    amount: anonymousUser.credits,
-                    reason: "session_merge",
-                    referenceId: anonymousUser.id,
-                    balance: existingUser.credits + anonymousUser.credits,
-                  },
-                }),
+                ...creditMerge,
                 // Transferir libros del usuario anónimo
                 prisma.book.updateMany({
                   where: { userId: anonymousUser.id },
@@ -76,6 +85,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }),
                 // Transferir historial de créditos
                 prisma.creditLedger.updateMany({
+                  where: { userId: anonymousUser.id },
+                  data: { userId: existingUser.id },
+                }),
+                // Transferir pedidos impresos (el borrado en cascada los perdería)
+                prisma.printOrder.updateMany({
                   where: { userId: anonymousUser.id },
                   data: { userId: existingUser.id },
                 }),
@@ -129,6 +143,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 data: { userId: user.id },
               }),
               prisma.creditLedger.updateMany({
+                where: { userId: anonymousUser.id },
+                data: { userId: user.id },
+              }),
+              prisma.printOrder.updateMany({
                 where: { userId: anonymousUser.id },
                 data: { userId: user.id },
               }),

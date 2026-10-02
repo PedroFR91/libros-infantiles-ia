@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, CREDIT_PACKS, CreditPackKey } from "@/lib/stripe";
+import {
+  getStripe,
+  CREDIT_PACKS,
+  CreditPackKey,
+  formatEuros,
+} from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/credits";
 import { cookies } from "next/headers";
@@ -22,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pack no válido" }, { status: 400 });
     }
 
-    const { packId } = validation.data;
+    const { packId, bookId } = validation.data;
     const pack = CREDIT_PACKS[packId as CreditPackKey];
     if (!pack) {
       return NextResponse.json({ error: "Pack no válido" }, { status: 400 });
@@ -73,9 +78,23 @@ export async function POST(request: NextRequest) {
       log.info("Checkout para usuario anónimo");
     }
 
+    // El libro de vuelta debe ser del mismo usuario; si no, se ignora
+    const returnBook = bookId
+      ? await prisma.book.findFirst({
+          where: { id: bookId, userId: user.id },
+          select: { id: true },
+        })
+      : null;
+
     // Crear sesión de Stripe
     const baseUrl =
       process.env.AUTH_URL || process.env.BASE_URL || "http://localhost:3000";
+    const successUrl = returnBook
+      ? `${baseUrl}/editor?bookId=${returnBook.id}&paid=1&session_id={CHECKOUT_SESSION_ID}`
+      : `${baseUrl}/editor?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = returnBook
+      ? `${baseUrl}/editor?bookId=${returnBook.id}&canceled=1`
+      : `${baseUrl}/editor?canceled=1`;
 
     // Sin payment_method_types: Stripe muestra los métodos activos en el
     // Dashboard (tarjeta, Apple Pay, Google Pay, PayPal...) según el cliente.
@@ -94,13 +113,23 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${baseUrl}/editor?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/editor?canceled=true`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      allow_promotion_codes: true,
+      custom_text: {
+        submit: {
+          message:
+            "Tu libro se crea al momento de pagar. Al ser contenido digital personalizado, aceptas que se pierde el derecho de desistimiento.",
+        },
+      },
       metadata: {
         userId: user.id,
         packId,
         credits: pack.credits.toString(),
         isAuthenticated: session?.user?.id ? "true" : "false",
+        ...(returnBook && { bookId: returnBook.id }),
+        // Evidencia del consentimiento marcado en la web antes de pagar
+        termsAcceptedAt: new Date().toISOString(),
       },
       // Pre-rellenar email si el usuario está autenticado
       ...(user.email && { customer_email: user.email }),
@@ -148,7 +177,7 @@ export async function GET() {
   const packs = Object.entries(CREDIT_PACKS).map(([id, pack]) => ({
     id,
     ...pack,
-    priceFormatted: `€${(pack.price / 100).toFixed(2)}`,
+    priceFormatted: formatEuros(pack.price),
   }));
 
   return NextResponse.json({ packs });

@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createLogger } from "@/lib/logger";
+import { toPublicBook } from "@/lib/bookView";
+import { bookDetailsSchema, validateBody } from "@/lib/validation";
 
 const log = createLogger("books");
 
@@ -60,7 +62,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ book });
+    return NextResponse.json({ book: toPublicBook(book) });
   } catch (error) {
     log.error({ err: error }, "Error obteniendo libro");
     return NextResponse.json(
@@ -115,6 +117,28 @@ export async function PATCH(
       await prisma.book.update({
         where: { id },
         data: { title },
+      });
+    }
+
+    // Dedicatoria y email para recibir el borrador
+    if (body.dedication !== undefined || body.leadEmail !== undefined) {
+      const details = validateBody(bookDetailsSchema, {
+        dedication: body.dedication,
+        leadEmail: body.leadEmail,
+      });
+      if (!details.success) {
+        return NextResponse.json({ error: details.error }, { status: 400 });
+      }
+      await prisma.book.update({
+        where: { id },
+        data: {
+          ...(details.data.dedication !== undefined && {
+            dedication: details.data.dedication?.trim() || null,
+          }),
+          ...(details.data.leadEmail && {
+            leadEmail: details.data.leadEmail.toLowerCase(),
+          }),
+        },
       });
     }
 
@@ -175,7 +199,9 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ book: updatedBook });
+    return NextResponse.json({
+      book: updatedBook ? toPublicBook(updatedBook) : null,
+    });
   } catch (error) {
     log.error({ err: error }, "Error actualizando libro");
     return NextResponse.json(
@@ -210,6 +236,16 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Libro no encontrado" },
         { status: 404 },
+      );
+    }
+
+    const activePrint = await prisma.printOrder.count({
+      where: { bookId: id, status: { in: ["PAID", "IN_PRODUCTION", "SHIPPED"] } },
+    });
+    if (activePrint > 0) {
+      return NextResponse.json(
+        { error: "Este libro tiene un pedido impreso en curso y no se puede borrar todavía." },
+        { status: 409 },
       );
     }
 

@@ -47,6 +47,7 @@ export default async function AdminPage() {
         kidName: true,
         theme: true,
         status: true,
+        showcase: true,
         createdAt: true,
         user: {
           select: {

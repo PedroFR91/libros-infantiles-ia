@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
+import { Suspense } from "react";
 import { CookieBanner } from "@/components/CookieBanner";
+import { Analytics } from "@/components/Analytics";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "LibrosIA - Crea libros infantiles personalizados con IA",
     description:
-      "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial. Desde 4,99€.",
+      "Genera cuentos infantiles únicos con ilustraciones personalizadas usando inteligencia artificial. Crea la historia gratis.",
     url: siteUrl,
     siteName: "LibrosIA by IconicoSpace",
     locale: "es_ES",
@@ -57,6 +59,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>{children}</Providers>
         <CookieBanner />
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
       </body>
     </html>
   );

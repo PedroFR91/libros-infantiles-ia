@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import type { BookStatus, Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { createLogger } from "@/lib/logger";
 
@@ -59,9 +60,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Construir filtros
-    const where: any = {};
+    const where: Prisma.BookWhereInput = {};
     if (userId) where.userId = userId;
-    if (status) where.status = status;
+    if (status) where.status = status as BookStatus;
 
     // Obtener todos los libros
     const books = await prisma.book.findMany({
@@ -155,6 +156,73 @@ export async function POST(request: NextRequest) {
     log.error({ err: error }, "Error en acción admin books");
     return NextResponse.json(
       { error: "Error al procesar acción" },
+      { status: 500 },
+    );
+  }
+}
+
+// PATCH /api/admin/books - Marcar/desmarcar un libro como ejemplo en la landing
+// Body: { bookId: string, showcase: boolean }
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    // Verificar que es admin
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+
+    if (user?.role !== "ADMIN") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const body = await request.json().catch(() => null);
+    const bookId = body?.bookId;
+    const showcase = body?.showcase;
+
+    if (typeof bookId !== "string" || !bookId || typeof showcase !== "boolean") {
+      return NextResponse.json(
+        { error: "bookId y showcase (boolean) son requeridos" },
+        { status: 400 },
+      );
+    }
+
+    const book = await prisma.book.findUnique({
+      where: { id: bookId },
+      select: { status: true },
+    });
+
+    if (!book) {
+      return NextResponse.json(
+        { error: "Libro no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    // Solo libros terminados pueden mostrarse en la landing (desmarcar siempre)
+    if (showcase && book.status !== "COMPLETED") {
+      return NextResponse.json(
+        { error: "Solo se pueden mostrar libros completados" },
+        { status: 400 },
+      );
+    }
+
+    const updated = await prisma.book.update({
+      where: { id: bookId },
+      data: { showcase },
+      select: { id: true, showcase: true },
+    });
+
+    return NextResponse.json({ book: updated });
+  } catch (error) {
+    log.error({ err: error }, "Error actualizando showcase");
+    return NextResponse.json(
+      { error: "Error al actualizar el libro" },
       { status: 500 },
     );
   }

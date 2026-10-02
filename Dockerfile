@@ -32,6 +32,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Fuentes para que sharp/librsvg dibuje el texto de la marca de agua
+RUN apk add --no-cache fontconfig ttf-dejavu
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 

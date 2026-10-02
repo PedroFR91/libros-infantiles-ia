@@ -26,7 +26,21 @@ export interface BookData {
   style: BookStyle;
   status: "DRAFT" | "GENERATING" | "COMPLETED" | "ERROR";
   pages: BookPage[];
+  // Motor v2
+  ageRange?: string | null;
+  companion?: string | null;
+  dedication?: string | null;
+  coverPreviewUrl?: string | null;
+  unlockedAt?: string | null;
+  previewPending?: boolean;
+  generating?: boolean;
 }
+
+export const AGE_OPTIONS = [
+  { id: "3-4", label: "3-4 años", hint: "Frases cortas y repeticiones" },
+  { id: "5-6", label: "5-6 años", hint: "Aventura con diálogos sencillos" },
+  { id: "7-8", label: "7-8 años", hint: "Más texto, humor y retos" },
+] as const;
 
 // Pack de créditos
 export interface CreditPack {

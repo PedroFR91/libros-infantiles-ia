@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { Book, ArrowLeft, Mail, Globe } from "lucide-react";
+import { getLegalOwner } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Aviso Legal - LibrosIA",
@@ -8,7 +9,8 @@ export const metadata: Metadata = {
     "Aviso legal e información del prestador de servicios de LibrosIA",
 };
 
-export default function LegalPage() {
+export default async function LegalPage() {
+  const owner = await getLegalOwner();
   return (
     <div className='min-h-screen bg-bg text-text'>
       <header className='border-b border-border'>
@@ -46,10 +48,21 @@ export default function LegalPage() {
               <div className='flex items-center gap-3'>
                 <Globe className='w-5 h-5 text-primary shrink-0' />
                 <div>
-                  <span className='font-semibold'>Denominación:</span>{" "}
-                  IconicoSpace
+                  <span className='font-semibold'>Titular:</span>{" "}
+                  {owner.name} (marca comercial IconicoSpace)
                 </div>
               </div>
+              {owner.taxId && (
+                <div>
+                  <span className='font-semibold'>NIF:</span> {owner.taxId}
+                </div>
+              )}
+              {owner.address && (
+                <div>
+                  <span className='font-semibold'>Domicilio:</span>{" "}
+                  {owner.address}
+                </div>
+              )}
               <div className='flex items-center gap-3'>
                 <Mail className='w-5 h-5 text-primary shrink-0' />
                 <div>

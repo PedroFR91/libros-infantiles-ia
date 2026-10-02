@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { generateStoryText } from "@/lib/openai";
+import { createStory, composeScenePrompt } from "@/lib/story/engine";
+import { isFlaggedContent } from "@/lib/openai";
+import { startPreview, type PhotoInput } from "@/lib/generation";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
+import { AGE_RANGES, type AgeRange } from "@/lib/validation";
 import { createLogger } from "@/lib/logger";
+import { toPublicBook } from "@/lib/bookView";
 
 const log = createLogger("generate-story");
 
-// POST /api/books/[id]/generate-story - Generar solo la historia (textos) - GRATIS
+// Portadas de muestra gratis: tope por usuario y global para acotar el coste
+// (≈0,15 € cada una: hojas de referencia + portada)
+const FREE_PREVIEWS_PER_USER_DAY = 3;
+const FREE_PREVIEWS_PER_DAY = parseInt(
+  process.env.FREE_PREVIEW_DAILY_LIMIT || "200",
+  10,
+);
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+// POST /api/books/[id]/generate-story
+// Crea la historia (gratis) con el motor v2. Acepta JSON vacío o multipart con
+// "photo": la foto solo se usa en memoria para la hoja de referencia del
+// protagonista y no se guarda.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -15,140 +33,160 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Autenticación centralizada (NextAuth + fallback sessionId)
     const userId = await getAuthenticatedUserId();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Rate limiting (la historia es "gratis" pero aún usa GPT, así que limitamos)
     const rateLimitResponse = checkRateLimit(
       `story:${userId}`,
       RATE_LIMIT_PRESETS.generation,
     );
     if (rateLimitResponse) return rateLimitResponse;
 
-    // Obtener libro del usuario
-    const book = await prisma.book.findFirst({
-      where: {
-        id,
-        userId,
-      },
-    });
-
-    if (!book) {
+    const photo = await readPhoto(request);
+    if (photo === "invalid") {
       return NextResponse.json(
-        { error: "Libro no encontrado" },
-        { status: 404 },
+        { error: "La foto debe ser JPG, PNG o WebP de menos de 10 MB" },
+        { status: 400 },
       );
     }
 
-    // Si ya tiene páginas con texto, devolver el libro existente
-    const existingPages = await prisma.bookPage.findMany({
-      where: { bookId: id },
-      orderBy: { pageNumber: "asc" },
-    });
+    const book = await prisma.book.findFirst({ where: { id, userId } });
+    if (!book) {
+      return NextResponse.json({ error: "Libro no encontrado" }, { status: 404 });
+    }
 
-    if (existingPages.length > 0) {
-      // Ya tiene historia generada
+    const existingPages = await prisma.bookPage.count({ where: { bookId: id } });
+    if (existingPages > 0) {
       const bookWithPages = await prisma.book.findUnique({
         where: { id },
-        include: {
-          pages: {
-            orderBy: { pageNumber: "asc" },
-          },
-        },
+        include: { pages: { orderBy: { pageNumber: "asc" } } },
       });
-
       return NextResponse.json({
-        book: bookWithPages,
+        book: bookWithPages ? toPublicBook(bookWithPages) : null,
         message: "Historia ya generada anteriormente",
         alreadyGenerated: true,
       });
     }
 
-    // Marcar como generando
-    await prisma.book.update({
-      where: { id },
+    const userText = [book.kidName, book.theme, book.companion, book.dedication]
+      .filter(Boolean)
+      .join("\n");
+    if (await isFlaggedContent(userText)) {
+      return NextResponse.json(
+        {
+          error:
+            "El nombre, el tema o la dedicatoria contienen algo que no podemos usar en un cuento infantil. Prueba con otras palabras.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Atómico: una segunda petición simultánea no escribe la historia dos veces
+    const claimed = await prisma.book.updateMany({
+      where: { id, status: { not: "GENERATING" } },
       data: { status: "GENERATING" },
     });
+    if (claimed.count === 0) {
+      return NextResponse.json(
+        { error: "La historia ya se está escribiendo" },
+        { status: 409 },
+      );
+    }
 
     try {
-      // Obtener estilo artístico del libro (por defecto cartoon)
-      const artStyle = (book as { style?: string }).style || "cartoon";
+      const ageRange: AgeRange = (AGE_RANGES as readonly string[]).includes(
+        book.ageRange ?? "",
+      )
+        ? (book.ageRange as AgeRange)
+        : "5-6";
 
-      // Generar historia con characterSheet para consistencia
-      // ESTO ES GRATIS - Solo usa GPT-4 para texto, no genera imágenes
-      const story = await generateStoryText(
-        book.kidName,
-        book.theme,
-        [],
-        (book as { characterDescription?: string | null }).characterDescription,
-        artStyle,
-      );
-
-      log.info({ bookId: id }, "Character Sheet generado");
-
-      // Actualizar título y guardar characterSheet
-      await prisma.book.update({
-        where: { id },
-        data: {
-          title: story.title,
-          // Guardar characterSheet en metadatos del libro
-          ...(story.characterSheet && {
-            characterDescription: story.characterSheet,
-          }),
-          // Estado: DRAFT = tiene historia pero no imágenes
-          status: "DRAFT",
-        },
+      const story = await createStory({
+        kidName: book.kidName,
+        theme: book.theme,
+        ageRange,
+        style: book.style,
+        companion: book.companion,
+        characterDescription: book.characterDescription,
       });
 
-      // Crear páginas SIN imágenes (solo texto e imagePrompt)
-      const pagePromises = story.pages.map((page) => {
-        return prisma.bookPage.create({
+      await prisma.$transaction([
+        prisma.book.update({
+          where: { id },
           data: {
+            title: story.title,
+            bible: story.bible as unknown as Prisma.InputJsonValue,
+            ageRange,
+            status: "DRAFT",
+          },
+        }),
+        prisma.bookPage.createMany({
+          data: story.pages.map((page) => ({
             bookId: id,
             pageNumber: page.pageNumber,
             text: page.text,
-            imagePrompt: page.imagePrompt,
-            imageUrl: null, // Sin imagen todavía
-            thumbnailUrl: null,
-          },
-        });
-      });
+            scene: page.scene as unknown as Prisma.InputJsonValue,
+            imagePrompt: composeScenePrompt(story.bible, page.scene, book.style),
+          })),
+        }),
+      ]);
 
-      await Promise.all(pagePromises);
+      const previewPending = await canGeneratePreview(userId);
+      if (previewPending) {
+        startPreview(id, photo);
+      }
 
-      // Retornar libro con páginas (sin imágenes)
       const draftBook = await prisma.book.findUnique({
         where: { id },
-        include: {
-          pages: {
-            orderBy: { pageNumber: "asc" },
-          },
-        },
+        include: { pages: { orderBy: { pageNumber: "asc" } } },
       });
 
       return NextResponse.json({
-        book: draftBook,
+        book: draftBook ? toPublicBook(draftBook) : null,
+        previewPending,
         message:
-          "Historia generada. Ahora puedes editar los textos antes de generar las ilustraciones.",
+          "Historia generada. Puedes editar los textos antes de generar las ilustraciones.",
         isDraft: true,
       });
     } catch (error) {
-      // Si falla, marcar como error
-      await prisma.book.update({
-        where: { id },
-        data: { status: "ERROR" },
-      });
-
+      await prisma.book.update({ where: { id }, data: { status: "ERROR" } });
       throw error;
     }
   } catch (error) {
     log.error({ err: error }, "Error generando historia");
     return NextResponse.json(
-      { error: "Error al generar historia" },
+      { error: "Error al generar la historia. Inténtalo de nuevo." },
       { status: 500 },
     );
   }
+}
+
+async function readPhoto(
+  request: NextRequest,
+): Promise<PhotoInput | null | "invalid"> {
+  if (!request.headers.get("content-type")?.includes("multipart/form-data")) {
+    return null;
+  }
+  const form = await request.formData();
+  const file = form.get("photo");
+  if (!(file instanceof File) || file.size === 0) return null;
+  if (!PHOTO_TYPES.includes(file.type) || file.size > MAX_PHOTO_BYTES) {
+    return "invalid";
+  }
+  return { buffer: Buffer.from(await file.arrayBuffer()), mimeType: file.type };
+}
+
+async function canGeneratePreview(userId: string): Promise<boolean> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [mine, total] = await Promise.all([
+    prisma.book.count({
+      where: { userId, createdAt: { gt: since }, bible: { not: Prisma.DbNull } },
+    }),
+    prisma.book.count({
+      where: { createdAt: { gt: since }, bible: { not: Prisma.DbNull } },
+    }),
+  ]);
+  // `mine` ya incluye este libro
+  return mine <= FREE_PREVIEWS_PER_USER_DAY && total <= FREE_PREVIEWS_PER_DAY;
 }

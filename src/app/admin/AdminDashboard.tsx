@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import FunnelPanel from "./FunnelPanel";
+import PrintOrdersPanel from "./PrintOrdersPanel";
 import {
   Book,
   Users,
@@ -26,6 +28,9 @@ import {
   Download,
   Trash2,
   ExternalLink,
+  TrendingUp,
+  Printer,
+  Star,
 } from "lucide-react";
 
 interface UserData {
@@ -49,6 +54,7 @@ interface BookData {
   kidName: string;
   theme: string;
   status: "DRAFT" | "GENERATING" | "COMPLETED" | "ERROR";
+  showcase: boolean;
   createdAt: Date;
   user: {
     id: string;
@@ -87,7 +93,7 @@ interface AdminDashboardProps {
   };
 }
 
-type TabType = "users" | "books" | "payments";
+type TabType = "users" | "books" | "payments" | "funnel" | "print";
 
 export default function AdminDashboard({
   users,
@@ -103,6 +109,11 @@ export default function AdminDashboard({
   const [userDetailModal, setUserDetailModal] = useState<UserData | null>(null);
   const [bookDetailModal, setBookDetailModal] = useState<BookData | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+  // Estado local del toggle "Ejemplo en la landing" (sin recargar la página)
+  const [showcaseById, setShowcaseById] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(books.map((b) => [b.id, b.showcase])),
+  );
+  const [togglingShowcase, setTogglingShowcase] = useState<string | null>(null);
 
   // Filter functions
   const filteredUsers = users.filter(
@@ -272,6 +283,28 @@ export default function AdminDashboard({
       alert("Error al descargar el PDF");
     } finally {
       setDownloadingPdf(null);
+    }
+  };
+
+  const handleToggleShowcase = async (bookId: string) => {
+    const next = !showcaseById[bookId];
+    setTogglingShowcase(bookId);
+    try {
+      const res = await fetch("/api/admin/books", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId, showcase: next }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setShowcaseById((prev) => ({ ...prev, [bookId]: json.book.showcase }));
+      } else {
+        alert(json.error || "Error al cambiar el ejemplo de la landing");
+      }
+    } catch (error) {
+      alert("Error al cambiar el ejemplo de la landing");
+    } finally {
+      setTogglingShowcase(null);
     }
   };
 
@@ -464,6 +497,27 @@ export default function AdminDashboard({
             <span className='hidden sm:inline'>Pagos</span> (
             {recentPayments.length})
           </button>
+          <button
+            onClick={() => setActiveTab("funnel")}
+            className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-base whitespace-nowrap ${
+              activeTab === "funnel"
+                ? "bg-primary text-white"
+                : "bg-surface hover:bg-border text-text"
+            }`}>
+            <TrendingUp className='w-3 h-3 sm:w-4 sm:h-4' />
+            Embudo
+          </button>
+          <button
+            onClick={() => setActiveTab("print")}
+            className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 sm:gap-2 text-xs sm:text-base whitespace-nowrap ${
+              activeTab === "print"
+                ? "bg-primary text-white"
+                : "bg-surface hover:bg-border text-text"
+            }`}>
+            <Printer className='w-3 h-3 sm:w-4 sm:h-4' />
+            <span className='hidden sm:inline'>Pedidos impresos</span>
+            <span className='sm:hidden'>Impresos</span>
+          </button>
         </div>
 
         {/* Main Content */}
@@ -473,8 +527,13 @@ export default function AdminDashboard({
               {activeTab === "users" && "Gestión de Usuarios"}
               {activeTab === "books" && "Libros Generados"}
               {activeTab === "payments" && "Historial de Pagos"}
+              {activeTab === "funnel" && "Embudo de conversión"}
+              {activeTab === "print" && "Pedidos impresos"}
             </h2>
-            <div className='relative w-full sm:w-auto'>
+            <div
+              className={`relative w-full sm:w-auto ${
+                activeTab === "funnel" || activeTab === "print" ? "hidden" : ""
+              }`}>
               <Search className='w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted' />
               <input
                 type='text'
@@ -663,6 +722,9 @@ export default function AdminDashboard({
                       Estado
                     </th>
                     <th className='text-center px-4 py-3 text-sm font-medium text-text-muted'>
+                      Ejemplo en la landing
+                    </th>
+                    <th className='text-center px-4 py-3 text-sm font-medium text-text-muted'>
                       Creado
                     </th>
                     <th className='text-right px-4 py-3 text-sm font-medium text-text-muted'>
@@ -702,6 +764,37 @@ export default function AdminDashboard({
                       </td>
                       <td className='px-4 py-3 text-center'>
                         {getStatusBadge(book.status)}
+                      </td>
+                      <td className='px-4 py-3 text-center'>
+                        {book.status === "COMPLETED" ||
+                        showcaseById[book.id] ? (
+                          <button
+                            type='button'
+                            role='switch'
+                            aria-checked={Boolean(showcaseById[book.id])}
+                            aria-label='Ejemplo en la landing'
+                            title={
+                              showcaseById[book.id]
+                                ? "Se muestra en la landing (clic para quitar)"
+                                : "Mostrar como ejemplo en la landing"
+                            }
+                            onClick={() => handleToggleShowcase(book.id)}
+                            disabled={togglingShowcase === book.id}
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
+                              showcaseById[book.id]
+                                ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-500"
+                                : "bg-bg hover:bg-border text-text-muted"
+                            }`}>
+                            <Star
+                              className={`w-3 h-3 ${
+                                showcaseById[book.id] ? "fill-current" : ""
+                              }`}
+                            />
+                            {showcaseById[book.id] ? "Sí" : "No"}
+                          </button>
+                        ) : (
+                          <span className='text-xs text-text-muted'>—</span>
+                        )}
                       </td>
                       <td className='px-4 py-3 text-center text-xs text-text-muted'>
                         {formatDate(book.createdAt)}
@@ -749,6 +842,12 @@ export default function AdminDashboard({
               )}
             </div>
           )}
+
+          {/* Funnel */}
+          {activeTab === "funnel" && <FunnelPanel />}
+
+          {/* Print orders */}
+          {activeTab === "print" && <PrintOrdersPanel />}
 
           {/* Payments Table */}
           {activeTab === "payments" && (

@@ -6,7 +6,7 @@ const log = createLogger("openai");
 // Lazy initialization para evitar errores en build time
 let openaiInstance: OpenAI | null = null;
 
-function getOpenAI(): OpenAI {
+export function getOpenAI(): OpenAI {
   if (!openaiInstance) {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY no está configurada");
@@ -283,8 +283,11 @@ export async function regeneratePageText(
 // DALL-E 3 deprecated 2026-05-12. gpt-image-1 supports reference images
 // via the images.edit endpoint for cross-page character consistency.
 
-/** Image model to use (easy to bump to gpt-image-1.5 later) */
-const IMAGE_MODEL = "gpt-image-1";
+/** Modelo de imagen (configurable para comparar con gpt-image-1.5 con el banco de pruebas) */
+const IMAGE_MODEL = (process.env.IMAGE_MODEL || "gpt-image-1") as
+  | "gpt-image-1"
+  | "gpt-image-1.5"
+  | "gpt-image-1-mini";
 
 /**
  * Generate a character reference illustration for visual consistency.
@@ -386,4 +389,95 @@ export async function generateImage(prompt: string): Promise<Buffer> {
   }
 
   return Buffer.from(b64, "base64");
+}
+
+// ── Motor v2: referencias múltiples ───────────────────────────────────
+
+type ImageQuality = "low" | "medium" | "high";
+
+/**
+ * Hoja de referencia de un personaje. Si llega la foto del niño se usa como
+ * imagen de entrada (fidelidad alta) para que el personaje se le parezca;
+ * la foto solo vive en memoria durante esta llamada.
+ */
+export async function generateReferenceSheet(
+  prompt: string,
+  photo?: { buffer: Buffer; mimeType: string } | null,
+): Promise<Buffer> {
+  const openai = getOpenAI();
+  const response = photo
+    ? await openai.images.edit({
+        model: IMAGE_MODEL,
+        image: await toFile(photo.buffer, "photo", { type: photo.mimeType }),
+        prompt,
+        input_fidelity: "high",
+        n: 1,
+        size: "1024x1024",
+        quality: "medium",
+      })
+    : await openai.images.generate({
+        model: IMAGE_MODEL,
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "medium",
+      });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) throw new Error("No se pudo generar la hoja de referencia");
+  return Buffer.from(b64, "base64");
+}
+
+/**
+ * Ilustración de una escena con las hojas de referencia de los personajes que
+ * aparecen en ella (solo esos, para no "colar" personajes ausentes).
+ */
+export async function generateIllustration(
+  prompt: string,
+  references: Buffer[],
+  quality: ImageQuality = "medium",
+): Promise<Buffer> {
+  const openai = getOpenAI();
+  const response = references.length
+    ? await openai.images.edit({
+        model: IMAGE_MODEL,
+        image: await Promise.all(
+          references.map((ref, i) =>
+            toFile(ref, `ref-${i}.png`, { type: "image/png" }),
+          ),
+        ),
+        prompt,
+        input_fidelity: "high",
+        n: 1,
+        size: "1024x1024",
+        quality,
+      })
+    : await openai.images.generate({
+        model: IMAGE_MODEL,
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        quality,
+      });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) throw new Error("No se pudo generar la ilustración");
+  return Buffer.from(b64, "base64");
+}
+
+/** true si el texto infringe las políticas de contenido (para nombre, tema, dedicatoria...) */
+export async function isFlaggedContent(text: string): Promise<boolean> {
+  try {
+    const openai = getOpenAI();
+    const result = await openai.moderations.create({
+      model: "omni-moderation-latest",
+      input: text,
+    });
+    return result.results.some((r) => r.flagged);
+  } catch (error) {
+    // Si la moderación no responde no bloqueamos la venta; el modelo de
+    // imagen tiene su propia moderación
+    log.error({ err: error }, "Error en moderación");
+    return false;
+  }
 }

@@ -10,8 +10,16 @@ import {
   regeneratePageText,
   generateImageWithReference,
   generateImage,
+  generateIllustration,
 } from "@/lib/openai";
 import { storeImageBuffer, downloadImageToBuffer } from "@/lib/imageStorage";
+import { loadStoredImage } from "@/lib/imageTools";
+import {
+  composeCoverPrompt,
+  composeScenePrompt,
+  parseBible,
+  parseScene,
+} from "@/lib/story/engine";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
 import { regeneratePageSchema, validateBody } from "@/lib/validation";
@@ -85,6 +93,17 @@ export async function POST(
       );
     }
 
+    const bible = parseBible(book.bible);
+    const scene = parseScene(page.scene);
+
+    // Antes de pagar, regenerar la portada daría la imagen limpia por 1 crédito
+    if (regenerateImage && bible && !book.unlockedAt) {
+      return NextResponse.json(
+        { error: "Desbloquea las ilustraciones antes de regenerar páginas" },
+        { status: 400 },
+      );
+    }
+
     // Verificar créditos
     const hasCredits = await hasEnoughCredits(book.userId, "PAGE_REGENERATION");
     if (!hasCredits) {
@@ -134,15 +153,52 @@ export async function POST(
         customPrompt,
       );
       updates.text = result.text;
-      updates.imagePrompt = result.imagePrompt;
+      // En v2 el prompt se compone desde la biblia y la escena, no desde el texto
+      if (!bible) updates.imagePrompt = result.imagePrompt;
 
       if (customPrompt) {
         updates.promptOverride = customPrompt;
       }
     }
 
-    // Regenerar imagen si se solicita
-    if (regenerateImage) {
+    // Regenerar imagen (motor v2): misma escena y mismas referencias, con el
+    // ajuste pedido por el usuario añadido a la acción
+    if (regenerateImage && bible && (scene || pageNumber === 1)) {
+      const adjusted = customPrompt
+        ? `
+Adjustment requested by the family (keep everything else): ${customPrompt}`
+        : "";
+      const prompt =
+        (pageNumber === 1
+          ? composeCoverPrompt(bible, book.style)
+          : composeScenePrompt(bible, scene!, book.style)) + adjusted;
+      const ids = pageNumber === 1 ? bible.cover.characters : scene!.characters;
+      const refs = (
+        await Promise.all(
+          ids.map((charId) => {
+            const url = bible.characters.find((c) => c.id === charId)?.refUrl;
+            return url ? loadStoredImage(url).catch(() => null) : null;
+          }),
+        )
+      ).filter((b): b is Buffer => !!b);
+
+      const imageBuffer = await generateIllustration(prompt, refs, "medium");
+      const permanentUrl = await storeImageBuffer(
+        imageBuffer,
+        id,
+        `page-${pageNumber}`,
+      );
+      updates.imageUrl = permanentUrl;
+      updates.imagePrompt = prompt;
+      if (customPrompt) updates.promptOverride = customPrompt;
+      if (pageNumber === 1) {
+        await prisma.book.update({
+          where: { id },
+          data: { coverImageUrl: permanentUrl },
+        });
+      }
+      log.info({ bookId: id, pageNumber }, "Imagen regenerada (v2)");
+    } else if (regenerateImage) {
       const prompt = updates.imagePrompt || page.imagePrompt;
       if (prompt) {
         // Load character reference for consistency

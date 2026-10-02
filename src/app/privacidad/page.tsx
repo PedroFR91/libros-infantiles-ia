@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import { getLegalOwner } from "@/lib/legal";
 import { Book, ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -7,7 +8,8 @@ export const metadata: Metadata = {
   description: "Política de privacidad y protección de datos de LibrosIA",
 };
 
-export default function PrivacidadPage() {
+export default async function PrivacidadPage() {
+  const owner = await getLegalOwner();
   return (
     <div className='min-h-screen bg-bg text-text'>
       <header className='border-b border-border'>
@@ -48,8 +50,11 @@ export default function PrivacidadPage() {
             </h2>
             <p>
               El responsable del tratamiento de tus datos personales es{" "}
-              <strong>IconicoSpace</strong>
-              (en adelante, &quot;nosotros&quot;), con domicilio en España.
+              <strong>{owner.name}</strong> (marca IconicoSpace, en adelante
+              &quot;nosotros&quot;)
+              {owner.taxId && <>, con NIF {owner.taxId}</>}
+              {owner.address ? <>, y domicilio en {owner.address}</> : <>, con domicilio en España</>}
+              .
             </p>
             <p>
               Contacto:{" "}
@@ -84,7 +89,24 @@ export default function PrivacidadPage() {
               </li>
               <li>
                 <strong>Contenido generado:</strong> los textos e imágenes de
-                los libros que creas usando nuestro servicio.
+                los libros que creas usando nuestro servicio, incluido el nombre
+                del niño o niña protagonista.
+              </li>
+              <li>
+                <strong>Foto del protagonista (opcional):</strong> si la subes,
+                se envía a OpenAI (nuestro encargado del tratamiento) únicamente
+                para describir sus rasgos visibles (pelo, ojos, tono de piel) y
+                dibujar a partir de ella al personaje ilustrado del libro. La
+                foto <strong>no se guarda</strong> en nuestros servidores: se
+                usa en memoria mientras se crea el personaje y se descarta.
+                Conservamos la descripción de texto y la ilustración del
+                personaje dentro de tu libro. Solo puede subirla su madre, padre
+                o tutor legal.
+              </li>
+              <li>
+                <strong>Analítica:</strong> medimos visitas y pasos del proceso
+                de compra con Umami, sin cookies y sin identificarte
+                personalmente.
               </li>
             </ul>
           </section>
@@ -279,6 +301,12 @@ export default function PrivacidadPage() {
               para niños. No recopilamos conscientemente datos de menores de 16
               años. Si eres menor de 16 años, no uses este servicio sin el
               consentimiento de tu padre, madre o tutor legal.
+            </p>
+            <p>
+              Los libros pueden contener el nombre y, si se sube una foto, una
+              descripción física de un menor. Este dato lo facilita y controla
+              su madre, padre o tutor, que puede borrar el libro en cualquier
+              momento desde su perfil o pidiéndolo en hola@iconicospace.com.
             </p>
           </section>
 
