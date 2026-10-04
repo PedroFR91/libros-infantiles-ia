@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Gift, Loader2, Mail, ShieldCheck, Wand2, X } from "lucide-react";
-import { GUARANTEE_TEXT } from "@/lib/pricing";
+import { GUARANTEE_TEXT, PRINT_COMING_SOON_TEXT, PRINT_ENABLED } from "@/lib/pricing";
 import { CheckoutPrices, PurchaseProduct } from "./types";
 
 // Revelación de la historia: portada de muestra a pantalla completa y un único
@@ -159,6 +159,18 @@ export default function DraftBookOverlay({
                   className='w-full py-4 rounded-2xl bg-primary hover:bg-primary-hover text-white text-lg font-bold flex items-center justify-center gap-2'>
                   <Wand2 className='w-5 h-5' /> Ilustrar el cuento de {kidName}
                 </button>
+              ) : !PRINT_ENABLED ? (
+                <>
+                  <button
+                    onClick={() => onChoose(hasPurchased ? "repeat" : "digital")}
+                    className='w-full py-4 rounded-2xl bg-primary hover:bg-primary-hover text-white text-lg font-bold flex items-center justify-center gap-2'>
+                    <Wand2 className='w-5 h-5' /> Ilustrar el cuento de {kidName}
+                    {digital && <span className='opacity-90'>· {digital.formatted}</span>}
+                  </button>
+                  <p className='text-xs text-text-muted text-center'>
+                    Recibes el PDF en minutos. {PRINT_COMING_SOON_TEXT}
+                  </p>
+                </>
               ) : (
                 <>
                   <button

@@ -4,7 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Gift, Loader2, Lock, Minus, Plus, ShieldCheck, X } from "lucide-react";
-import { GUARANTEE_TEXT, EXTRA_COPY, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
+import {
+  GUARANTEE_TEXT,
+  EXTRA_COPY,
+  PRINT_COMING_SOON_TEXT,
+  PRINT_ENABLED,
+  PRINT_PRODUCT,
+  formatEuros,
+} from "@/lib/pricing";
 import { CheckoutPrices, PurchaseProduct } from "./types";
 
 // Hoja de compra: dos opciones claras (el regalo impreso y el PDF), un único
@@ -34,7 +41,7 @@ export default function PurchaseSheet({
   const digitalProduct: PurchaseProduct = hasPurchased ? "repeat" : "digital";
   // Se remonta (key) cada vez que se abre, así parte de la opción elegida
   const [product, setProduct] = useState<PurchaseProduct>(
-    initialProduct === "bundle" ? "bundle" : digitalProduct,
+    initialProduct === "bundle" && PRINT_ENABLED ? "bundle" : digitalProduct,
   );
   const [extraCopies, setExtraCopies] = useState(0);
   const [accepted, setAccepted] = useState(false);
@@ -84,7 +91,7 @@ export default function PurchaseSheet({
             </div>
 
             <div className='flex-1 overflow-y-auto px-5 pb-4 space-y-3'>
-              {prices?.founder.active && prices.bundle.discountLabel?.startsWith("Precio fundador") && (
+              {prices?.founder.active && prices.digital.discountLabel?.startsWith("Precio fundador") && (
                 <p className='text-sm font-semibold text-primary bg-primary-soft rounded-xl px-3 py-2'>
                   Precio fundador −{prices.founder.percent}{" "}% ya aplicado · quedan{" "}
                   {prices.founder.remaining} pedidos a este precio
@@ -95,6 +102,7 @@ export default function PurchaseSheet({
               )}
 
               {/* Regalo: impreso + PDF */}
+              {PRINT_ENABLED && (
               <OptionCard
                 selected={product === "bundle"}
                 onSelect={() => setProduct("bundle")}
@@ -135,18 +143,31 @@ export default function PurchaseSheet({
                   </div>
                 )}
               </OptionCard>
+              )}
 
               {/* Solo PDF */}
               <OptionCard
                 selected={product !== "bundle"}
                 onSelect={() => setProduct(digitalProduct)}
-                title={hasPurchased ? "Otro cuento en PDF" : "Solo el PDF"}
+                title={hasPurchased ? "Otro cuento en PDF" : PRINT_ENABLED ? "Solo el PDF" : "El cuento en PDF"}
                 price={digital ?? undefined}>
                 <p className='text-sm text-text-muted mt-2'>
+                  {prices?.campaign?.bonus?.onProduct === "pdf" && (
+                    <span className='block font-bold text-secondary mb-1'>
+                      🎁 {prices.campaign.bonus.label} ({prices.campaign.name})
+                    </span>
+                  )}
                   Portada + 12 páginas ilustradas para leer en la tablet o imprimir
-                  en casa. Puedes pasarlo a papel después.
+                  en casa.{PRINT_ENABLED ? " Puedes pasarlo a papel después." : ""}
                 </p>
               </OptionCard>
+
+              {!PRINT_ENABLED && (
+                <p className='flex gap-2 text-sm text-text-muted'>
+                  <Gift className='w-5 h-5 text-secondary flex-shrink-0' />
+                  {PRINT_COMING_SOON_TEXT}
+                </p>
+              )}
 
               <p className='flex gap-2 text-sm text-text-muted'>
                 <ShieldCheck className='w-5 h-5 text-success flex-shrink-0' />

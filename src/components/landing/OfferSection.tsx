@@ -20,6 +20,8 @@ import {
   EXTRA_COPY,
   FOUNDER_OFFER,
   GUARANTEE_TEXT,
+  PRINT_COMING_SOON_TEXT,
+  PRINT_ENABLED,
   PRINT_PRODUCT,
   formatEuros,
 } from "@/lib/pricing";
@@ -133,7 +135,7 @@ export function OfferSection() {
   const { prices, founder } = state;
   const bonus = useOffer()?.campaign?.bonus ?? null;
   // Descuento vigente (el mayor entre fundador y campaña lo decide la API)
-  const discountLabel = prices.bundle.discountLabel ?? prices.digital.discountLabel;
+  const discountLabel = prices.digital.discountLabel ?? prices.bundle.discountLabel;
   const isFounder = Boolean(
     discountLabel?.startsWith("Precio fundador") && founder?.active && founder.remaining > 0,
   );
@@ -182,6 +184,65 @@ export function OfferSection() {
           </div>
         )}
 
+        {!PRINT_ENABLED ? (
+          <div className='grid md:grid-cols-[1.25fr_1fr] gap-5 sm:gap-6 items-stretch'>
+            {/* Mientras no hay impreso: el PDF es el producto */}
+            <article
+              aria-labelledby='oferta-pdf'
+              className='relative rounded-3xl border-2 border-primary bg-surface card-shadow p-6 sm:p-8 flex flex-col'>
+              <p className='inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full bg-primary-soft text-primary-hover text-sm font-bold mb-4'>
+                <Download className='w-4 h-4' aria-hidden />
+                Listo en minutos
+              </p>
+              <h3 id='oferta-pdf' className='font-display font-semibold text-2xl sm:text-3xl mb-2'>
+                Su cuento ilustrado en PDF
+              </h3>
+              <p className='mb-1'>
+                <Price info={prices.digital} />
+              </p>
+              <p className='text-text-muted mb-5'>IVA incluido · pago único</p>
+              {bonus?.onProduct === "pdf" && (
+                <p className='-mt-3 mb-5 inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-white text-sm font-bold'>
+                  🎁 {bonus.label}
+                </p>
+              )}
+              <ul className='space-y-2.5 mb-6 flex-1'>
+                <Bullet>Portada + 12 páginas ilustradas, con su nombre y tu dedicatoria</Bullet>
+                <Bullet>Un PDF para leer en la tablet y otro para imprimir en casa o en una copistería</Bullet>
+                <Bullet>Puedes cambiar frases y rehacer dibujos gratis</Bullet>
+                <Bullet>
+                  ¿Otro para su hermano o su primo? <Price info={prices.repeat} size='sm' />
+                </Bullet>
+              </ul>
+              <Link
+                href='/editor'
+                className='min-h-13 inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-lg px-6 transition-colors'>
+                Empezar su cuento gratis
+                <ArrowRight className='w-5 h-5' aria-hidden />
+              </Link>
+              <p className='mt-3 text-center text-[0.95rem] text-text-muted'>
+                Primero lees su historia gratis; pagas al final, si te gusta.
+              </p>
+            </article>
+
+            <article
+              aria-labelledby='oferta-papel'
+              className='rounded-3xl border border-dashed border-border-strong bg-surface/60 p-6 sm:p-8 flex flex-col'>
+              <p className='inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full bg-bg text-text-muted text-sm font-bold mb-4 border border-border'>
+                <Printer className='w-4 h-4' aria-hidden />
+                Próximamente
+              </p>
+              <h3 id='oferta-papel' className='font-display font-semibold text-2xl sm:text-3xl mb-2'>
+                El cuento impreso
+              </h3>
+              <p className='text-text-muted text-lg'>{PRINT_COMING_SOON_TEXT}</p>
+              <p className='text-text-muted mt-3'>
+                Si compras ahora el PDF, podrás pasarlo a papel en cuanto esté
+                disponible.
+              </p>
+            </article>
+          </div>
+        ) : (
         <div className='grid md:grid-cols-[1.25fr_1fr] gap-5 sm:gap-6 items-stretch'>
           {/* Producto estrella: impreso + PDF */}
           <article
@@ -251,8 +312,10 @@ export function OfferSection() {
             </Link>
           </article>
         </div>
+        )}
 
         {/* Extras */}
+        {PRINT_ENABLED && (
         <ul className='mt-6 grid sm:grid-cols-2 gap-4'>
           <li className='flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5'>
             <Printer className='w-6 h-6 text-primary shrink-0 mt-0.5' aria-hidden />
@@ -271,6 +334,7 @@ export function OfferSection() {
             </p>
           </li>
         </ul>
+        )}
 
         {/* Garantía y pago */}
         <div className='mt-6 grid md:grid-cols-[1.4fr_1fr] gap-4'>
@@ -280,8 +344,8 @@ export function OfferSection() {
               <h3 className='font-bold text-lg mb-1'>Nuestra garantía</h3>
               <p>{GUARANTEE_TEXT}</p>
               <p className='mt-2 text-text-muted'>
-                En el impreso, hasta que lo apruebas para imprenta puedes pedir
-                la devolución completa.{" "}
+                {PRINT_ENABLED &&
+                  "En el impreso, hasta que lo apruebas para imprenta puedes pedir la devolución completa. "}
                 <Link href='/desistimiento' className='underline underline-offset-2 hover:text-text'>
                   Ver condiciones
                 </Link>

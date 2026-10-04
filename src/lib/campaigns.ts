@@ -8,14 +8,18 @@
 // descuento y el precio final. Solo se aplica un descuento por pedido (el
 // mayor entre el precio fundador y la campaña activa).
 
+import { PRINT_ENABLED } from "@/lib/pricing";
+
 export interface Campaign {
   id: string;
   name: string;
   /** Inicio y fin, fecha y hora de Madrid (inclusive) */
   start: string;
   end: string;
-  /** Franja superior de la landing y el editor */
+  /** Franja superior de la landing y el editor (válida aunque no haya impreso) */
   banner: string;
+  /** Franja alternativa cuando el impreso está a la venta (PRINT_ENABLED) */
+  printBanner?: string;
   /** Descuento automático en el pago (porcentaje) o null si solo es temática */
   discountPercent: number | null;
   /** Productos a los que se aplica el descuento */
@@ -26,8 +30,11 @@ export interface Campaign {
   landingPath?: string;
   /** Fecha límite honesta para recibir el impreso (texto) */
   printDeadline?: string;
-  /** Regalo en vez de rebaja: libros digitales extra al comprar el pack */
-  bonus?: { onProduct: "bundle"; credits: number; label: string };
+  /**
+   * Regalo en vez de rebaja: libros digitales extra al pagar el pack
+   * ("bundle") o un cuento en PDF ("pdf": digital u otro cuento)
+   */
+  bonus?: { onProduct: "bundle" | "pdf"; credits: number; label: string };
 }
 
 export const CAMPAIGNS: Campaign[] = [
@@ -52,11 +59,14 @@ export const CAMPAIGNS: Campaign[] = [
     name: "Black Friday",
     start: "2026-11-23T00:00:00+01:00",
     end: "2026-11-30T23:59:59+01:00",
-    banner: "Black Friday: con el cuento impreso + PDF, te regalamos otro cuento en PDF (hasta el lunes 30)",
+    banner: "Black Friday: con tu cuento en PDF, te regalamos otro cuento (hasta el lunes 30)",
+    printBanner: "Black Friday: con el cuento impreso + PDF, te regalamos otro cuento en PDF (hasta el lunes 30)",
     // Regalo en vez de rebaja (precio de referencia, art. 20 LCM)
     discountPercent: null,
     appliesTo: [],
-    bonus: { onProduct: "bundle", credits: 5, label: "Otro cuento en PDF de regalo" },
+    bonus: PRINT_ENABLED
+      ? { onProduct: "bundle", credits: 5, label: "Otro cuento en PDF de regalo" }
+      : { onProduct: "pdf", credits: 5, label: "Otro cuento en PDF de regalo" },
     themes: [],
     landingPath: "/cuentos/black-friday",
     printDeadline: "Con tiempo de sobra para Navidad.",
@@ -66,7 +76,8 @@ export const CAMPAIGNS: Campaign[] = [
     name: "Navidad",
     start: "2026-12-01T00:00:00+01:00",
     end: "2026-12-24T23:59:59+01:00",
-    banner: "🎄 Regala su cuento esta Navidad · impreso: pídelo antes del 7 de diciembre",
+    banner: "🎄 Regala su cuento esta Navidad · el PDF llega al momento",
+    printBanner: "🎄 Regala su cuento esta Navidad · impreso: pídelo antes del 7 de diciembre",
     discountPercent: null,
     appliesTo: [],
     themes: [
@@ -103,16 +114,17 @@ export function getActiveCampaign(now: Date = new Date()): Campaign | null {
 export function publicCampaign(now?: Date) {
   const c = getActiveCampaign(now);
   if (!c) return null;
+  const printLive = PRINT_ENABLED;
   return {
     id: c.id,
     name: c.name,
-    banner: c.banner,
+    banner: printLive && c.printBanner ? c.printBanner : c.banner,
     discountPercent: c.discountPercent,
     appliesTo: c.appliesTo,
     themes: c.themes,
     landingPath: c.landingPath ?? null,
-    printDeadline: c.printDeadline ?? null,
-    bonus: c.bonus ?? null,
+    printDeadline: printLive ? (c.printDeadline ?? null) : null,
+    bonus: c.bonus && (printLive || c.bonus.onProduct !== "bundle") ? c.bonus : null,
     endsAt: c.end,
   };
 }

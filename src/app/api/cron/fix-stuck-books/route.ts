@@ -10,6 +10,7 @@ import {
 import { isRunning } from "@/lib/generation";
 import { deleteBookImages } from "@/lib/imageStorage";
 import { createLogger } from "@/lib/logger";
+import { PRINT_ENABLED } from "@/lib/pricing";
 
 const log = createLogger("cron-fix-stuck");
 
@@ -199,7 +200,7 @@ async function sendSalesSequence() {
     if (ok) leadPreviews++;
   }
 
-  const offers = await prisma.book.findMany({
+  const offers = !PRINT_ENABLED ? [] : await prisma.book.findMany({
     where: {
       status: "COMPLETED",
       unlockedAt: { lt: hoursAgo(20), gt: hoursAgo(72) },

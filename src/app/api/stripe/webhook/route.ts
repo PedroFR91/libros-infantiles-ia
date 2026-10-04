@@ -202,11 +202,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 async function afterDigitalPayment(session: Stripe.Checkout.Session, ownerId: string) {
   const bookId = session.metadata?.bookId;
   const type = session.metadata?.type;
+  await grantCampaignBonus(session, ownerId, type);
   if (!bookId) return;
 
   if (type === "bundle") {
     await updatePrintOrderFromSession(session, "AWAITING_APPROVAL");
-    await grantCampaignBonus(session, ownerId);
   }
 
   const book = await prisma.book.findUnique({
@@ -375,9 +375,16 @@ async function handlePrintPaid(session: Stripe.Checkout.Session) {
  * Regalo de campaña (p. ej. Black Friday: otro cuento en PDF al comprar el
  * pack). Una sola vez por pago, aunque Stripe reintente el evento.
  */
-async function grantCampaignBonus(session: Stripe.Checkout.Session, ownerId: string) {
+async function grantCampaignBonus(
+  session: Stripe.Checkout.Session,
+  ownerId: string,
+  type: string | undefined,
+) {
   const bonus = getActiveCampaign()?.bonus;
-  if (!bonus || bonus.onProduct !== "bundle") return;
+  if (!bonus) return;
+  const matches =
+    bonus.onProduct === "bundle" ? type === "bundle" : type === "digital" || type === "repeat";
+  if (!matches) return;
   const referenceId = `bonus-${session.id}`;
   const already = await prisma.creditLedger.findFirst({ where: { referenceId } });
   if (already) return;

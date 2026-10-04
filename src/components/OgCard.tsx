@@ -127,4 +127,4 @@ export function renderOgImage({
 }
 
 export const OG_SUBTITLE =
-  "Historia y portada gratis · Impreso en casa o en PDF";
+  "Historia y portada gratis · Tu cuento en PDF en minutos";

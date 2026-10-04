@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Check, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronRight, Printer, ShieldCheck } from "lucide-react";
 import {
-  BUNDLE_PRODUCT,
   CREDIT_PACKS,
   GUARANTEE_TEXT,
-  PRINT_PRODUCT,
+  PRINT_COMING_SOON_TEXT,
   formatEuros,
 } from "@/lib/pricing";
 import {
@@ -69,7 +68,6 @@ export default async function SeoPage({
   const related = page.related
     .map((s) => SEO_INDEX.find((p) => p.slug === s))
     .filter((p): p is (typeof SEO_INDEX)[number] => Boolean(p));
-  const days = `${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max}`;
 
   const jsonLd = [
     {
@@ -114,8 +112,8 @@ export default async function SeoPage({
       Puedes cambiar frases y rehacer dibujos.
     </>,
     <>
-      Te llega impreso a casa (21×21 cm, tapa blanda) en {days} días laborables
-      desde que lo apruebas, o lo descargas en PDF al momento.
+      Lo descargas en PDF en unos minutos: para leerlo en una tableta o
+      imprimirlo en casa o en una copistería.
     </>,
   ];
 
@@ -221,26 +219,20 @@ export default async function SeoPage({
                 </li>
               ))}
             </ol>
-            <div className='grid sm:grid-cols-2 gap-3 mb-5'>
-              <div className='rounded-2xl border-2 border-primary bg-surface p-4'>
-                <p className='font-bold'>{BUNDLE_PRODUCT.name}</p>
-                <p className='font-display font-semibold text-3xl'>
-                  {formatEuros(BUNDLE_PRODUCT.price)}
-                </p>
-                <p className='text-text-muted text-[0.95rem]'>
-                  Envío a casa incluido · lo apruebas antes de imprimir
-                </p>
-              </div>
-              <div className='rounded-2xl border border-border bg-surface p-4'>
-                <p className='font-bold'>Solo PDF</p>
-                <p className='font-display font-semibold text-3xl'>
-                  {formatEuros(CREDIT_PACKS.digital.price)}
-                </p>
-                <p className='text-text-muted text-[0.95rem]'>
-                  Para leer en pantalla e imprimir en casa
-                </p>
-              </div>
+            <div className='rounded-2xl border-2 border-primary bg-surface p-4 mb-3'>
+              <p className='font-bold'>{CREDIT_PACKS.digital.name}</p>
+              <p className='font-display font-semibold text-3xl'>
+                {formatEuros(CREDIT_PACKS.digital.price)}
+              </p>
+              <p className='text-text-muted text-[0.95rem]'>
+                {CREDIT_PACKS.digital.description} · listo en minutos · para
+                leer en pantalla o imprimir en casa
+              </p>
             </div>
+            <p className='flex items-start gap-2.5 text-text-muted text-[0.95rem] mb-5'>
+              <Printer className='w-5 h-5 mt-0.5 text-primary shrink-0' aria-hidden />
+              <span>{PRINT_COMING_SOON_TEXT}</span>
+            </p>
             <p className='flex items-start gap-2.5 text-text-muted'>
               <ShieldCheck className='w-5 h-5 mt-0.5 text-success shrink-0' aria-hidden />
               <span>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { EXTRA_COPY, PRINT_PRODUCT } from "@/lib/pricing";
+import { EXTRA_COPY, PRINT_ENABLED, PRINT_PRODUCT } from "@/lib/pricing";
 import { applyPercent, resolveDiscount, stripeDiscounts } from "@/lib/offer";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { printCheckoutSchema, validateBody } from "@/lib/validation";
@@ -15,6 +15,12 @@ const log = createLogger("checkout-print");
 // No crea filas en Payment (son solo del producto digital): el pedido vive en PrintOrder.
 export async function POST(request: NextRequest) {
   try {
+    if (!PRINT_ENABLED) {
+      return NextResponse.json(
+        { error: "El cuento impreso estará disponible muy pronto." },
+        { status: 400 },
+      );
+    }
     const userId = await getAuthenticatedUserId();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });

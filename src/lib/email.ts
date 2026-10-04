@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { createLogger } from "@/lib/logger";
 import { appUrl } from "@/lib/appUrl";
 import { bookLink } from "@/lib/bookAccess";
-import { GUARANTEE_TEXT, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
+import { GUARANTEE_TEXT, PRINT_ENABLED, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
 
 export { appUrl };
 
@@ -84,7 +84,7 @@ export async function sendBookReadyEmail(params: {
       `«${title}» ya está listo`,
       `<p>Hemos terminado todas las ilustraciones del libro de <strong>${escapeHtml(kidName)}</strong>.</p>
 <p>Puedes verlo, retocar páginas y descargar el PDF para leer en pantalla o imprimir.</p>
-<p>Y si quieres tenerlo en papel, puedes pedirlo impreso con envío a casa.</p>`,
+${PRINT_ENABLED ? "<p>Y si quieres tenerlo en papel, puedes pedirlo impreso con envío a casa.</p>" : "<p>Muy pronto podrás pedirlo también impreso, con envío a casa: te avisaremos.</p>"}`,
       { href: await bookLink(bookId), label: "Ver mi libro" },
     ),
   );

@@ -15,6 +15,7 @@ import Wizard, { WizardData } from "./Wizard";
 import { ActionBar, PageSheet, ProgressPanel, ResultPanel } from "./BookPanels";
 import { BookData, BookPage, CheckoutPrices, PurchaseProduct, ViewMode } from "./types";
 import { track } from "@/lib/analytics";
+import { PRINT_ENABLED } from "@/lib/pricing";
 
 export default function EditorPage() {
   return (
@@ -59,7 +60,7 @@ function EditorContent() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showReveal, setShowReveal] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const [purchaseProduct, setPurchaseProduct] = useState<PurchaseProduct>("bundle");
+  const [purchaseProduct, setPurchaseProduct] = useState<PurchaseProduct>(PRINT_ENABLED ? "bundle" : "digital");
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [orderingPrint, setOrderingPrint] = useState(false);
@@ -332,7 +333,7 @@ function EditorContent() {
       const res = await fetch(`/api/books/${bookId}/generate-images`, { method: "POST" });
       const data = await res.json();
       if (data.needsCredits) {
-        openPurchase("bundle");
+        openPurchase(PRINT_ENABLED ? "bundle" : "digital");
         return;
       }
       if (res.status === 202 || res.status === 409) {

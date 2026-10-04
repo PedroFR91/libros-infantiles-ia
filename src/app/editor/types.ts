@@ -59,7 +59,7 @@ export interface CheckoutPrices {
   campaign?: {
     name: string;
     printDeadline: string | null;
-    bonus: { onProduct: "bundle"; credits: number; label: string } | null;
+    bonus: { onProduct: "bundle" | "pdf"; credits: number; label: string } | null;
   } | null;
   digital: PriceInfo;
   repeat: PriceInfo;

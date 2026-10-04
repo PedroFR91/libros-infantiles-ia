@@ -28,6 +28,16 @@ export const CREDIT_PACKS: Record<"digital" | "repeat", PackConfig> = {
   },
 };
 
+/**
+ * Libro impreso a la venta. Mientras sea false solo se vende el PDF: se
+ * ocultan el pack y "pasar a papel", el checkout los rechaza y no salen los
+ * emails de oferta del impreso. Para reactivarlo: true y desplegar.
+ */
+export const PRINT_ENABLED = false;
+
+export const PRINT_COMING_SOON_TEXT =
+  "Próximamente, también en papel: estamos preparando el cuento impreso con envío a casa.";
+
 /** Producto estrella: libro impreso + PDF en un solo pago, envío incluido */
 export const BUNDLE_PRODUCT = {
   price: 3490,

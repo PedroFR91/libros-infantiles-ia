@@ -9,24 +9,23 @@
 // no estén en el flujo real. Los precios NO van en estos textos: la plantilla
 // los lee de src/lib/pricing.ts. Sin emojis: los iconos salen de
 // src/components/ThemeIcon.tsx. Formato único: "portada + 12 páginas ilustradas".
+// De momento solo se vende el cuento en PDF: el impreso está en preparación y
+// solo se menciona como «próximamente», sin plazos ni precios.
 // Las páginas de campaña (Halloween, Black Friday, Navidad, Reyes) toman
-// fechas, descuentos y plazos de src/lib/campaigns.ts para que no se desfasen.
+// fechas y temas de src/lib/campaigns.ts para que no se desfasen.
 
 import { CAMPAIGNS } from "@/lib/campaigns";
+import { FOUNDER_OFFER, PRINT_COMING_SOON_TEXT } from "@/lib/pricing";
 
-// ─── Editable por temporada ──────────────────────────────────────────────
-// Fecha límite para pedir el libro IMPRESO y recibirlo en Navidad
-// (aprobación + 7-10 días laborables + margen de mensajería en diciembre).
-// La usan la landing y las páginas SEO. Ponla a null para ocultar el aviso.
-export const CHRISTMAS_DEADLINE: string | null = "5 de diciembre";
-// ─────────────────────────────────────────────────────────────────────────
 
 const campaign = (prefix: string) => CAMPAIGNS.find((c) => c.id.startsWith(prefix));
 const HALLOWEEN = campaign("halloween");
 const BLACK_FRIDAY = campaign("black-friday");
 const NAVIDAD = campaign("navidad");
 const REYES = campaign("reyes");
-const XMAS = CHRISTMAS_DEADLINE ?? "5 de diciembre";
+
+/** Aviso honesto sobre el libro en papel (todavía no disponible) */
+const PRINT_SOON = PRINT_COMING_SOON_TEXT;
 
 function madridDate(iso: string, opts: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", ...opts }).format(
@@ -43,16 +42,10 @@ function campaignRange(c: { start: string; end: string } | undefined, fallback: 
   })}`;
 }
 
-const HALLOWEEN_PERCENT = HALLOWEEN?.discountPercent ?? 15;
-const HALLOWEEN_RANGE = campaignRange(HALLOWEEN, "del 15 al 31 de octubre");
-const HALLOWEEN_PRINT =
-  HALLOWEEN?.printDeadline ??
-  "Si lo quieres impreso, pídelo con margen: tarda 7-10 días laborables desde que lo apruebas.";
-const BF_PERCENT = BLACK_FRIDAY?.discountPercent ?? 25;
+const HALLOWEEN_END = HALLOWEEN
+  ? madridDate(HALLOWEEN.end, { day: "numeric", month: "long" })
+  : "31 de octubre";
 const BF_RANGE = campaignRange(BLACK_FRIDAY, "del 23 al 30 de noviembre");
-const REYES_PRINT_NOTE =
-  REYES?.printDeadline ??
-  "Para Reyes el impreso ya no llega a tiempo: regala el PDF y pide el impreso después.";
 
 export const SEO_INDEX = [
   { slug: "dinosaurios", kind: "tema", label: "Cuentos de dinosaurios" },
@@ -106,7 +99,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   dinosaurios: {
     metaTitle: "Cuento personalizado de dinosaurios para niños",
     metaDescription:
-      "Crea un cuento de dinosaurios donde tu hijo es el protagonista: portada + 12 páginas ilustradas, en PDF o impreso en casa. La historia y la portada de muestra son gratis.",
+      "Crea un cuento de dinosaurios donde tu hijo es el protagonista: portada + 12 páginas ilustradas en PDF, listo en minutos. La historia y la portada de muestra son gratis.",
     h1: "Cuento personalizado de dinosaurios: tu hijo, explorador del Jurásico",
     intro:
       "Hay una etapa en la que los dinosaurios lo son todo: se saben nombres imposibles, distinguen un herbívoro de un carnívoro a simple vista y duermen abrazados a un triceratops de peluche. Un cuento en el que el propio niño viaja entre dinosaurios convierte esa pasión en una historia que puede leer (o escuchar) una y otra vez, con su nombre en cada página.",
@@ -156,7 +149,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   espacio: {
     metaTitle: "Cuento personalizado del espacio y astronautas",
     metaDescription:
-      "Un cuento ilustrado donde tu hijo viaja al espacio como astronauta. Historia y portada de muestra gratis; portada + 12 páginas ilustradas en PDF o libro impreso.",
+      "Un cuento ilustrado donde tu hijo viaja al espacio como astronauta. Historia y portada de muestra gratis; portada + 12 páginas ilustradas en PDF, listo en minutos.",
     h1: "Cuento personalizado del espacio: tu hijo, astronauta por un día",
     intro:
       "Pocas cosas despiertan tanto la imaginación como mirar la Luna y preguntarse qué hay más allá. En este cuento el protagonista se pone el casco, sube a un cohete y vive su propia misión espacial, con su nombre en cada página y un personaje dibujado inspirado en él.",
@@ -206,7 +199,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   princesas: {
     metaTitle: "Cuento personalizado de princesas (y príncipes)",
     metaDescription:
-      "Crea un cuento de princesas donde tu hija o tu hijo es quien protagoniza la aventura. Portada + 12 páginas ilustradas, en PDF o impreso. Historia y portada de muestra gratis.",
+      "Crea un cuento de princesas donde tu hija o tu hijo es quien protagoniza la aventura. Portada + 12 páginas ilustradas en PDF. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de princesas: una princesa que vive su propia aventura",
     intro:
       "Los cuentos de princesas no tienen por qué ir de esperar a nadie. En un cuento personalizado la princesa (o el príncipe) es tu hija o tu hijo, y es quien toma las decisiones: cruza el bosque, habla con el dragón y encuentra la solución. Tú decides el tono de la historia.",
@@ -255,7 +248,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   piratas: {
     metaTitle: "Cuento personalizado de piratas para niños",
     metaDescription:
-      "Un cuento de piratas con tu hijo como capitán: mapas, islas y tesoros en portada + 12 páginas ilustradas. Historia y portada de muestra gratis; PDF o libro impreso.",
+      "Un cuento de piratas con tu hijo como capitán: mapas, islas y tesoros en portada + 12 páginas ilustradas. Historia y portada de muestra gratis; el PDF, en minutos.",
     h1: "Cuento personalizado de piratas: tu hijo, capitán de su propio barco",
     intro:
       "Un mapa con una X, un loro que habla demasiado y una isla que no aparece en ningún atlas. Los cuentos de piratas tienen todo lo que hace falta para una buena aventura, y en este el capitán es tu hijo.",
@@ -293,7 +286,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Puedo pedirlo impreso?",
-        a: "Sí. Puedes pedirlo directamente impreso + PDF, con envío a casa incluido, o empezar por el PDF y pasarlo a papel más tarde. El libro impreso mide 21×21 cm y no se imprime hasta que lo apruebas.",
+        a: `Todavía no. ${PRINT_SOON} Mientras tanto, el PDF está listo en minutos y puedes imprimirlo en casa o en una copistería.`,
       },
     ],
     ctaTheme: "una aventura pirata en busca de un tesoro",
@@ -304,7 +297,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   superheroes: {
     metaTitle: "Cuento personalizado de superhéroes para niños",
     metaDescription:
-      "Tu hijo como superhéroe con su propio poder: un cuento personalizado con portada + 12 páginas ilustradas. Historia y portada de muestra gratis; PDF o impreso.",
+      "Tu hijo como superhéroe con su propio poder: un cuento personalizado con portada + 12 páginas ilustradas. Historia y portada de muestra gratis; el PDF, en minutos.",
     h1: "Cuento personalizado de superhéroes: tu hijo y su superpoder",
     intro:
       "Todos los niños tienen algo que los hace especiales. En este cuento ese algo se convierte en un superpoder: el protagonista descubre lo que puede hacer, se pone la capa y ayuda a su barrio, su cole o su familia. Con su nombre en cada página y un personaje inspirado en él.",
@@ -403,7 +396,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   futbol: {
     metaTitle: "Cuento personalizado de fútbol para niños",
     metaDescription:
-      "Un cuento de fútbol con tu hijo o hija como protagonista del partido más importante. Portada + 12 páginas ilustradas, en PDF o impreso. Historia y portada de muestra gratis.",
+      "Un cuento de fútbol con tu hijo o hija como protagonista del partido más importante. Portada + 12 páginas ilustradas en PDF. Historia y portada de muestra gratis.",
     h1: "Cuento personalizado de fútbol: el partido más importante de su vida",
     intro:
       "Si en casa se habla de fútbol a todas horas, si el balón duerme junto a la cama o si los entrenamientos del sábado son sagrados, este cuento es para tu hijo o tu hija. Es la estrella del equipo, con su nombre en la camiseta y en cada página.",
@@ -550,7 +543,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "regalo-cumpleanos": {
     metaTitle: "Libro personalizado para regalar en un cumpleaños",
     metaDescription:
-      "Un regalo de cumpleaños original: un cuento ilustrado donde el niño es el protagonista, con dedicatoria. PDF en minutos o libro impreso con envío a casa.",
+      "Un regalo de cumpleaños original: un cuento ilustrado donde el niño es el protagonista, con dedicatoria. Portada + 12 páginas ilustradas en PDF, listo en minutos.",
     h1: "Un libro personalizado como regalo de cumpleaños",
     intro:
       "Juguetes van a llegar muchos. Un cuento en el que el niño que cumple años es el protagonista, con su nombre, un personaje inspirado en él y unas palabras tuyas en la dedicatoria, es de esos regalos que se guardan. Sirve tanto si eres madre o padre como si eres tío, abuela o padrino.",
@@ -558,7 +551,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Cómo se prepara el regalo",
         paragraphs: [
-          "Escribes el nombre del niño y un tema que le guste, eliges su edad y, si quieres, añades un compañero y una dedicatoria. La historia y una portada de muestra se crean gratis en unos minutos para que veas cómo queda. Si te convence, lo ilustramos entero y te llega impreso a casa con su PDF, o solo en PDF si lo prefieres.",
+          "Escribes el nombre del niño y un tema que le guste, eliges su edad y, si quieres, añades un compañero y una dedicatoria. La historia y una portada de muestra se crean gratis en unos minutos para que veas cómo queda. Si te convence, lo ilustramos entero y lo descargas en PDF en unos minutos, listo para leer en una tableta o imprimir.",
         ],
       },
       {
@@ -574,7 +567,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Consejos para acertar",
         paragraphs: [
-          "Si vas con el tiempo justo, el PDF está listo en minutos: puedes imprimirlo en casa o en una copistería, o enviarlo para leerlo en una tableta. Si quieres el libro impreso, pídelo con al menos dos semanas de margen. La dedicatoria es lo que más se recuerda: una frase sencilla con la fecha y quién lo regala basta.",
+          "Aunque vayas con el tiempo justo, llegas: el PDF está listo en minutos y puedes imprimirlo en casa o en una copistería, o enviarlo para leerlo en una tableta. La dedicatoria es lo que más se recuerda: basta una frase sencilla con la fecha y quién lo regala.",
         ],
       },
       {
@@ -587,7 +580,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
     faq: [
       {
         q: "¿Cuánto tarda?",
-        a: "La historia y la portada de muestra, unos minutos. El libro ilustrado completo, unos minutos más tras el pago. El impreso llega en 7-10 días laborables desde que lo apruebas.",
+        a: "La historia y la portada de muestra, unos minutos. El libro ilustrado completo en PDF, unos minutos más tras el pago.",
       },
       {
         q: "¿Puedo añadir una dedicatoria?",
@@ -602,7 +595,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "regalo-navidad": {
     metaTitle: "Cuento personalizado para regalar en Navidad",
     metaDescription:
-      "Regala en Navidad un cuento donde el niño es el protagonista: historia y portada de muestra gratis, PDF en minutos o libro impreso con envío a casa.",
+      "Regala en Navidad un cuento donde el niño es el protagonista: historia y portada de muestra gratis, y el cuento ilustrado en PDF en minutos.",
     h1: "Un cuento personalizado como regalo de Navidad",
     intro:
       "La Navidad es época de leer juntos bajo la manta. Un cuento en el que el niño ayuda a Papá Noel, salva la Nochebuena o vive una aventura en la nieve, con su nombre en cada página y un personaje inspirado en él, es un regalo que se vuelve a sacar cada diciembre.",
@@ -624,9 +617,10 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         ],
       },
       {
-        heading: "Plazos: digital o impreso",
+        heading: "Plazos y formato",
         paragraphs: [
-          `El PDF está listo en minutos después del pago, así que sirve incluso como regalo de última hora. El libro impreso tarda entre 7 y 10 días laborables en llegar, y en diciembre la mensajería va más cargada: pídelo con margen. ${CHRISTMAS_DEADLINE ? `Para recibirlo en Navidad, pídelo antes del ${CHRISTMAS_DEADLINE}.` : ""}`,
+          "El cuento se entrega en PDF y está listo en minutos después del pago, así que sirve incluso como regalo de última hora. Se puede leer en una tableta o imprimir en casa o en una copistería para envolverlo bajo el árbol.",
+          PRINT_SOON,
         ],
       },
       {
@@ -639,11 +633,15 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
     faq: [
       {
         q: "¿Llegará a tiempo para Navidad?",
-        a: `El PDF, sí: está listo en minutos. El impreso tarda 7-10 días laborables desde que lo apruebas; ${CHRISTMAS_DEADLINE ? `para recibirlo en Navidad, pídelo antes del ${CHRISTMAS_DEADLINE}` : "pídelo con margen, sobre todo en diciembre"}.`,
+        a: "Sí: el cuento es en PDF y está listo en minutos, aunque lo pidas el mismo día 24.",
+      },
+      {
+        q: "¿Lo puedo tener en papel?",
+        a: `${PRINT_SOON} Por ahora puedes imprimir el PDF en casa o en una copistería.`,
       },
       {
         q: "¿Se puede regalar a varios niños?",
-        a: "Sí. Cada niño tiene su propio cuento, con su nombre. Después del primero, el segundo cuento digital tiene un precio reducido, y puedes añadir copias impresas extra del mismo libro (por ejemplo, para los abuelos).",
+        a: "Sí. Cada niño tiene su propio cuento, con su nombre. Después del primero, el segundo cuento digital tiene un precio reducido.",
       },
     ],
     ctaTheme: NAVIDAD?.themes[0]?.id ?? "una aventura de Navidad ayudando a Papá Noel",
@@ -654,7 +652,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   "reyes-magos": {
     metaTitle: "Cuento personalizado para regalar en Reyes Magos",
     metaDescription:
-      "Un regalo de Reyes diferente: un cuento ilustrado donde el niño es protagonista, con dedicatoria de Sus Majestades. PDF en minutos o libro impreso.",
+      "Un regalo de Reyes diferente: un cuento ilustrado donde el niño es protagonista, con dedicatoria de Sus Majestades. Portada + 12 páginas ilustradas en PDF, en minutos.",
     h1: "Un cuento personalizado como regalo de Reyes Magos",
     intro:
       "La noche del 5 de enero es la más mágica del año en España. Un cuento en el que el niño acompaña a Melchor, Gaspar y Baltasar, o ayuda a un paje a encontrar una carta perdida, es un regalo que encaja de lleno con esa ilusión. Y la dedicatoria puede firmarla quien tú quieras.",
@@ -678,8 +676,8 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Consejos y plazos",
         paragraphs: [
-          `El libro impreso tarda entre 7 y 10 días laborables desde que lo apruebas, y entre Navidad y Reyes hay festivos y la mensajería va saturada. Si lo quieres en papel para el día 6, pídelo a la vez que los regalos de Navidad, antes del ${XMAS}. ${REYES_PRINT_NOTE}`,
-          "El PDF está listo en minutos después del pago: se puede leer en una tableta o imprimir en casa la misma mañana del 6, y pasarlo a papel más adelante. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
+          "El cuento se entrega en PDF y está listo en minutos después del pago: se puede leer en una tableta o imprimir en casa o en una copistería, incluso la víspera de Reyes. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
+          PRINT_SOON,
         ],
       },
       {
@@ -695,12 +693,12 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         a: "Sí. La dedicatoria es texto libre, así que puedes firmarla como quieras.",
       },
       {
-        q: "¿Llegará el impreso para Reyes?",
-        a: `Solo si lo pides con tiempo: para tenerlo en papel el 6 de enero, pídelo antes del ${XMAS}. A partir de Navidad el impreso ya no llega a tiempo: regala el PDF, que está listo en minutos, y pide el impreso después.`,
+        q: "¿Llegará a tiempo para Reyes?",
+        a: "Sí: el cuento es en PDF y está listo en minutos, aunque lo pidas el mismo 5 de enero.",
       },
       {
-        q: "¿Envían a toda España?",
-        a: "El libro impreso se envía a toda España y tarda entre 7 y 10 días laborables desde que lo apruebas.",
+        q: "¿Lo puedo pedir impreso?",
+        a: `Todavía no. ${PRINT_SOON} Mientras tanto, puedes imprimir el PDF en casa o en una copistería.`,
       },
     ],
     ctaTheme: REYES?.themes[0]?.id ?? "una aventura la noche de Reyes Magos",
@@ -735,7 +733,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Cuándo regalarlo",
         paragraphs: [
-          "Muchas familias lo leen durante las últimas semanas del embarazo o lo regalan el día que el mayor conoce al bebé, como un regalo solo para él. Si lo quieres impreso, cuenta con 7-10 días laborables de envío. Si las fechas se complican, el PDF está listo en minutos.",
+          "Muchas familias lo leen durante las últimas semanas del embarazo o lo regalan el día que el mayor conoce al bebé, como un regalo solo para él. El PDF está listo en minutos, así que no dependes de fechas de envío aunque el bebé se adelante.",
         ],
       },
       {
@@ -798,7 +796,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Lo tendré a tiempo?",
-        a: "El PDF está listo en minutos tras el pago. El impreso tarda 7-10 días laborables en llegar, así que pídelo con margen si lo quieres en papel para el primer día.",
+        a: "Sí. El cuento en PDF está listo en minutos tras el pago, así que podéis leerlo en una tableta o imprimirlo en casa los días antes de empezar.",
       },
     ],
     ctaTheme: "su primer día de cole",
@@ -845,10 +843,10 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         ],
       },
       {
-        heading: "Plazos y descuento",
+        heading: "Plazos y precio",
         paragraphs: [
-          `El PDF está listo en unos minutos después del pago, así que llega a tiempo aunque lo pidas el mismo 31. ${HALLOWEEN_PRINT}`,
-          `En 2026, ${HALLOWEEN_RANGE}, los cuentos tienen un ${HALLOWEEN_PERCENT} % de descuento que se aplica solo al pagar, sin códigos. Solo hay un descuento por pedido: si en ese momento hay otro mayor (como el precio fundador), se aplica el mayor.`,
+          "El cuento se entrega en PDF y está listo en unos minutos después del pago, así que llega a tiempo aunque lo pidas el mismo 31. Podéis leerlo en una tableta o imprimirlo en casa o en una copistería.",
+          `La campaña de Halloween dura hasta el ${HALLOWEEN_END} y no lleva un descuento propio. Lo que sí tienes es el precio fundador: un ${FOUNDER_OFFER.percent} % menos en los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo al pagar, sin códigos. Ves el importe final antes de confirmar.`,
         ],
       },
     ],
@@ -860,7 +858,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       EDAD_FAQ,
       {
         q: "¿Llegará a tiempo para el 31?",
-        a: `El PDF, sí: está listo en minutos. ${HALLOWEEN_PRINT}`,
+        a: "Sí: el cuento es en PDF y está listo en minutos, aunque lo pidas el mismo 31.",
       },
     ],
     ctaTheme: HALLOWEEN?.themes[0]?.id ?? "una noche de Halloween divertida y nada terrorífica",
@@ -869,34 +867,33 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
   },
 
   "black-friday": {
-    metaTitle: `Black Friday en cuentos personalizados: −${BF_PERCENT} % en todo`,
-    metaDescription: `En 2026, ${BF_RANGE}, −${BF_PERCENT} % automático en cuentos personalizados en PDF e impresos. Sin códigos y con tiempo para recibirlo en Navidad.`,
-    h1: `Black Friday en LibrosIA: −${BF_PERCENT} % en todos los cuentos`,
-    intro: `Si estás pensando en regalar un cuento personalizado en Navidad o en Reyes, el Black Friday es buen momento para pedirlo: tiene descuento y todavía queda margen para que llegue impreso. En 2026, ${BF_RANGE}, todos los cuentos tienen un ${BF_PERCENT} % de descuento, también los impresos.`,
+    metaTitle: "Black Friday en cuentos personalizados: regalos, sin códigos",
+    metaDescription: `Black Friday en LibrosIA, ${BF_RANGE}: con cada cuento en PDF, otro de regalo, sin códigos. Historia y portada de muestra gratis; el cuento ilustrado en PDF, en minutos.`,
+    h1: "Black Friday en LibrosIA: regalos en tus cuentos, sin códigos",
+    intro: `Este año nuestro Black Friday no va de porcentajes ni de precios tachados, sino de regalos. En 2026, ${BF_RANGE}, con cada cuento en PDF te regalamos otro cuento, para un hermano, un primo o su mejor amigo, sin códigos: verás qué incluye tu pedido en la web y en la página de pago antes de confirmar. Es un buen momento para dejar preparados los cuentos de Navidad y de Reyes.`,
     sections: [
       {
-        heading: "Qué incluye el descuento",
-        paragraphs: ["Se aplica a todo lo que se puede comprar en la web:"],
-        bullets: [
-          "El cuento digital: portada + 12 páginas ilustradas en PDF.",
-          "El cuento impreso + PDF: 21×21 cm, tapa blanda, con envío a casa incluido (solo España).",
-          "Pasar a papel un cuento que ya tienes en PDF.",
-          "Las copias extra del mismo libro para abuelos o tíos, en el mismo envío.",
-          "El segundo cuento digital, para hermanos o primos.",
+        heading: "Regalos en vez de rebajas",
+        paragraphs: [
+          "Preferimos no jugar con precios inflados ni tachados. En lugar de un descuento, en Black Friday con cada cuento en PDF te regalamos otro. Se aplica solo, sin códigos, y antes de pagar ves con claridad qué incluye tu pedido y cuánto pagas.",
+          "La historia y la portada de muestra siguen siendo gratis, como siempre: lees el cuento entero antes de decidir.",
         ],
       },
       {
-        heading: "Un descuento real y automático",
-        paragraphs: [
-          "No hace falta ningún código: el descuento se aplica solo al pagar y ves el importe final en la página de pago antes de confirmar. Se calcula sobre el precio habitual de la web, el que aparece en la sección de precios. No inflamos ni tachamos precios: te decimos el porcentaje y lo que pagas.",
-          "Solo se aplica un descuento por pedido. Si en ese momento hay otro mayor, se aplica el mayor; no se suman. La historia y la portada de muestra siguen siendo gratis, como siempre: lees el cuento entero antes de decidir.",
+        heading: "Qué recibes con cada cuento",
+        paragraphs: ["Cada cuento se escribe e ilustra para un niño concreto:"],
+        bullets: [
+          "Portada + 12 páginas ilustradas, con su nombre y un personaje inspirado en él.",
+          "En PDF, listo en minutos: para leer en una tableta o imprimir en casa o en una copistería.",
+          "Una dedicatoria escrita por ti.",
+          "Para un hermano o un primo, el segundo cuento digital tiene un precio reducido.",
         ],
       },
       {
         heading: "Plazos para Navidad y Reyes",
         paragraphs: [
-          `El libro no se imprime hasta que apruebas el cuento terminado y, desde ese momento, tarda entre 7 y 10 días laborables en llegar. Un pedido hecho en Black Friday llega con margen para Navidad. Si te lo piensas más, para recibir el impreso en Navidad pídelo antes del ${XMAS}.`,
-          "Para Reyes vale la misma fecha: entre Navidad y el 6 de enero hay festivos y, pedido después, el impreso ya no llega a tiempo. En ese caso, regala el PDF, que está listo en minutos, y pide el impreso más adelante.",
+          "Como el cuento se entrega en PDF, no dependes de envíos ni de la mensajería de diciembre: puedes pedirlo en Black Friday y guardarlo hasta el día, o dejarlo para más adelante.",
+          PRINT_SOON,
         ],
       },
       {
@@ -904,27 +901,31 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         paragraphs: ["Algunas formas de organizar los regalos de estas fechas:"],
         bullets: [
           "Un cuento para cada hermano, cada uno con su nombre y su tema favorito.",
-          "El impreso para Navidad y una copia extra para los abuelos.",
           "Un cuento con tema navideño o de Reyes, pedido ahora y guardado hasta el día.",
+          "Un cuento de cumpleaños para quien los cumple en diciembre o en enero.",
         ],
       },
     ],
     faq: [
       {
-        q: "¿Necesito un código de descuento?",
-        a: "No. El descuento se aplica automáticamente al pagar y ves el precio final antes de confirmar.",
+        q: "¿Necesito un código?",
+        a: "No. El regalo se aplica solo al pagar, y ves tu pedido completo y el precio final antes de confirmar.",
       },
       {
-        q: "¿El descuento vale también para el libro impreso?",
-        a: `Sí. Durante el Black Friday el −${BF_PERCENT} % se aplica al digital, al impreso + PDF, a pasar a papel y a las copias extra.`,
+        q: "¿Hay descuento en Black Friday?",
+        a: "En Black Friday no añadimos un porcentaje de descuento: preferimos hacer regalos. Si en ese momento sigue activo el precio fundador, se aplica igualmente.",
       },
       {
         q: "¿Llegará a tiempo para Navidad?",
-        a: `Sí, si lo pides antes del ${XMAS}: el impreso tarda 7-10 días laborables desde que lo apruebas. El PDF está listo en minutos.`,
+        a: "Sí. El cuento es en PDF y está listo en minutos tras el pago.",
+      },
+      {
+        q: "¿Y el libro impreso?",
+        a: `${PRINT_SOON} Por ahora, el cuento se entrega en PDF.`,
       },
       {
         q: "¿Puedo pedirlo ahora y regalarlo más tarde?",
-        a: "Sí. Te enviamos el enlace del cuento por email y puedes recuperarlo cuando quieras desde «Mis cuentos». El impreso lo recibes en casa y lo guardas hasta el día.",
+        a: "Sí. Te enviamos el enlace del cuento por email y puedes recuperarlo cuando quieras desde «Mis cuentos».",
       },
     ],
     ctaTheme: NAVIDAD?.themes[0]?.id ?? "una aventura de Navidad ayudando a Papá Noel",

@@ -53,7 +53,7 @@ export function HeroStart() {
             Escribe su nombre y lo que le gusta. En unos minutos lees su
             historia y ves su portada,{" "}
             <strong className='text-text'>gratis y sin tarjeta</strong>. Si te
-            enamora, la ilustramos entera y te llega impresa a casa.
+            enamora, la ilustramos entera y la tienes en PDF en minutos.
           </p>
 
           <form

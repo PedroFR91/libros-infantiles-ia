@@ -21,7 +21,7 @@ export interface PublicCampaign {
   themes: { id: string; label: string; emoji: string }[];
   landingPath: string | null;
   printDeadline: string | null;
-  bonus: { onProduct: "bundle"; credits: number; label: string } | null;
+  bonus: { onProduct: "bundle" | "pdf"; credits: number; label: string } | null;
   endsAt: string;
 }
 

@@ -17,7 +17,14 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { EXTRA_COPY, GUARANTEE_TEXT, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
+import {
+  EXTRA_COPY,
+  GUARANTEE_TEXT,
+  PRINT_COMING_SOON_TEXT,
+  PRINT_ENABLED,
+  PRINT_PRODUCT,
+  formatEuros,
+} from "@/lib/pricing";
 import { BookData, BookPage, CheckoutPrices } from "./types";
 
 // Paneles de estado del libro, en la vista principal (no escondidos en el
@@ -162,6 +169,16 @@ export function ResultPanel({
                 )}
               </p>
             </>
+          ) : !PRINT_ENABLED ? (
+            <>
+              <p className='font-bold flex items-center gap-2'>
+                <Gift className='w-5 h-5 text-primary' /> Muy pronto, en papel
+              </p>
+              <p className='text-sm text-text-muted mt-1'>
+                {PRINT_COMING_SOON_TEXT} Mientras tanto, el «PDF para imprimir en
+                casa» queda muy bien en una copistería.
+              </p>
+            </>
           ) : (
             <>
               <p className='font-bold flex items-center gap-2'>
@@ -266,6 +283,12 @@ export function ActionBar({ book, prices, hasCredits, hasPurchased, busy, onBuy,
             disabled={busy}
             className='flex-1 py-3.5 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60'>
             <Wand2 className='w-5 h-5' /> Ilustrar el cuento
+          </button>
+        ) : !PRINT_ENABLED ? (
+          <button
+            onClick={() => onBuy(hasPurchased ? "repeat" : "digital")}
+            className='flex-1 py-3.5 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold flex items-center justify-center gap-2'>
+            <Wand2 className='w-5 h-5' /> Ilustrar el cuento{digital && ` · ${digital.formatted}`}
           </button>
         ) : (
           <>

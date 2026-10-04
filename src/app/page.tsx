@@ -19,9 +19,9 @@ import {
   FOUNDER_OFFER,
   FREE_REDRAWS,
   GUARANTEE_TEXT,
-  PRINT_PRODUCT,
+  PRINT_COMING_SOON_TEXT,
 } from "@/lib/pricing";
-import { CHRISTMAS_DEADLINE, SEO_INDEX } from "@/lib/seo-pages";
+import { SEO_INDEX } from "@/lib/seo-pages";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CONTACT_EMAIL, SiteFooter } from "@/components/SiteFooter";
 import { ThemeIcon } from "@/components/ThemeIcon";
@@ -34,7 +34,6 @@ import { OfferSection } from "@/components/landing/OfferSection";
 // El contenido es visible sin animaciones de entrada (whileInView con
 // opacity 0 dejaba secciones vacías en capturas y lectores).
 
-const DAYS = `${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max}`;
 
 const STEPS = [
   {
@@ -49,8 +48,8 @@ const STEPS = [
   },
   {
     icon: Gift,
-    title: "La ilustramos y te llega impresa o en PDF",
-    text: `Portada + 12 páginas ilustradas. El PDF, al momento; el libro impreso, en casa en ${DAYS} días laborables desde que lo apruebas.`,
+    title: "La ilustramos y la tienes en PDF",
+    text: "Portada + 12 páginas ilustradas, en minutos. Para leerla en la tablet o imprimirla en casa o en una copistería.",
   },
 ];
 
@@ -84,12 +83,12 @@ const FAQ: { q: string; a: string }[] = [
     a: "No. La historia completa y la portada se crean gratis, sin tarjeta y sin crear cuenta. Solo pagas si quieres que lo ilustremos entero.",
   },
   {
-    q: "¿Puedo revisarlo antes de que se imprima?",
-    a: `Sí. El libro no se imprime hasta que tú lo apruebas. Antes puedes cambiar el texto de cualquier página y rehacer dibujos gratis hasta ${FREE_REDRAWS} veces.`,
+    q: "¿Puedo cambiar algo cuando esté ilustrado?",
+    a: `Sí. Puedes cambiar el texto de cualquier página y rehacer dibujos gratis hasta ${FREE_REDRAWS} veces.`,
   },
   {
     q: "¿Y si no me gusta cómo queda?",
-    a: `${GUARANTEE_TEXT} En el impreso, hasta que lo apruebas para imprenta, puedes pedir la devolución completa.`,
+    a: GUARANTEE_TEXT,
   },
   {
     q: "¿Se parecerá a mi hijo?",
@@ -101,21 +100,15 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "¿Cuánto tarda en llegar?",
-    a: `La historia y la portada, unos minutos. Tras el pago, el cuento ilustrado y su PDF también tardan unos minutos. El libro impreso llega en ${DAYS} días laborables desde que lo apruebas.${
-      CHRISTMAS_DEADLINE ? ` Para recibirlo en Navidad, pídelo antes del ${CHRISTMAS_DEADLINE}.` : ""
-    }`,
+    a: "La historia y la portada, unos minutos. Tras el pago, el cuento ilustrado y su PDF también tardan unos minutos: sirve incluso como regalo de última hora.",
   },
   {
-    q: "¿Enviáis fuera de España?",
-    a: "Por ahora el libro impreso solo se envía a direcciones de España. El PDF se puede comprar desde cualquier sitio.",
+    q: "¿Lo puedo tener impreso?",
+    a: `${PRINT_COMING_SOON_TEXT} Mientras tanto, el PDF incluye una versión para imprimir en casa o en una copistería.`,
   },
   {
     q: "¿Para qué edades es?",
     a: "Para niños de 3 a 8 años. Eliges su franja (3-4, 5-6 o 7-8) y el texto se adapta: frases más cortas para los pequeños, más aventura para los mayores.",
-  },
-  {
-    q: "¿Cómo es el libro impreso?",
-    a: "Cuadrado, de 21×21 cm, en tapa blanda, con la portada y las 12 páginas ilustradas. Puedes añadir una dedicatoria.",
   },
   {
     q: "¿Necesito crear una cuenta?",
@@ -127,7 +120,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "¿Puedo devolverlo?",
-    a: "Al ser un cuento personalizado no tiene derecho de desistimiento, pero tienes nuestra garantía y, si el libro llega dañado o con un defecto de impresión, te lo reponemos sin coste.",
+    a: "Al ser un cuento personalizado no tiene derecho de desistimiento, pero tienes nuestra garantía.",
   },
 ];
 
@@ -302,20 +295,13 @@ export default function HomePage() {
               acompañarle en un momento importante. Con tu dedicatoria en la
               primera página.
             </p>
-            {CHRISTMAS_DEADLINE && (
-              <div className='flex items-start gap-3 rounded-2xl bg-white/10 border border-white/20 p-4 mb-6'>
-                <Truck className='w-6 h-6 shrink-0 text-[#FFD9B8]' aria-hidden />
-                <p className='text-lg'>
-                  <strong>
-                    Para recibirlo en Navidad, pídelo antes del{" "}
-                    {CHRISTMAS_DEADLINE}.
-                  </strong>{" "}
-                  <span className='text-white/85'>
-                    ¿Vas tarde? El PDF está listo en minutos.
-                  </span>
-                </p>
-              </div>
-            )}
+            <div className='flex items-start gap-3 rounded-2xl bg-white/10 border border-white/20 p-4 mb-6'>
+              <Truck className='w-6 h-6 shrink-0 text-[#FFD9B8]' aria-hidden />
+              <p className='text-lg'>
+                <strong>El PDF está listo en minutos.</strong>{" "}
+                <span className='text-white/85'>{PRINT_COMING_SOON_TEXT}</span>
+              </p>
+            </div>
             <ul className='flex flex-wrap gap-2.5'>
               {OCCASIONS.map((o) => (
                 <li key={o.slug}>

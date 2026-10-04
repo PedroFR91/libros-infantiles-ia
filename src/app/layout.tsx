@@ -28,12 +28,12 @@ export const metadata: Metadata = {
     template: "%s | LibrosIA",
   },
   description:
-    "Un cuento ilustrado con su nombre y lo que más le gusta. Lee la historia y mira su portada gratis; si te enamora, lo ilustramos (portada + 12 páginas) y te llega impreso a casa o en PDF.",
+    "Un cuento ilustrado con su nombre y lo que más le gusta. Lee la historia y mira su portada gratis; si te enamora, lo ilustramos (portada + 12 páginas) y lo tienes en PDF en minutos.",
   metadataBase: new URL(siteUrl),
   openGraph: {
     title: "Regala un cuento donde el héroe lleva su nombre",
     description:
-      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y te llega impreso a casa o en PDF.",
+      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y lo tienes en PDF en minutos.",
     url: siteUrl,
     siteName: "LibrosIA by IconicoSpace",
     locale: "es_ES",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Regala un cuento donde el héroe lleva su nombre",
     description:
-      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y te llega impreso a casa o en PDF.",
+      "Historia y portada gratis, sin tarjeta. Si te enamora, lo ilustramos y lo tienes en PDF en minutos.",
   },
   robots: {
     index: true,
