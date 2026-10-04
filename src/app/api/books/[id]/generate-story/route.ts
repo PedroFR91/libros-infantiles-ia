@@ -16,6 +16,7 @@ import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
 import { AGE_RANGES, type AgeRange } from "@/lib/validation";
 import { createLogger } from "@/lib/logger";
+import { isAdminUser } from "@/lib/adminAuth";
 import { toPublicBook } from "@/lib/bookView";
 
 const log = createLogger("generate-story");
@@ -206,6 +207,7 @@ async function readPhoto(
 }
 
 async function canGeneratePreview(userId: string): Promise<boolean> {
+  if (await isAdminUser(userId)) return true;
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [mine, total] = await Promise.all([
     prisma.book.count({

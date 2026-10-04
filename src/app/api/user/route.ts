@@ -41,6 +41,7 @@ export async function GET() {
           user,
           credits: user.credits,
           hasPurchased: await hasPurchased(user.id),
+          isAdmin: user.role === "ADMIN",
           history: history.map(
             (h: {
               id: string;

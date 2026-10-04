@@ -32,6 +32,7 @@ import {
   type AgeRange,
 } from "@/lib/validation";
 import { createLogger } from "@/lib/logger";
+import { isAdminUser } from "@/lib/adminAuth";
 
 const log = createLogger("regenerate");
 
@@ -137,7 +138,8 @@ export async function POST(
 
     // Cobro: primero un redibujo gratis (garantía); si no quedan, 1 crédito
     let usedFreeRedraw = false;
-    if (regenerateImage) {
+    const admin = await isAdminUser(userId);
+    if (regenerateImage && !admin) {
       const free = await prisma.book.updateMany({
         where: { id, userId, freeRedraws: { gt: 0 } },
         data: { freeRedraws: { decrement: 1 } },
@@ -145,7 +147,9 @@ export async function POST(
       usedFreeRedraw = free.count === 1;
     }
     const referenceId = `${id}-page-${pageNumber}`;
-    if (usedFreeRedraw) {
+    if (admin) {
+      // sin cobro
+    } else if (usedFreeRedraw) {
       refundOnError = () =>
         prisma.book.update({
           where: { id },

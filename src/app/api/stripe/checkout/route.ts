@@ -15,7 +15,8 @@ import { getOrCreateUser } from "@/lib/credits";
 import { auth } from "@/lib/auth";
 import { checkoutSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
-import { applyDiscount, founderDiscounts, getFounderState } from "@/lib/offer";
+import { applyPercent, getFounderState, resolveDiscount, stripeDiscounts } from "@/lib/offer";
+import { publicCampaign } from "@/lib/campaigns";
 import { appUrl } from "@/lib/appUrl";
 import { createLogger } from "@/lib/logger";
 
@@ -74,8 +75,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const discounts = await founderDiscounts();
-    const discounted = discounts.length > 0;
+    const discount = await resolveDiscount(product);
+    const discounts = await stripeDiscounts(discount);
+    const percent = discounts.length > 0 && discount ? discount.percent : 0;
     const title = book ? book.title || `El cuento de ${book.kidName}` : null;
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
     const stripeSession = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
-      ...(discounted && { discounts }),
+      ...(discounts.length > 0 && { discounts }),
       ...(product === "bundle" && {
         shipping_address_collection: { allowed_countries: [...PRINT_PRODUCT.shippingCountries] },
         shipping_options: [
@@ -137,7 +139,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         stripeSessionId: stripeSession.id,
-        amount: applyDiscount(pack.price, discounted),
+        amount: applyPercent(pack.price, percent),
         currency: "eur",
         status: "PENDING",
         creditsGranted: pack.credits,
@@ -151,13 +153,13 @@ export async function POST(request: NextRequest) {
           stripeSessionId: stripeSession.id,
           kind: "bundle",
           quantity: 1 + extraCopies,
-          amount: applyDiscount(BUNDLE_PRODUCT.price - pack.price + extraCopies * EXTRA_COPY.price, discounted),
+          amount: applyPercent(BUNDLE_PRODUCT.price - pack.price + extraCopies * EXTRA_COPY.price, percent),
           status: "PENDING_PAYMENT",
         },
       });
     }
 
-    log.info({ product, extraCopies, discounted }, "Checkout creado");
+    log.info({ product, extraCopies, discount: discount?.label ?? null }, "Checkout creado");
     const response = NextResponse.json({ url: stripeSession.url });
     if (sessionId && !session?.user?.id) {
       response.cookies.set("sessionId", sessionId, {
@@ -174,22 +176,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/stripe/checkout - Precios para el editor (con el precio fundador si está activo)
+// GET /api/stripe/checkout - Precios para el editor con el descuento vigente
+// (fundador o campaña, el mayor). No se envía precio "antes" para tachar: la
+// interfaz muestra la etiqueta del descuento y el precio final.
 export async function GET() {
   const founder = await getFounderState().catch(() => ({ active: false, remaining: 0, percent: 0 }));
-  const price = (cents: number) => ({
-    price: applyDiscount(cents, founder.active),
-    regular: cents,
-    formatted: formatEuros(applyDiscount(cents, founder.active)),
-    regularFormatted: formatEuros(cents),
-  });
+  const price = async (cents: number, product: "digital" | "repeat" | "bundle" | "print") => {
+    const discount = await resolveDiscount(product, founder);
+    const final = applyPercent(cents, discount?.percent ?? 0);
+    return {
+      price: final,
+      regular: cents,
+      formatted: formatEuros(final),
+      regularFormatted: formatEuros(cents),
+      discountLabel: discount?.label ?? null,
+    };
+  };
   return NextResponse.json({
     founder,
-    digital: price(CREDIT_PACKS.digital.price),
-    repeat: price(CREDIT_PACKS.repeat.price),
-    bundle: price(BUNDLE_PRODUCT.price),
-    print: price(PRINT_PRODUCT.price),
-    extraCopy: price(EXTRA_COPY.price),
+    campaign: publicCampaign(),
+    digital: await price(CREDIT_PACKS.digital.price, "digital"),
+    repeat: await price(CREDIT_PACKS.repeat.price, "repeat"),
+    bundle: await price(BUNDLE_PRODUCT.price, "bundle"),
+    print: await price(PRINT_PRODUCT.price, "print"),
+    extraCopy: await price(EXTRA_COPY.price, "bundle"),
   });
 }
 

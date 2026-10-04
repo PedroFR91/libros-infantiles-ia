@@ -38,6 +38,7 @@ function EditorContent() {
   // Usuario y precios
   const [credits, setCredits] = useState(0);
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [prices, setPrices] = useState<CheckoutPrices | null>(null);
 
   // Libro
@@ -193,6 +194,7 @@ function EditorContent() {
       const data = await res.json();
       setCredits(data.credits || 0);
       setHasPurchased(!!data.hasPurchased);
+      setIsAdmin(!!data.isAdmin);
       return data.credits || 0;
     } catch {
       return 0;
@@ -538,7 +540,8 @@ function EditorContent() {
   // ============================================
 
   const selectedPageData = book?.pages.find((p) => p.pageNumber === selectedPage) ?? null;
-  const hasCredits = credits >= 5;
+  // Los administradores ilustran sin pagar (ejemplos y pruebas)
+  const hasCredits = credits >= 5 || isAdmin;
   const canRedraw = !!book?.unlockedAt && (book.status === "COMPLETED" || book.status === "ERROR");
 
   if (loadingBook && !book) {

@@ -332,8 +332,10 @@ Escribes historias cálidas, con ritmo, que apetece leer en voz alta antes de do
 const LITERARY_RULES = `ESTILO LITERARIO (obligatorio):
 - Frases cortas y con ritmo para leer en voz alta; verbos concretos; nada de adjetivos en cadena.
 - Diálogos SIEMPRE con raya de diálogo (—¿Vienes? —preguntó Leo.), NUNCA con comillas.
-- Cada 3 páginas, como mínimo, una onomatopeya (¡Plof!, ¡Fiuuu!) o una pregunta directa al lector (¿Sabes qué encontró?).
-- Cada página termina con un pequeño gancho que invita a pasar la página (salvo la última, que cierra en calma).
+- Algunas onomatopeyas (¡Plof!, ¡Fiuuu!) repartidas por el libro. Preguntas directas al lector: COMO MÁXIMO 3 en todo el libro y nunca en dos páginas seguidas; la mayoría de páginas NO terminan en pregunta.
+- Cada página termina con un pequeño gancho que invita a pasar la página (una acción a medias, un sonido, una sorpresa), salvo la última, que cierra en calma.
+- El problema queda claro en la página 3 y lo resuelve el protagonista con una idea o una cualidad suya (no por casualidad ni porque aparezca algo de la nada). Lo que resuelve el final tiene que estar sembrado antes en la historia.
+- La última página cierra con una imagen concreta, tierna y cotidiana (abrazo, cama, merienda, mirada al cielo), sin moraleja y sin frases abstractas como "huele a aventura".
 - Muestra, no expliques: el valor se ve en lo que hace el protagonista. Prohibidas las moralejas explícitas.
 - CLICHÉS PROHIBIDOS: "érase una vez", "había una vez", "de repente", "colorín colorado", "aprendió que", "comprendió que", "de oreja a oreja", "vivieron felices", "la lección", y la palabra "mágico/mágica" más de una vez en todo el libro.
 - Nombres de personajes secundarios inventados: españoles, cortos y poco trillados (como Olmo, Brezo, Telmo, Vera, Ciro, Lola, Nilo). Prohibidos Luna, Chispa, Sparkle, Estrella, Brillo, Max y similares. Si la familia da un nombre, se respeta tal cual.`;
@@ -463,9 +465,10 @@ Comprueba y CORRIGE directamente:
 3. Estructura: ${AGE_STRUCTURE[input.ageRange].rules}
 4. Que el protagonista resuelva el problema y que el final sea cálido.
 5. ${genderGuide(input.kidName, input.gender)}
-6. Estilo: diálogos con raya (—), nunca comillas; ningún cliché prohibido; ganchos al final de página; una onomatopeya o pregunta al lector cada 3 páginas; nada de moralejas explícitas.
-7. Ortografía y naturalidad del español de España; sin repeticiones torpes.
-8. Que solo se usen ids de personajes y escenarios de la biblia, y que ninguna scene.action incluya objetos con letras o números.
+6. Estilo: diálogos con raya (—), nunca comillas; ningún cliché prohibido; ganchos al final de página; como máximo 3 preguntas al lector en todo el libro y nunca seguidas (reescribe las que sobren como afirmaciones o acciones); nada de moralejas explícitas.
+7. Lógica: el problema planteado en la página 3 se resuelve en las páginas 10-11 por una acción o idea del protagonista que ya estaba sembrada antes; si no es así, reescribe esas páginas para que lo sea. La última página cierra con una imagen concreta y tierna.
+8. Ortografía y naturalidad del español de España; sin repeticiones torpes.
+9. Que solo se usen ids de personajes y escenarios de la biblia, y que ninguna scene.action incluya objetos con letras o números.
 
 ${LITERARY_RULES}
 
@@ -929,7 +932,7 @@ export function composeCoverPrompt(
     bible.cover,
     style,
     { ...options, styleAnchor: false },
-    "Book cover composition: the protagonist is the clear focal point, inviting and joyful. Leave the top 30% of the image as simple sky or background for a title that will be added later.",
+    "Book cover composition: the protagonist is the clear focal point, inviting and joyful, placed in the lower two thirds. The top 35% of the image must be calm, plain sky or soft background with no objects, branches or characters, reserved for a title that will be added later.",
   );
 }
 

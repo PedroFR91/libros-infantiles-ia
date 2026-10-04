@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { consumeCredits, hasEnoughCredits } from "@/lib/credits";
 import { startIllustrations } from "@/lib/generation";
+import { isAdminUser } from "@/lib/adminAuth";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("unlock");
@@ -35,7 +36,8 @@ export async function unlockAndIllustrate(
 
   // Terminado con páginas sueltas sin dibujo: ya se pagó, el reintento es gratis.
   // ERROR sí cobra: ahí se devolvió el libro entero.
-  const charge = book.status !== "COMPLETED";
+  // Los administradores no pagan (ejemplos y pruebas)
+  const charge = book.status !== "COMPLETED" && !(await isAdminUser(userId));
   if (charge && !(await hasEnoughCredits(userId, "BOOK_GENERATION"))) {
     return { ok: false, reason: "no_credits" };
   }

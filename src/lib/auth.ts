@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import prisma from "@/lib/prisma";
+import { isAdminEmail } from "@/lib/adminEmails";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -30,6 +31,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account }) {
+      // Administradores por configuración (ADMIN_EMAILS)
+      if (user.email && isAdminEmail(user.email)) {
+        await prisma.user.updateMany({
+          where: { email: user.email, role: { not: "ADMIN" } },
+          data: { role: "ADMIN" },
+        });
+      }
       // Fusionar créditos de sesión anónima al hacer login
       if (user.email) {
         const { cookies } = await import("next/headers");
@@ -116,6 +124,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   events: {
     async createUser({ user }) {
+      if (user.email && isAdminEmail(user.email) && user.id) {
+        await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+      }
       // Cuando se crea un nuevo usuario, intentar fusionar con sesión anónima
       if (user.email) {
         const { cookies } = await import("next/headers");

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { EXTRA_COPY, PRINT_PRODUCT } from "@/lib/pricing";
-import { applyDiscount, founderDiscounts } from "@/lib/offer";
+import { applyPercent, resolveDiscount, stripeDiscounts } from "@/lib/offer";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { printCheckoutSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
@@ -47,11 +47,12 @@ export async function POST(request: NextRequest) {
     }
 
     const title = book.title || `El libro de ${book.kidName}`;
-    const discounts = await founderDiscounts();
-    const discounted = discounts.length > 0;
+    const discount = await resolveDiscount("print");
+    const discounts = await stripeDiscounts(discount);
+    const percent = discounts.length > 0 && discount ? discount.percent : 0;
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
-      ...(discounted && { discounts }),
+      ...(discounts.length > 0 && { discounts }),
       line_items: [
         {
           price_data: {
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
         stripeSessionId: session.id,
         kind: "upgrade",
         quantity: 1 + extraCopies,
-        amount: applyDiscount(PRINT_PRODUCT.price + extraCopies * EXTRA_COPY.price, discounted),
+        amount: applyPercent(PRINT_PRODUCT.price + extraCopies * EXTRA_COPY.price, percent),
         status: "PENDING_PAYMENT",
       },
     });

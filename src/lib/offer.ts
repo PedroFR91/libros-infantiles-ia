@@ -1,17 +1,24 @@
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { FOUNDER_OFFER } from "@/lib/pricing";
+import { getActiveCampaign } from "@/lib/campaigns";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("offer");
 
-// Cupón de Stripe con id fijo: se crea solo la primera vez (en test y en live)
-const FOUNDER_COUPON_ID = "FUNDADOR20";
+export type OfferProduct = "digital" | "repeat" | "bundle" | "print";
 
 export interface FounderState {
   active: boolean;
   remaining: number;
   percent: number;
+}
+
+export interface Discount {
+  percent: number;
+  couponId: string;
+  source: "founder" | "campaign";
+  label: string;
 }
 
 /**
@@ -23,45 +30,71 @@ export async function getFounderState(): Promise<FounderState> {
   const [digital, printUpgrades] = await Promise.all([
     prisma.payment.count({ where: { status: "COMPLETED" } }),
     prisma.printOrder.count({
-      where: {
-        kind: "upgrade",
-        status: { notIn: ["PENDING_PAYMENT", "CANCELED"] },
-      },
+      where: { kind: "upgrade", status: { notIn: ["PENDING_PAYMENT", "CANCELED"] } },
     }),
   ]);
   const remaining = Math.max(0, FOUNDER_OFFER.limit - digital - printUpgrades);
   return { active: remaining > 0, remaining, percent: FOUNDER_OFFER.percent };
 }
 
-/** Descuento a aplicar en el checkout (vacío si la oferta ha terminado) */
-export async function founderDiscounts(): Promise<{ coupon: string }[]> {
-  const state = await getFounderState();
-  if (!state.active) return [];
+/**
+ * Descuento que se aplica a un producto ahora mismo: el mayor entre el precio
+ * fundador y la campaña activa (solo uno por pedido).
+ */
+export async function resolveDiscount(
+  product: OfferProduct,
+  founder?: FounderState,
+): Promise<Discount | null> {
+  const f = founder ?? (await getFounderState());
+  const candidates: Discount[] = [];
+  if (f.active) {
+    candidates.push({
+      percent: f.percent,
+      couponId: `FUNDADOR${f.percent}`,
+      source: "founder",
+      label: `Precio fundador −${f.percent} %`,
+    });
+  }
+  const campaign = getActiveCampaign();
+  if (campaign?.discountPercent && campaign.appliesTo.includes(product)) {
+    candidates.push({
+      percent: campaign.discountPercent,
+      couponId: `${campaign.id.toUpperCase()}-${campaign.discountPercent}`,
+      source: "campaign",
+      label: `${campaign.name} −${campaign.discountPercent} %`,
+    });
+  }
+  return candidates.sort((a, b) => b.percent - a.percent)[0] ?? null;
+}
+
+/** Cupón de Stripe del descuento (lo crea la primera vez); [] si no se puede */
+export async function stripeDiscounts(discount: Discount | null): Promise<{ coupon: string }[]> {
+  if (!discount) return [];
   const stripe = getStripe();
   try {
-    await stripe.coupons.retrieve(FOUNDER_COUPON_ID);
+    await stripe.coupons.retrieve(discount.couponId);
   } catch {
     try {
       await stripe.coupons.create({
-        id: FOUNDER_COUPON_ID,
-        percent_off: FOUNDER_OFFER.percent,
+        id: discount.couponId,
+        percent_off: discount.percent,
         duration: "once",
-        name: `Precio fundador −${FOUNDER_OFFER.percent} %`,
+        name: discount.label,
       });
     } catch (error) {
       // Carrera: otro checkout lo acaba de crear
       try {
-        await stripe.coupons.retrieve(FOUNDER_COUPON_ID);
+        await stripe.coupons.retrieve(discount.couponId);
       } catch {
         // Sin cupón se cobra el precio normal antes que fallar el pago
-        log.error({ err: error }, "No se pudo crear el cupón fundador");
+        log.error({ err: error, coupon: discount.couponId }, "No se pudo crear el cupón");
         return [];
       }
     }
   }
-  return [{ coupon: FOUNDER_COUPON_ID }];
+  return [{ coupon: discount.couponId }];
 }
 
-export function applyDiscount(cents: number, discounted: boolean): number {
-  return discounted ? Math.round((cents * (100 - FOUNDER_OFFER.percent)) / 100) : cents;
+export function applyPercent(cents: number, percent: number): number {
+  return percent > 0 ? Math.round((cents * (100 - percent)) / 100) : cents;
 }
