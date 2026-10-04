@@ -51,10 +51,16 @@ export interface PriceInfo {
   regular: number;
   formatted: string;
   regularFormatted: string;
+  discountLabel?: string | null;
 }
 
 export interface CheckoutPrices {
   founder: { active: boolean; remaining: number; percent: number };
+  campaign?: {
+    name: string;
+    printDeadline: string | null;
+    bonus: { onProduct: "bundle"; credits: number; label: string } | null;
+  } | null;
   digital: PriceInfo;
   repeat: PriceInfo;
   bundle: PriceInfo;

@@ -62,7 +62,8 @@ export async function upscaleForPrint(
       const upscaled = await upscaleWithReplicate(image);
       return sharp(upscaled)
         .resize(targetPx, targetPx, { fit: "cover", kernel: "lanczos3" })
-        .png()
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 92, chromaSubsampling: "4:4:4" })
         .toBuffer();
     } catch (error) {
       log.error({ err: error }, "Replicate falló, reescalado local");
@@ -72,7 +73,20 @@ export async function upscaleForPrint(
   return sharp(image)
     .resize(targetPx, targetPx, { fit: "cover", kernel: "lanczos3" })
     .sharpen({ sigma: 0.8 })
-    .png()
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 92, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+}
+
+/**
+ * Para los PDF de pantalla y de imprimir en casa: JPEG ligero (un PDF de
+ * 13 PNG pesaba ~36 MB, demasiado para abrirlo en el móvil o enviarlo).
+ */
+export async function compressForScreen(image: Buffer, maxPx = 1600): Promise<Buffer> {
+  return sharp(image)
+    .resize(maxPx, maxPx, { fit: "inside", withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 86, mozjpeg: true })
     .toBuffer();
 }
 

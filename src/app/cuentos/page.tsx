@@ -30,12 +30,13 @@ export const metadata: Metadata = {
 const GROUPS = [
   { kind: "tema", heading: "Por tema" },
   { kind: "ocasion", heading: "Por ocasión" },
+  { kind: "oferta", heading: "Ofertas de temporada" },
 ] as const;
 
 export default function CuentosIndexPage() {
   return (
     <div className='min-h-screen bg-bg text-text'>
-      <SiteHeader ctaHref='/editor' ctaLabel='Empezar gratis' />
+      <SiteHeader ctaHref='/editor' ctaLabel='Empezar gratis' offerBar />
 
       <main className='max-w-4xl mx-auto px-4 py-8 sm:py-12'>
         <h1 className='font-display font-semibold text-[2.1rem] sm:text-5xl leading-[1.1] tracking-tight mb-4'>

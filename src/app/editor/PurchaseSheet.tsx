@@ -84,11 +84,14 @@ export default function PurchaseSheet({
             </div>
 
             <div className='flex-1 overflow-y-auto px-5 pb-4 space-y-3'>
-              {prices?.founder.active && (
+              {prices?.founder.active && prices.bundle.discountLabel?.startsWith("Precio fundador") && (
                 <p className='text-sm font-semibold text-primary bg-primary-soft rounded-xl px-3 py-2'>
-                  Precio fundador −{prices.founder.percent} % ya aplicado · quedan{" "}
+                  Precio fundador −{prices.founder.percent}{" "}% ya aplicado · quedan{" "}
                   {prices.founder.remaining} pedidos a este precio
                 </p>
+              )}
+              {prices?.campaign?.printDeadline && (
+                <p className='text-sm text-text-muted'>{prices.campaign.printDeadline}</p>
               )}
 
               {/* Regalo: impreso + PDF */}
@@ -99,6 +102,9 @@ export default function PurchaseSheet({
                 badge='Para regalar'
                 price={prices?.bundle}>
                 <ul className='text-sm text-text-muted space-y-1 mt-2'>
+                  {prices?.campaign?.bonus?.onProduct === "bundle" && (
+                    <li className='font-bold text-secondary'>🎁 {prices.campaign.bonus.label} ({prices.campaign.name})</li>
+                  )}
                   <li>📦 Libro de 21×21 cm en casa en {PRINT_PRODUCT.deliveryDays.min}-{PRINT_PRODUCT.deliveryDays.max} días laborables, envío incluido</li>
                   <li>👀 Lo revisas y lo apruebas antes de imprimir</li>
                   <li>📄 El PDF, al momento</li>
@@ -213,7 +219,7 @@ function OptionCard({
   onSelect: () => void;
   title: string;
   badge?: string;
-  price?: { formatted: string; regularFormatted: string; price: number; regular: number };
+  price?: { formatted: string; discountLabel?: string | null };
   children: React.ReactNode;
 }) {
   return (
@@ -245,9 +251,10 @@ function OptionCard({
         </div>
         {price && (
           <div className='text-right'>
-            <p className='font-bold text-xl'>{price.formatted}</p>
-            {price.price !== price.regular && (
-              <p className='text-sm text-text-muted line-through'>{price.regularFormatted}</p>
+            <p className='font-bold text-xl whitespace-nowrap'>{price.formatted}</p>
+            {/* Sin precio tachado (precio de referencia, art. 20 LCM) */}
+            {price.discountLabel && (
+              <p className='text-xs font-bold text-primary'>{price.discountLabel}</p>
             )}
           </div>
         )}

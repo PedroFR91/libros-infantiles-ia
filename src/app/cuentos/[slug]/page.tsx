@@ -128,7 +128,7 @@ export default async function SeoPage({
         }}
       />
 
-      <SiteHeader ctaHref={ctaHref} ctaLabel='Empezar gratis' />
+      <SiteHeader ctaHref={ctaHref} ctaLabel='Empezar gratis' offerBar />
 
       <main className='max-w-3xl mx-auto px-4 py-8 sm:py-12'>
         <nav aria-label='Ruta de navegación' className='mb-6 text-[0.95rem] text-text-muted'>

@@ -1,27 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import type { ShowcaseBook } from "@/components/landing/showcase-types";
 
-// Ejemplos públicos para la landing: libros marcados como `showcase` por un
-// admin. No devuelve kidName, userId, emails ni descripciones, pero el título y
-// el texto de las páginas SÍ pueden incluir el nombre del niño: marcar como
-// ejemplo solo libros de demostración o con consentimiento de la familia.
-// Solo datos públicos:
-// del personaje (privacidad de menores).
+// Ejemplos públicos para la landing: libros COMPLETED marcados como `showcase`
+// por un admin, con todas sus páginas para poder hojearlos enteros.
+// No devuelve kidName, userId, emails, dedicatoria ni la biblia, pero el
+// título y el texto de las páginas SÍ incluyen el nombre del protagonista:
+// marcar como ejemplo solo libros de demostración (nombres ficticios) o con
+// consentimiento de la familia (privacidad de menores).
 // Dinámica (no se prerenderiza en build, así no depende de la BD al compilar);
 // la caché la da Cache-Control en el CDN/proxy (5 min).
 export const dynamic = "force-dynamic";
 
-const MAX_BOOKS = 6;
-const SAMPLE_PAGES = [2, 3, 4];
-
-export interface ShowcaseBook {
-  id: string;
-  title: string | null;
-  theme: string;
-  style: string;
-  coverUrl: string | null;
-  pages: { pageNumber: number; imageUrl: string | null; text: string | null }[];
-}
+const MAX_BOOKS = 8;
 
 export async function GET() {
   try {
@@ -34,9 +25,10 @@ export async function GET() {
         title: true,
         theme: true,
         style: true,
+        ageRange: true,
+        gender: true,
         coverImageUrl: true,
         pages: {
-          where: { pageNumber: { in: [1, ...SAMPLE_PAGES] } },
           orderBy: { pageNumber: "asc" },
           select: { pageNumber: true, text: true, imageUrl: true },
         },
@@ -50,9 +42,12 @@ export async function GET() {
         title: book.title,
         theme: book.theme,
         style: book.style,
+        ageRange: book.ageRange,
+        gender: book.gender,
         coverUrl: book.coverImageUrl ?? firstPage?.imageUrl ?? null,
+        // La página 1 es la portada: el resto es la historia
         pages: book.pages
-          .filter((p) => SAMPLE_PAGES.includes(p.pageNumber))
+          .filter((p) => p.pageNumber > 1)
           .map((p) => ({
             pageNumber: p.pageNumber,
             imageUrl: p.imageUrl,
@@ -65,8 +60,7 @@ export async function GET() {
       { books: result },
       {
         headers: {
-          "Cache-Control":
-            "public, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
         },
       },
     );

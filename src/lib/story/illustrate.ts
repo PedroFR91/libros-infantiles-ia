@@ -41,19 +41,71 @@ export function estimateImageCostUsd(quality: ImageQuality, inputImages: number)
   return IMAGE_PRICE_USD[quality] + inputImages * INPUT_IMAGE_USD;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Sin saldo en OpenAI: reintentar no sirve */
+export function isQuotaError(error: unknown): boolean {
+  const e = error as { status?: number; code?: string; message?: string };
+  return e?.status === 429 && (e.code === "insufficient_quota" || /no credits remaining|quota/i.test(e.message ?? ""));
+}
+
+/** Límite por minuto de la cuenta (no de saldo): se espera lo que pide OpenAI */
+function rateLimitWaitMs(error: unknown): number | null {
+  const e = error as { status?: number; message?: string; headers?: Record<string, string> | Headers };
+  if (e?.status !== 429 || isQuotaError(error)) return null;
+  const header =
+    e.headers instanceof Headers ? e.headers.get("retry-after") : e.headers?.["retry-after"];
+  const fromHeader = header ? Number(header) * 1000 : NaN;
+  const fromMessage = Number(e.message?.match(/try again in ([\d.]+)s/i)?.[1]) * 1000;
+  const wait = Number.isFinite(fromHeader) ? fromHeader : Number.isFinite(fromMessage) ? fromMessage : 15000;
+  return Math.min(wait, 60000) + 1000 + Math.random() * 3000;
+}
+
+/**
+ * Reintenta errores puntuales (`attempts` en total). Los 429 por límite por
+ * minuto no cuentan como intento: se espera y se repite (hasta ~6 min), porque
+ * con un tier bajo de OpenAI dos libros a la vez los provocan siempre.
+ */
 export async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
   let lastError: unknown;
+  let rateLimitWaits = 0;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      if (attempt < attempts) {
-        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+      if (isQuotaError(error)) throw error;
+      const wait = rateLimitWaits < 12 ? rateLimitWaitMs(error) : null;
+      if (wait !== null) {
+        rateLimitWaits++;
+        attempt--;
+        log.warn({ waitMs: Math.round(wait), rateLimitWaits }, "Límite por minuto de OpenAI; se espera y se reintenta");
+        await sleep(wait);
+        continue;
       }
+      if (attempt < attempts) await sleep(2000 * attempt);
     }
   }
   throw lastError;
+}
+
+// Tope global de imágenes en vuelo (todas las páginas de todos los libros):
+// el límite de OpenAI es por cuenta, no por libro. IMAGE_CONCURRENCY sube con
+// el tier de la cuenta.
+const IMAGE_CONCURRENCY = Math.max(1, Number(process.env.IMAGE_CONCURRENCY) || 2);
+let imagesInFlight = 0;
+const imageQueue: (() => void)[] = [];
+
+export async function withImageSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (imagesInFlight < IMAGE_CONCURRENCY) imagesInFlight++;
+  else await new Promise<void>((resolve) => imageQueue.push(resolve)); // hereda el hueco
+  try {
+    return await fn();
+  } finally {
+    const next = imageQueue.shift();
+    if (next) next();
+    else imagesInFlight--;
+  }
 }
 
 // --------------------------------------------
@@ -120,7 +172,7 @@ export async function ensureReferenceSheets(
         bible,
         traits: photo ? null : opts.traits,
       });
-      image = await withRetry(() => generateReferenceSheet(prompt, photo));
+      image = await withImageSlot(() => withRetry(() => generateReferenceSheet(prompt, photo)));
       protagonist.refUrl = await opts.store(protagonist, image);
       protagonist.fromPhoto = !!photo;
     }
@@ -138,7 +190,7 @@ export async function ensureReferenceSheets(
             bible,
             styleFromSheet: !!base,
           });
-          image = await withRetry(() => generateReferenceSheet(prompt, null, base));
+          image = await withImageSlot(() => withRetry(() => generateReferenceSheet(prompt, null, base)));
           character.refUrl = await opts.store(character, image);
         }
         refs.set(character.id, image);
@@ -228,7 +280,7 @@ export async function renderScene(opts: RenderSceneOptions): Promise<RenderedSce
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) await opts.beforeRetry?.();
     const prompt = basePrompt + (attempt > 1 ? retryHint(previousQa) : "");
-    const image = await withRetry(() => generateIllustration(prompt, inputs, quality));
+    const image = await withImageSlot(() => withRetry(() => generateIllustration(prompt, inputs, quality)));
     const qa = await checkPageQuality({
       references: qaRefs,
       cover: anchor,

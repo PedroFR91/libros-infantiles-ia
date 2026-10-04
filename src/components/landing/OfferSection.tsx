@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { useOffer } from "@/components/landing/useOffer";
 import {
   BUNDLE_PRODUCT,
   CREDIT_PACKS,
@@ -21,38 +22,78 @@ import {
   GUARANTEE_TEXT,
   PRINT_PRODUCT,
   formatEuros,
-  withFounderDiscount,
 } from "@/lib/pricing";
 
-interface FounderState {
-  active: boolean;
-  remaining: number;
-  percent: number;
+// Precios con el descuento vigente (GET /api/stripe/checkout). Normativa: un
+// precio "antes" tachado tendría que ser el más bajo de los 30 días previos,
+// así que NO se tacha nada: se muestra el precio final y la etiqueta del
+// descuento (p. ej. "Precio fundador −20 %").
+
+interface PriceInfo {
+  price: number;
+  regular: number;
+  formatted: string;
+  regularFormatted: string;
+  discountLabel: string | null;
 }
 
-/** Precio con el normal tachado SOLO si el precio fundador está activo. */
-function Price({
-  cents,
-  founder,
-  size = "lg",
-}: {
-  cents: number;
-  founder: boolean;
-  size?: "lg" | "sm";
-}) {
-  const big = size === "lg" ? "text-4xl sm:text-5xl" : "text-lg";
-  if (!founder) {
-    return <span className={`font-display font-semibold ${big}`}>{formatEuros(cents)}</span>;
+type PriceKey = "digital" | "repeat" | "bundle" | "print" | "extraCopy";
+
+interface PricesState {
+  founder: { active: boolean; remaining: number; percent: number } | null;
+  prices: Record<PriceKey, PriceInfo>;
+}
+
+function regular(cents: number): PriceInfo {
+  return {
+    price: cents,
+    regular: cents,
+    formatted: formatEuros(cents),
+    regularFormatted: formatEuros(cents),
+    discountLabel: null,
+  };
+}
+
+/** Si la API falla: precios normales de pricing.ts, sin etiquetas */
+const FALLBACK: PricesState = {
+  founder: null,
+  prices: {
+    digital: regular(CREDIT_PACKS.digital.price),
+    repeat: regular(CREDIT_PACKS.repeat.price),
+    bundle: regular(BUNDLE_PRODUCT.price),
+    print: regular(PRINT_PRODUCT.price),
+    extraCopy: regular(EXTRA_COPY.price),
+  },
+};
+
+function isPriceInfo(v: unknown): v is PriceInfo {
+  const p = v as PriceInfo | null;
+  return Boolean(p && typeof p.price === "number" && typeof p.formatted === "string");
+}
+
+/** Precio final + etiqueta del descuento (sin precio tachado) */
+function Price({ info, size = "lg" }: { info: PriceInfo; size?: "lg" | "sm" }) {
+  if (size === "sm") {
+    return (
+      <>
+        <strong className='whitespace-nowrap'>{info.formatted}</strong>
+        {info.discountLabel && (
+          <span className='ml-1.5 inline-block align-middle px-2 py-0.5 rounded-full bg-primary-soft text-primary-hover text-xs font-bold whitespace-nowrap'>
+            {info.discountLabel}
+          </span>
+        )}
+      </>
+    );
   }
   return (
-    <span className='inline-flex items-baseline gap-2 flex-wrap'>
-      <span className={`font-display font-semibold ${big}`}>
-        {formatEuros(withFounderDiscount(cents))}
-      </span>
-      <del className={`text-text-muted ${size === "lg" ? "text-xl" : "text-base"}`}>
-        <span className='sr-only'>Antes </span>
-        {formatEuros(cents)}
-      </del>
+    <span className='flex flex-wrap items-center gap-x-3 gap-y-1.5'>
+      <span className='font-display font-semibold text-4xl sm:text-5xl'>{info.formatted}</span>
+      {info.discountLabel && (
+        <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-soft text-primary-hover text-sm font-bold'>
+          <Sparkles className='w-3.5 h-3.5' aria-hidden />
+          {info.discountLabel}
+        </span>
+      )}
     </span>
   );
 }
@@ -67,24 +108,35 @@ function Bullet({ children }: { children: React.ReactNode }) {
 }
 
 export function OfferSection() {
-  const [founder, setFounder] = useState<FounderState | null>(null);
+  const [state, setState] = useState<PricesState>(FALLBACK);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/offer", { signal: controller.signal })
+    fetch("/api/stripe/checkout", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { founder?: FounderState } | null) => {
-        const f = data?.founder;
-        if (f && typeof f.active === "boolean") setFounder(f);
+      .then((data: Record<string, unknown> | null) => {
+        if (!data) return;
+        const keys: PriceKey[] = ["digital", "repeat", "bundle", "print", "extraCopy"];
+        if (!keys.every((k) => isPriceInfo(data[k]))) return;
+        const founder = data.founder as PricesState["founder"];
+        setState({
+          founder: founder && typeof founder.active === "boolean" ? founder : null,
+          prices: Object.fromEntries(keys.map((k) => [k, data[k]])) as PricesState["prices"],
+        });
       })
       .catch(() => {
-        /* si falla, no se muestra la banda y se enseñan los precios normales */
+        /* si falla, se quedan los precios normales sin etiqueta */
       });
     return () => controller.abort();
   }, []);
 
-  const founderOn = Boolean(founder?.active && founder.remaining > 0);
-  const percent = founder?.percent || FOUNDER_OFFER.percent;
+  const { prices, founder } = state;
+  const bonus = useOffer()?.campaign?.bonus ?? null;
+  // Descuento vigente (el mayor entre fundador y campaña lo decide la API)
+  const discountLabel = prices.bundle.discountLabel ?? prices.digital.discountLabel;
+  const isFounder = Boolean(
+    discountLabel?.startsWith("Precio fundador") && founder?.active && founder.remaining > 0,
+  );
   const days = `${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max}`;
 
   return (
@@ -105,19 +157,26 @@ export function OfferSection() {
           </p>
         </div>
 
-        {founderOn && founder && (
+        {discountLabel && (
           <div
             role='note'
             className='mb-8 rounded-2xl bg-secondary text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4'>
             <Sparkles className='w-6 h-6 shrink-0 text-[#FFD9B8]' aria-hidden />
             <p className='text-lg'>
-              <strong>
-                Precio fundador: −{percent} % en los {FOUNDER_OFFER.limit} primeros
-                pedidos
-              </strong>{" "}
-              · quedan {founder.remaining}
+              {isFounder && founder ? (
+                <>
+                  <strong>
+                    Precio fundador: −{founder.percent} % en los {FOUNDER_OFFER.limit}{" "}
+                    primeros pedidos
+                  </strong>{" "}
+                  · quedan {founder.remaining}
+                </>
+              ) : (
+                <strong>{discountLabel}</strong>
+              )}
               <span className='block text-[0.95rem] text-white/85'>
-                Se aplica solo al pagar, sin códigos.
+                Ya está aplicado en los precios de abajo y se descuenta solo al
+                pagar, sin códigos.
               </span>
             </p>
           </div>
@@ -136,9 +195,14 @@ export function OfferSection() {
               {BUNDLE_PRODUCT.name}
             </h3>
             <p className='mb-1'>
-              <Price cents={BUNDLE_PRODUCT.price} founder={founderOn} />
+              <Price info={prices.bundle} />
             </p>
             <p className='text-text-muted mb-5'>IVA y envío a casa incluidos</p>
+            {bonus?.onProduct === "bundle" && (
+              <p className='-mt-3 mb-5 inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-white text-sm font-bold'>
+                🎁 {bonus.label}
+              </p>
+            )}
             <ul className='space-y-2.5 mb-6 flex-1'>
               <Bullet>Libro de 21×21 cm, tapa blanda: portada + 12 páginas ilustradas</Bullet>
               <Bullet>El PDF al momento, para leerlo ya en pantalla</Bullet>
@@ -171,7 +235,7 @@ export function OfferSection() {
               Solo PDF
             </h3>
             <p className='mb-1'>
-              <Price cents={CREDIT_PACKS.digital.price} founder={founderOn} />
+              <Price info={prices.digital} />
             </p>
             <p className='text-text-muted mb-5'>IVA incluido</p>
             <ul className='space-y-2.5 mb-6 flex-1'>
@@ -194,7 +258,7 @@ export function OfferSection() {
             <Printer className='w-6 h-6 text-primary shrink-0 mt-0.5' aria-hidden />
             <p>
               <strong>¿Ya tienes el PDF?</strong> Pásalo a papel por{" "}
-              <Price cents={PRINT_PRODUCT.price} founder={founderOn} size='sm' />,
+              <Price info={prices.print} size='sm' />,
               envío incluido.
             </p>
           </li>
@@ -202,7 +266,7 @@ export function OfferSection() {
             <Users className='w-6 h-6 text-primary shrink-0 mt-0.5' aria-hidden />
             <p>
               <strong>Copia extra para los abuelos:</strong>{" "}
-              <Price cents={EXTRA_COPY.price} founder={founderOn} size='sm' />{" "}
+              <Price info={prices.extraCopy} size='sm' />{" "}
               cada una, en el mismo envío (hasta {EXTRA_COPY.max}).
             </p>
           </li>

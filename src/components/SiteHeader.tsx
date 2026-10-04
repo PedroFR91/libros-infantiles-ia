@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CampaignBar } from "@/components/landing/CampaignBar";
 
 /** Marca de LibrosIA: libro abierto dibujado en SVG + nombre. */
 export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
@@ -41,17 +42,23 @@ export interface HeaderLink {
 /**
  * Cabecera pública (landing, páginas SEO, legales). Fija arriba, fondo
  * translúcido claro. En móvil solo marca + botón; los enlaces van en el pie.
+ * Con `offerBar`, encima va la franja de campaña / precio fundador (se
+ * desplaza con la página; la cabecera sí queda fija).
  */
 export function SiteHeader({
   links = [],
   ctaHref = "/editor",
   ctaLabel = "Empezar gratis",
+  offerBar = false,
 }: {
   links?: HeaderLink[];
   ctaHref?: string;
   ctaLabel?: string;
+  offerBar?: boolean;
 }) {
   return (
+    <>
+    {offerBar && <CampaignBar />}
     <header className='sticky top-0 z-40 glass'>
       <div className='max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4'>
         <Link href='/' aria-label='LibrosIA, inicio' className='rounded-lg'>
@@ -78,5 +85,6 @@ export function SiteHeader({
         </Link>
       </div>
     </header>
+    </>
   );
 }

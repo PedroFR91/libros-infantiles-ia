@@ -178,10 +178,14 @@ export default function HomePage() {
         ]}
         ctaHref='/editor'
         ctaLabel='Empezar gratis'
+        offerBar
       />
 
       <main>
         <HeroStart />
+
+        {/* Ejemplos reales: lo primero tras el hero (solo si hay libros showcase) */}
+        <ShowcaseGallery />
 
         {/* Cómo funciona */}
         <section
@@ -249,9 +253,6 @@ export default function HomePage() {
             </p>
           </div>
         </section>
-
-        {/* Ejemplos reales (solo si hay libros marcados como showcase) */}
-        <ShowcaseGallery />
 
         {/* Parecido honesto y foto */}
         <section aria-labelledby='parecido-titulo' className='px-4 pb-14 sm:pb-20'>

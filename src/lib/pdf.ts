@@ -4,7 +4,7 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { createHash } from "crypto";
-import { loadStoredImage, upscaleForPrint } from "@/lib/imageTools";
+import { compressForScreen, loadStoredImage, upscaleForPrint } from "@/lib/imageTools";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("pdf");
@@ -67,7 +67,7 @@ const PRINT_SPINE = envMm("PRINT_SPINE_MM", 3) * MM;
 const PRINT_COVER_WRAP = envMm("PRINT_COVER_WRAP_MM", 0) * MM;
 const PRINT_MIN_PAGES = parseInt(process.env.PRINT_MIN_PAGES || "32", 10);
 const SAFE = 0.5 * 72; // margen de seguridad dentro del corte
-const LAYOUT_VERSION = 4; // subirlo invalida todos los PDFs en caché
+const LAYOUT_VERSION = 5; // subirlo invalida todos los PDFs en caché
 
 const COLORS = {
   cream: rgb(0.995, 0.97, 0.92),
@@ -274,8 +274,16 @@ async function buildCoverSpread(doc: PDFDocument, fonts: Fonts, images: ImageCac
   drawCentered(page, fonts.title, "LibrosIA", back.x + TRIM / 2, back.y + SAFE + 28, 16, COLORS.accent);
   drawCentered(page, fonts.body, "libros.iconicospace.com", back.x + TRIM / 2, back.y + SAFE + 10, 9, COLORS.muted);
 
-  // Lomo
-  page.drawRectangle({ x: edge + TRIM, y: 0, width: PRINT_SPINE, height, color: COLORS.accent });
+  // Lomo: con menos de 5 mm la imprenta puede desplazar el pliegue ±1,5 mm,
+  // así que un lomo de color se vería como una franja en la portada. Mismo
+  // crema que la contracubierta en ese caso.
+  page.drawRectangle({
+    x: edge + TRIM,
+    y: 0,
+    width: PRINT_SPINE,
+    height,
+    color: PRINT_SPINE >= 5 * MM ? COLORS.accent : COLORS.cream,
+  });
   if (PRINT_SPINE >= 5 * MM) {
     const size = Math.min(PRINT_SPINE * 0.55, 11);
     const label = truncateToWidth(`${book.title}`, fonts.title, size, TRIM - SAFE * 2);
@@ -630,6 +638,8 @@ class ImageCache {
         // Ancho total con sangrado a 300 ppp
         const px = Math.round(((TRIM + PRINT_BLEED * 2 + PRINT_COVER_WRAP) / 72) * 300);
         bytes = await upscaleForPrint(bytes, px);
+      } else {
+        bytes = await compressForScreen(bytes);
       }
       const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
       return isPng ? await this.doc.embedPng(bytes) : await this.doc.embedJpg(bytes);

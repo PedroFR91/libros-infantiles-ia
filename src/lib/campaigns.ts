@@ -26,32 +26,37 @@ export interface Campaign {
   landingPath?: string;
   /** Fecha límite honesta para recibir el impreso (texto) */
   printDeadline?: string;
+  /** Regalo en vez de rebaja: libros digitales extra al comprar el pack */
+  bonus?: { onProduct: "bundle"; credits: number; label: string };
 }
 
 export const CAMPAIGNS: Campaign[] = [
   {
     id: "halloween-2026",
     name: "Halloween",
-    start: "2026-10-15T00:00:00+02:00",
+    start: "2026-10-04T00:00:00+02:00",
     end: "2026-10-31T23:59:59+01:00",
-    banner: "🎃 Cuentos de Halloween que no dan miedo: −15 % hasta el 31 de octubre",
-    discountPercent: 15,
-    appliesTo: ["digital", "repeat", "bundle", "print"],
+    banner: "🎃 Cuentos de Halloween que no dan miedo · el PDF llega al momento",
+    // Sin rebaja extra: ya está el precio fundador (−20 %)
+    discountPercent: null,
+    appliesTo: [],
     themes: [
       { id: "una noche de Halloween divertida y nada terrorífica", label: "Halloween", emoji: "🎃" },
       { id: "un monstruo simpático que tiene miedo a la oscuridad", label: "Monstruo simpático", emoji: "👻" },
     ],
     landingPath: "/cuentos/halloween",
-    printDeadline: "Para tenerlo en papel antes del 31, pídelo antes del 20 de octubre.",
+    printDeadline: "Este año, para Halloween, el cuento en PDF: llega al momento.",
   },
   {
     id: "black-friday-2026",
     name: "Black Friday",
     start: "2026-11-23T00:00:00+01:00",
     end: "2026-11-30T23:59:59+01:00",
-    banner: "Black Friday: −25 % en todos los cuentos, también impresos, hasta el lunes 30",
-    discountPercent: 25,
-    appliesTo: ["digital", "repeat", "bundle", "print"],
+    banner: "Black Friday: con el cuento impreso + PDF, te regalamos otro cuento en PDF (hasta el lunes 30)",
+    // Regalo en vez de rebaja (precio de referencia, art. 20 LCM)
+    discountPercent: null,
+    appliesTo: [],
+    bonus: { onProduct: "bundle", credits: 5, label: "Otro cuento en PDF de regalo" },
     themes: [],
     landingPath: "/cuentos/black-friday",
     printDeadline: "Con tiempo de sobra para Navidad.",
@@ -61,7 +66,7 @@ export const CAMPAIGNS: Campaign[] = [
     name: "Navidad",
     start: "2026-12-01T00:00:00+01:00",
     end: "2026-12-24T23:59:59+01:00",
-    banner: "🎄 Regala su cuento esta Navidad · impreso: pídelo antes del 5 de diciembre",
+    banner: "🎄 Regala su cuento esta Navidad · impreso: pídelo antes del 7 de diciembre",
     discountPercent: null,
     appliesTo: [],
     themes: [
@@ -69,7 +74,7 @@ export const CAMPAIGNS: Campaign[] = [
       { id: "un muñeco de nieve que quiere conocer el verano", label: "Muñeco de nieve", emoji: "⛄" },
     ],
     landingPath: "/cuentos/regalo-navidad",
-    printDeadline: "Impreso para Navidad: pídelo antes del 5 de diciembre. Después, el PDF llega al momento.",
+    printDeadline: "Impreso para Navidad: pídelo antes del 7 de diciembre. Después, el PDF llega al momento.",
   },
   {
     id: "reyes-2027",
@@ -83,7 +88,7 @@ export const CAMPAIGNS: Campaign[] = [
       { id: "la noche de Reyes ayudando a los Reyes Magos a repartir regalos", label: "Reyes Magos", emoji: "👑" },
     ],
     landingPath: "/cuentos/reyes-magos",
-    printDeadline: "Para Reyes el impreso ya no llega a tiempo: regala el PDF y pide el impreso después.",
+    printDeadline: "Impreso para Reyes: pídelo antes del 18 de diciembre. Después, regala el PDF y pásalo a papel en enero.",
   },
 ];
 
@@ -107,6 +112,7 @@ export function publicCampaign(now?: Date) {
     themes: c.themes,
     landingPath: c.landingPath ?? null,
     printDeadline: c.printDeadline ?? null,
+    bonus: c.bonus ?? null,
     endsAt: c.end,
   };
 }

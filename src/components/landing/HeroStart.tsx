@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Gift } from "lucide-react";
 import { BookMockup } from "@/components/BookMockup";
+import { useOffer } from "@/components/landing/useOffer";
 
 const NAME_MAX = 40;
 
@@ -16,11 +17,17 @@ const NAME_MAX = 40;
 export function HeroStart() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const offer = useOffer();
+  const seasonal = offer?.campaign?.themes ?? [];
+  const cleanName = name.trim().slice(0, NAME_MAX);
+  const themeHref = (theme: string) =>
+    `/editor?theme=${encodeURIComponent(theme)}${
+      cleanName ? `&name=${encodeURIComponent(cleanName)}` : ""
+    }`;
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const clean = name.trim().slice(0, NAME_MAX);
-    router.push(clean ? `/editor?name=${encodeURIComponent(clean)}` : "/editor");
+    router.push(cleanName ? `/editor?name=${encodeURIComponent(cleanName)}` : "/editor");
   };
 
   return (
@@ -88,6 +95,29 @@ export function HeroStart() {
               ))}
             </ul>
           </form>
+
+          {seasonal.length > 0 && offer?.campaign && (
+            <div className='mt-5 max-w-xl'>
+              <p className='font-bold mb-2'>Ideas de temporada:</p>
+              <ul className='flex flex-wrap gap-2'>
+                {seasonal.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      href={themeHref(t.id)}
+                      className='inline-flex items-center gap-2 min-h-11 px-4 rounded-full bg-surface border-2 border-primary/30 hover:border-primary text-text font-semibold transition-colors'>
+                      <span aria-hidden>{t.emoji}</span>
+                      {t.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {offer.campaign.printDeadline && (
+                <p className='mt-2 text-[0.95rem] text-text-muted'>
+                  {offer.campaign.printDeadline}
+                </p>
+              )}
+            </div>
+          )}
 
           <p className='mt-5 text-text-muted'>
             ¿Ya tienes un cuento?{" "}

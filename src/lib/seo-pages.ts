@@ -9,6 +9,10 @@
 // no estén en el flujo real. Los precios NO van en estos textos: la plantilla
 // los lee de src/lib/pricing.ts. Sin emojis: los iconos salen de
 // src/components/ThemeIcon.tsx. Formato único: "portada + 12 páginas ilustradas".
+// Las páginas de campaña (Halloween, Black Friday, Navidad, Reyes) toman
+// fechas, descuentos y plazos de src/lib/campaigns.ts para que no se desfasen.
+
+import { CAMPAIGNS } from "@/lib/campaigns";
 
 // ─── Editable por temporada ──────────────────────────────────────────────
 // Fecha límite para pedir el libro IMPRESO y recibirlo en Navidad
@@ -16,6 +20,39 @@
 // La usan la landing y las páginas SEO. Ponla a null para ocultar el aviso.
 export const CHRISTMAS_DEADLINE: string | null = "5 de diciembre";
 // ─────────────────────────────────────────────────────────────────────────
+
+const campaign = (prefix: string) => CAMPAIGNS.find((c) => c.id.startsWith(prefix));
+const HALLOWEEN = campaign("halloween");
+const BLACK_FRIDAY = campaign("black-friday");
+const NAVIDAD = campaign("navidad");
+const REYES = campaign("reyes");
+const XMAS = CHRISTMAS_DEADLINE ?? "5 de diciembre";
+
+function madridDate(iso: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", ...opts }).format(
+    new Date(iso),
+  );
+}
+
+/** "del 23 al 30 de noviembre" (mismo mes) a partir de las fechas de la campaña */
+function campaignRange(c: { start: string; end: string } | undefined, fallback: string): string {
+  if (!c) return fallback;
+  return `del ${madridDate(c.start, { day: "numeric" })} al ${madridDate(c.end, {
+    day: "numeric",
+    month: "long",
+  })}`;
+}
+
+const HALLOWEEN_PERCENT = HALLOWEEN?.discountPercent ?? 15;
+const HALLOWEEN_RANGE = campaignRange(HALLOWEEN, "del 15 al 31 de octubre");
+const HALLOWEEN_PRINT =
+  HALLOWEEN?.printDeadline ??
+  "Si lo quieres impreso, pídelo con margen: tarda 7-10 días laborables desde que lo apruebas.";
+const BF_PERCENT = BLACK_FRIDAY?.discountPercent ?? 25;
+const BF_RANGE = campaignRange(BLACK_FRIDAY, "del 23 al 30 de noviembre");
+const REYES_PRINT_NOTE =
+  REYES?.printDeadline ??
+  "Para Reyes el impreso ya no llega a tiempo: regala el PDF y pide el impreso después.";
 
 export const SEO_INDEX = [
   { slug: "dinosaurios", kind: "tema", label: "Cuentos de dinosaurios" },
@@ -32,6 +69,8 @@ export const SEO_INDEX = [
   { slug: "reyes-magos", kind: "ocasion", label: "Regalo de Reyes Magos" },
   { slug: "hermano-mayor", kind: "ocasion", label: "Hermano mayor: llega un bebé" },
   { slug: "primer-dia-de-cole", kind: "ocasion", label: "Primer día de cole" },
+  { slug: "halloween", kind: "ocasion", label: "Halloween sin sustos" },
+  { slug: "black-friday", kind: "oferta", label: "Black Friday" },
 ] as const;
 
 export type SeoSlug = (typeof SEO_INDEX)[number]["slug"];
@@ -607,7 +646,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         a: "Sí. Cada niño tiene su propio cuento, con su nombre. Después del primero, el segundo cuento digital tiene un precio reducido, y puedes añadir copias impresas extra del mismo libro (por ejemplo, para los abuelos).",
       },
     ],
-    ctaTheme: "una aventura de Navidad ayudando a Papá Noel",
+    ctaTheme: NAVIDAD?.themes[0]?.id ?? "una aventura de Navidad ayudando a Papá Noel",
     ctaLabel: "Crear su cuento de Navidad gratis",
     related: ["reyes-magos", "magia", "regalo-cumpleanos"],
   },
@@ -639,7 +678,8 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       {
         heading: "Consejos y plazos",
         paragraphs: [
-          "Si lo quieres impreso, recuerda que tarda entre 7 y 10 días laborables y que entre Navidad y Año Nuevo hay festivos: es mejor pedirlo a mediados de diciembre. El PDF, en cambio, está listo en minutos y se puede imprimir o leer en una tableta la misma mañana del 6. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
+          `El libro impreso tarda entre 7 y 10 días laborables desde que lo apruebas, y entre Navidad y Reyes hay festivos y la mensajería va saturada. Si lo quieres en papel para el día 6, pídelo a la vez que los regalos de Navidad, antes del ${XMAS}. ${REYES_PRINT_NOTE}`,
+          "El PDF está listo en minutos después del pago: se puede leer en una tableta o imprimir en casa la misma mañana del 6, y pasarlo a papel más adelante. En la dedicatoria puedes escribir un mensaje «de parte de los Reyes Magos».",
         ],
       },
       {
@@ -655,11 +695,15 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         a: "Sí. La dedicatoria es texto libre, así que puedes firmarla como quieras.",
       },
       {
+        q: "¿Llegará el impreso para Reyes?",
+        a: `Solo si lo pides con tiempo: para tenerlo en papel el 6 de enero, pídelo antes del ${XMAS}. A partir de Navidad el impreso ya no llega a tiempo: regala el PDF, que está listo en minutos, y pide el impreso después.`,
+      },
+      {
         q: "¿Envían a toda España?",
-        a: "El libro impreso se envía a toda España y tarda entre 7 y 10 días laborables.",
+        a: "El libro impreso se envía a toda España y tarda entre 7 y 10 días laborables desde que lo apruebas.",
       },
     ],
-    ctaTheme: "una aventura la noche de Reyes Magos",
+    ctaTheme: REYES?.themes[0]?.id ?? "una aventura la noche de Reyes Magos",
     ctaLabel: "Crear su cuento de Reyes gratis",
     related: ["regalo-navidad", "magia", "piratas"],
   },
@@ -760,6 +804,132 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
     ctaTheme: "su primer día de cole",
     ctaLabel: "Crear su cuento del primer día gratis",
     related: ["hermano-mayor", "superheroes", "animales"],
+  },
+
+  halloween: {
+    metaTitle: "Cuento personalizado de Halloween que no da miedo",
+    metaDescription:
+      "Un cuento de Halloween divertido y nada terrorífico donde tu hijo es el protagonista: disfraces, calabazas y monstruos simpáticos. Historia y portada de muestra gratis.",
+    h1: "Un cuento de Halloween personalizado (y que no da miedo)",
+    intro:
+      "Halloween puede ser una fiesta de disfraces, calabazas y caramelos sin pasar miedo. En este cuento tu hijo es el protagonista de una noche de Halloween divertida: se disfraza, recorre el barrio y descubre que el monstruo de la historia es, en el fondo, más tímido que él.",
+    sections: [
+      {
+        heading: "Un Halloween divertido, no terrorífico",
+        paragraphs: [
+          "Las historias se escriben para niños de 3 a 8 años: sin sustos fuertes, sin nada desagradable y sin finales inquietantes. Los fantasmas, brujas y monstruos que aparecen son simpáticos, algo torpes o necesitan ayuda, y el protagonista resuelve la situación con ingenio y buen corazón.",
+          "Antes de pagar lees la historia completa y puedes cambiar cualquier frase que no encaje con tu hijo.",
+        ],
+      },
+      {
+        heading: "Ideas de historias",
+        paragraphs: ["El tema es libre. Algunas ideas que funcionan muy bien:"],
+        bullets: [
+          "Un monstruo simpático que tiene miedo a la oscuridad y al que hay que acompañar a casa.",
+          "Una calabaza que no consigue encender su sonrisa la noche del 31.",
+          "Una bruja buena que ha perdido su escoba y necesita ayuda antes de medianoche.",
+          "Un concurso de disfraces en el cole en el que los disfraces cobran vida.",
+          "Una ruta de truco o trato por el barrio con su hermano y el perro de casa.",
+        ],
+      },
+      {
+        heading: "Qué edad y cuánto «miedo»",
+        paragraphs: [
+          "Con 3-4 años, mejor una historia de disfraces y calabazas, sin oscuridad ni personajes que asusten. Con 5-6, un monstruo simpático o una casa «encantada» que resulta ser una fiesta. Con 7-8 años aguantan un pequeño misterio con algo de suspense y un final que lo explica todo. Si tu hijo es especialmente sensible, escríbelo en el tema («que no dé nada de miedo») y la historia lo tendrá en cuenta.",
+        ],
+      },
+      {
+        heading: "Cómo leerlo esa noche",
+        paragraphs: [
+          "Leedlo antes de salir, como parte del ritual de disfrazarse, o al volver, con la luz tenue y los caramelos sobre la mesa. Pon voces a los personajes, deja que sea él quien lea su nombre y pregúntale qué disfraz llevaría en la historia. Si algo le ha asustado esa noche, un cuento en el que él es el valiente ayuda a cerrar el día con calma.",
+        ],
+      },
+      {
+        heading: "Plazos y descuento",
+        paragraphs: [
+          `El PDF está listo en unos minutos después del pago, así que llega a tiempo aunque lo pidas el mismo 31. ${HALLOWEEN_PRINT}`,
+          `En 2026, ${HALLOWEEN_RANGE}, los cuentos tienen un ${HALLOWEEN_PERCENT} % de descuento que se aplica solo al pagar, sin códigos. Solo hay un descuento por pedido: si en ese momento hay otro mayor (como el precio fundador), se aplica el mayor.`,
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "¿El cuento da miedo?",
+        a: "No. Es un cuento de Halloween pensado para niños pequeños: los monstruos son amigos o necesitan ayuda y el final siempre es tranquilo. Además, lees y puedes editar todo el texto antes de pagar.",
+      },
+      EDAD_FAQ,
+      {
+        q: "¿Llegará a tiempo para el 31?",
+        a: `El PDF, sí: está listo en minutos. ${HALLOWEEN_PRINT}`,
+      },
+    ],
+    ctaTheme: HALLOWEEN?.themes[0]?.id ?? "una noche de Halloween divertida y nada terrorífica",
+    ctaLabel: "Crear su cuento de Halloween gratis",
+    related: ["magia", "animales", "regalo-cumpleanos"],
+  },
+
+  "black-friday": {
+    metaTitle: `Black Friday en cuentos personalizados: −${BF_PERCENT} % en todo`,
+    metaDescription: `En 2026, ${BF_RANGE}, −${BF_PERCENT} % automático en cuentos personalizados en PDF e impresos. Sin códigos y con tiempo para recibirlo en Navidad.`,
+    h1: `Black Friday en LibrosIA: −${BF_PERCENT} % en todos los cuentos`,
+    intro: `Si estás pensando en regalar un cuento personalizado en Navidad o en Reyes, el Black Friday es buen momento para pedirlo: tiene descuento y todavía queda margen para que llegue impreso. En 2026, ${BF_RANGE}, todos los cuentos tienen un ${BF_PERCENT} % de descuento, también los impresos.`,
+    sections: [
+      {
+        heading: "Qué incluye el descuento",
+        paragraphs: ["Se aplica a todo lo que se puede comprar en la web:"],
+        bullets: [
+          "El cuento digital: portada + 12 páginas ilustradas en PDF.",
+          "El cuento impreso + PDF: 21×21 cm, tapa blanda, con envío a casa incluido (solo España).",
+          "Pasar a papel un cuento que ya tienes en PDF.",
+          "Las copias extra del mismo libro para abuelos o tíos, en el mismo envío.",
+          "El segundo cuento digital, para hermanos o primos.",
+        ],
+      },
+      {
+        heading: "Un descuento real y automático",
+        paragraphs: [
+          "No hace falta ningún código: el descuento se aplica solo al pagar y ves el importe final en la página de pago antes de confirmar. Se calcula sobre el precio habitual de la web, el que aparece en la sección de precios. No inflamos ni tachamos precios: te decimos el porcentaje y lo que pagas.",
+          "Solo se aplica un descuento por pedido. Si en ese momento hay otro mayor, se aplica el mayor; no se suman. La historia y la portada de muestra siguen siendo gratis, como siempre: lees el cuento entero antes de decidir.",
+        ],
+      },
+      {
+        heading: "Plazos para Navidad y Reyes",
+        paragraphs: [
+          `El libro no se imprime hasta que apruebas el cuento terminado y, desde ese momento, tarda entre 7 y 10 días laborables en llegar. Un pedido hecho en Black Friday llega con margen para Navidad. Si te lo piensas más, para recibir el impreso en Navidad pídelo antes del ${XMAS}.`,
+          "Para Reyes vale la misma fecha: entre Navidad y el 6 de enero hay festivos y, pedido después, el impreso ya no llega a tiempo. En ese caso, regala el PDF, que está listo en minutos, y pide el impreso más adelante.",
+        ],
+      },
+      {
+        heading: "Ideas para aprovecharlo",
+        paragraphs: ["Algunas formas de organizar los regalos de estas fechas:"],
+        bullets: [
+          "Un cuento para cada hermano, cada uno con su nombre y su tema favorito.",
+          "El impreso para Navidad y una copia extra para los abuelos.",
+          "Un cuento con tema navideño o de Reyes, pedido ahora y guardado hasta el día.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "¿Necesito un código de descuento?",
+        a: "No. El descuento se aplica automáticamente al pagar y ves el precio final antes de confirmar.",
+      },
+      {
+        q: "¿El descuento vale también para el libro impreso?",
+        a: `Sí. Durante el Black Friday el −${BF_PERCENT} % se aplica al digital, al impreso + PDF, a pasar a papel y a las copias extra.`,
+      },
+      {
+        q: "¿Llegará a tiempo para Navidad?",
+        a: `Sí, si lo pides antes del ${XMAS}: el impreso tarda 7-10 días laborables desde que lo apruebas. El PDF está listo en minutos.`,
+      },
+      {
+        q: "¿Puedo pedirlo ahora y regalarlo más tarde?",
+        a: "Sí. Te enviamos el enlace del cuento por email y puedes recuperarlo cuando quieras desde «Mis cuentos». El impreso lo recibes en casa y lo guardas hasta el día.",
+      },
+    ],
+    ctaTheme: NAVIDAD?.themes[0]?.id ?? "una aventura de Navidad ayudando a Papá Noel",
+    ctaLabel: "Crear su cuento gratis",
+    related: ["regalo-navidad", "reyes-magos", "regalo-cumpleanos"],
   },
 };
 

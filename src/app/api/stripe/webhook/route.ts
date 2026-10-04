@@ -10,6 +10,7 @@ import {
   sendPrintOrderConfirmationEmail,
 } from "@/lib/email";
 import { unlockAndIllustrate } from "@/lib/unlock";
+import { getActiveCampaign } from "@/lib/campaigns";
 
 const log = createLogger("stripe-webhook");
 
@@ -205,6 +206,7 @@ async function afterDigitalPayment(session: Stripe.Checkout.Session, ownerId: st
 
   if (type === "bundle") {
     await updatePrintOrderFromSession(session, "AWAITING_APPROVAL");
+    await grantCampaignBonus(session, ownerId);
   }
 
   const book = await prisma.book.findUnique({
@@ -367,4 +369,27 @@ async function handlePrintPaid(session: Stripe.Checkout.Session) {
   if (order.email) {
     await sendPrintOrderConfirmationEmail({ to: order.email, kidName: order.book.kidName, title });
   }
+}
+
+/**
+ * Regalo de campaña (p. ej. Black Friday: otro cuento en PDF al comprar el
+ * pack). Una sola vez por pago, aunque Stripe reintente el evento.
+ */
+async function grantCampaignBonus(session: Stripe.Checkout.Session, ownerId: string) {
+  const bonus = getActiveCampaign()?.bonus;
+  if (!bonus || bonus.onProduct !== "bundle") return;
+  const referenceId = `bonus-${session.id}`;
+  const already = await prisma.creditLedger.findFirst({ where: { referenceId } });
+  if (already) return;
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const user = await tx.user.update({
+      where: { id: ownerId },
+      data: { credits: { increment: bonus.credits } },
+      select: { credits: true },
+    });
+    await tx.creditLedger.create({
+      data: { userId: ownerId, amount: bonus.credits, reason: "campaign_bonus", referenceId, balance: user.credits },
+    });
+  });
+  log.info({ ownerId, credits: bonus.credits }, "Regalo de campaña abonado");
 }
