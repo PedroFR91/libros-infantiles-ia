@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { getOpenAI } from "@/lib/openai";
+import { CLAUDE_VISION_MODEL, claudeJSON, imageBlock, isClaudeEnabled } from "@/lib/claude";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("quality-check");
@@ -99,12 +100,40 @@ Return JSON:
 - notes: one short sentence with the main problem (or "ok").`;
 
 /** Reduce la imagen para abaratar la llamada (768 px, JPEG) */
+async function toSmallJpeg(image: Buffer): Promise<Buffer> {
+  return sharp(image).resize(768, 768, { fit: "inside" }).jpeg({ quality: 85 }).toBuffer();
+}
+
 async function toDataUrl(image: Buffer): Promise<string> {
-  const small = await sharp(image)
-    .resize(768, 768, { fit: "inside" })
-    .jpeg({ quality: 85 })
-    .toBuffer();
-  return `data:image/jpeg;base64,${small.toString("base64")}`;
+  return `data:image/jpeg;base64,${(await toSmallJpeg(image)).toString("base64")}`;
+}
+
+/** Misma revisión con Claude: imágenes y rótulos en el mismo orden */
+async function checkWithClaude(input: QaInput): Promise<QaResult> {
+  const content: Parameters<typeof claudeJSON>[0]["content"] = [];
+  let index = 1;
+  for (const ref of input.references) {
+    content.push({ type: "text", text: `Image ${index++}: reference sheet of ${ref.label}.` });
+    content.push(imageBlock(await toSmallJpeg(ref.image), "image/jpeg"));
+  }
+  if (input.cover) {
+    content.push({ type: "text", text: `Image ${index++}: the book cover (style reference only).` });
+    content.push(imageBlock(await toSmallJpeg(input.cover), "image/jpeg"));
+  }
+  content.push({
+    type: "text",
+    text: `Image ${index}: the PAGE ILLUSTRATION to check.${input.expected ? ` It should show: ${input.expected}` : ""}`,
+  });
+  content.push(imageBlock(await toSmallJpeg(input.page), "image/jpeg"));
+  return claudeJSON<QaResult>({
+    name: "page_qa",
+    schema: qaSchema,
+    system: SYSTEM,
+    content,
+    model: CLAUDE_VISION_MODEL,
+    effort: "low",
+    maxTokens: 8000,
+  });
 }
 
 /**
@@ -114,6 +143,7 @@ async function toDataUrl(image: Buffer): Promise<string> {
 export async function checkPageQuality(input: QaInput): Promise<QaResult | null> {
   if (!isQaEnabled()) return null;
   try {
+    if (isClaudeEnabled()) return normalizeQa(await checkWithClaude(input));
     type Part =
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string; detail: "auto" } };
@@ -153,10 +183,7 @@ export async function checkPageQuality(input: QaInput): Promise<QaResult | null>
     });
     const content = response.choices[0]?.message?.content;
     if (!content) throw new Error("Respuesta vacía del QA");
-    const result = JSON.parse(content) as QaResult;
-    result.identity = Math.min(5, Math.max(1, Math.round(Number(result.identity) || 1)));
-    result.sceneMatch = Math.min(5, Math.max(1, Math.round(Number(result.sceneMatch) || 5)));
-    return result;
+    return normalizeQa(JSON.parse(content) as QaResult);
   } catch (error) {
     log.warn({ err: error }, "Fallo en el control de calidad; se acepta la página");
     return null;
@@ -164,6 +191,12 @@ export async function checkPageQuality(input: QaInput): Promise<QaResult | null>
 }
 
 /** true si la página debe rehacerse */
+function normalizeQa(result: QaResult): QaResult {
+  result.identity = Math.min(5, Math.max(1, Math.round(Number(result.identity) || 1)));
+  result.sceneMatch = Math.min(5, Math.max(1, Math.round(Number(result.sceneMatch) || 5)));
+  return result;
+}
+
 export function qaNeedsRedo(result: QaResult | null): boolean {
   if (!result) return false;
   return (

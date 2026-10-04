@@ -1,5 +1,6 @@
 import OpenAI, { toFile } from "openai";
 import { createLogger } from "@/lib/logger";
+import { geminiImage, isGeminiImages } from "@/lib/gemini";
 
 const log = createLogger("openai");
 
@@ -416,6 +417,14 @@ export async function generateReferenceSheet(
   photo?: { buffer: Buffer; mimeType: string } | null,
   styleBase?: Buffer | null,
 ): Promise<Buffer> {
+  if (isGeminiImages()) {
+    const input = photo
+      ? [{ buffer: photo.buffer, mimeType: photo.mimeType }]
+      : styleBase
+        ? [{ buffer: styleBase, mimeType: "image/png" }]
+        : [];
+    return geminiImage(prompt, input);
+  }
   const openai = getOpenAI();
   const response = photo
     ? await openai.images.edit({
@@ -461,6 +470,12 @@ export async function generateIllustration(
   references: Buffer[],
   quality: ImageQuality = "medium",
 ): Promise<Buffer> {
+  if (isGeminiImages()) {
+    return geminiImage(
+      prompt,
+      references.map((buffer) => ({ buffer, mimeType: "image/png" })),
+    );
+  }
   const openai = getOpenAI();
   const response = references.length
     ? await openai.images.edit({

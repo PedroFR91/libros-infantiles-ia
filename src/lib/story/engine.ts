@@ -1,5 +1,6 @@
 import { getOpenAI } from "@/lib/openai";
 import { ART_STYLES } from "@/lib/openai";
+import { CLAUDE_STORY_EFFORT, claudeJSON, isClaudeEnabled } from "@/lib/claude";
 import { createLogger } from "@/lib/logger";
 import type { AgeRange } from "@/lib/validation";
 import { normalizeForMatch } from "@/lib/story/contentSafety";
@@ -301,6 +302,11 @@ async function callJSON<T>(
   user: string,
   temperature: number,
 ): Promise<T> {
+  // Con clave de Anthropic, el texto lo escribe Claude (sin temperature: los
+  // modelos actuales no la aceptan; la variedad viene del propio modelo)
+  if (isClaudeEnabled()) {
+    return claudeJSON<T>({ name, schema, system, content: user, effort: CLAUDE_STORY_EFFORT });
+  }
   const openai = getOpenAI();
   // Los modelos de razonamiento (gpt-5*, o*) no aceptan temperature
   const supportsTemperature = !/^(gpt-5|o\d)/.test(STORY_MODEL);

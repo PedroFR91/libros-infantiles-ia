@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
 import { createLogger } from "@/lib/logger";
+import { CLAUDE_VISION_MODEL, claudeJSON, imageBlock, isClaudeEnabled } from "@/lib/claude";
 
 const log = createLogger("analyze-photo");
 
@@ -45,6 +46,45 @@ IMPORTANTE: Responde SIEMPRE con un JSON válido, incluso si no puedes ver bien 
     "apparentAge": "edad aparente en años"
   }
 }`;
+
+const CLAUDE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+type ClaudePhotoType = (typeof CLAUDE_PHOTO_TYPES)[number];
+
+interface PhotoAnalysis {
+  description: string;
+  details: {
+    hairColor: string;
+    hairStyle: string;
+    eyeColor: string;
+    skinTone: string;
+    distinctiveFeatures: string[];
+    gender: string;
+    apparentAge: string;
+  };
+}
+
+const photoSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["description", "details"],
+  properties: {
+    description: { type: "string" },
+    details: {
+      type: "object",
+      additionalProperties: false,
+      required: ["hairColor", "hairStyle", "eyeColor", "skinTone", "distinctiveFeatures", "gender", "apparentAge"],
+      properties: {
+        hairColor: { type: "string" },
+        hairStyle: { type: "string" },
+        eyeColor: { type: "string" },
+        skinTone: { type: "string" },
+        distinctiveFeatures: { type: "array", items: { type: "string" } },
+        gender: { type: "string" },
+        apparentAge: { type: "string" },
+      },
+    },
+  },
+} as const;
 
 export async function POST(request: NextRequest) {
   log.info("Iniciando análisis de foto");
@@ -107,6 +147,27 @@ export async function POST(request: NextRequest) {
     const mimeType = photo.type;
 
     log.debug({ base64Length: base64.length }, "Imagen convertida a base64");
+
+    if (isClaudeEnabled() && CLAUDE_PHOTO_TYPES.includes(mimeType as ClaudePhotoType)) {
+      const analysis = await claudeJSON<PhotoAnalysis>({
+        name: "photo_traits",
+        schema: photoSchema,
+        system: "Describes rasgos físicos visibles para dibujar a un niño como personaje de cuento infantil. Nunca identificas a la persona.",
+        content: [
+          imageBlock(Buffer.from(bytes), mimeType as ClaudePhotoType),
+          { type: "text", text: ANALYSIS_PROMPT },
+        ],
+        model: CLAUDE_VISION_MODEL,
+        effort: "low",
+        maxTokens: 8000,
+      });
+      log.info("Análisis completado (Claude)");
+      return NextResponse.json({
+        success: true,
+        characterDescription: analysis.description,
+        details: analysis.details,
+      });
+    }
 
     // Analizar con GPT-4o Vision (detail "high": los rasgos finos —ojos, gafas,
     // pecas, peinado— se pierden con "low")
