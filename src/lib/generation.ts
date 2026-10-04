@@ -12,7 +12,7 @@ import { storeImageBuffer } from "@/lib/imageStorage";
 import { loadStoredImage, watermarkPreview } from "@/lib/imageTools";
 import { refundCredits } from "@/lib/credits";
 import { CREDIT_COSTS } from "@/lib/stripe";
-import { sendBookReadyEmail } from "@/lib/email";
+import { sendAdminAlert, sendBookReadyEmail } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("generation");
@@ -110,6 +110,11 @@ export function startIllustrations(bookId: string, userId: string) {
           (refundError) =>
             log.error({ err: refundError, bookId }, "Error devolviendo créditos"),
         );
+        await sendAdminAlert({
+          subject: "Un libro pagado no se ha podido ilustrar",
+          bookId,
+          details: [error instanceof Error ? error.message : String(error), "Créditos devueltos al cliente"],
+        }).catch(() => undefined);
       }
     })
     .finally(() => running.delete(bookId));
@@ -124,8 +129,13 @@ async function runPreview(bookId: string, photo?: PhotoInput | null) {
   const bible = parseBible(book?.bible);
   if (!book || !bible || book.coverPreviewUrl) return;
 
-  const refs = await ensureReferences(bookId, book, bible, photo);
-  // Muestra gratis: como mucho 1 reintento por QA para acotar el coste
+  // Muestra gratis: solo las hojas de quien sale en la portada (el resto se
+  // dibuja al pagar) y como mucho 1 reintento por QA, para acotar el coste
+  const protagonist = bible.characters.find((c) => c.role === "protagonist");
+  const coverIds = [
+    ...new Set([...(protagonist ? [protagonist.id] : []), ...bible.cover.characters]),
+  ];
+  const refs = await ensureReferences(bookId, book, bible, photo, coverIds);
   const cover = await generateCover(
     bookId,
     book.style,
@@ -288,6 +298,11 @@ async function runIllustrations(bookId: string, userId: string) {
       log.error({ err: error, bookId }, "Error devolviendo créditos parciales"),
     );
     log.warn({ bookId, failedPages, refund }, "Libro con páginas sin ilustrar");
+    await sendAdminAlert({
+      subject: `Libro con ${failedPages.length} página(s) sin ilustrar`,
+      bookId,
+      details: [`Páginas: ${failedPages.sort((a, b) => a - b).join(", ")}`, `Créditos devueltos: ${refund}`],
+    }).catch(() => undefined);
   }
 
   // Un fallo del email no debe tumbar un libro ya terminado

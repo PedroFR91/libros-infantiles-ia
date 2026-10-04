@@ -116,7 +116,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "¿Qué es el precio fundador?",
-    a: `Un descuento del ${FOUNDER_OFFER.percent} % que se aplica solo al pagar, sin códigos, en los ${FOUNDER_OFFER.limit} primeros pedidos. Cuando se agotan, se acaba.`,
+    a: `Un precio de lanzamiento para los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo, sin códigos: el precio que ves en la web es el que pagas. Cuando se agotan, se acaba.`,
   },
   {
     q: "¿Puedo devolverlo?",

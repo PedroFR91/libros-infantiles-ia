@@ -44,7 +44,7 @@ export const CAMPAIGNS: Campaign[] = [
     start: "2026-10-04T00:00:00+02:00",
     end: "2026-10-31T23:59:59+01:00",
     banner: "🎃 Cuentos de Halloween que no dan miedo · el PDF llega al momento",
-    // Sin rebaja extra: ya está el precio fundador (−20 %)
+    // Sin rebaja extra: ya está el precio fundador
     discountPercent: null,
     appliesTo: [],
     themes: [

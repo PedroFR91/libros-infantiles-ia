@@ -43,13 +43,20 @@ export interface WizardData {
   style: BookStyle;
   photo: File | null;
   characterDescription: string | null;
+  /** Para enviarle su cuento (solo si no ha iniciado sesión) */
+  email?: string;
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_KEY = "librosia-email";
 
 interface WizardProps {
   initialName?: string;
   initialTheme?: string;
   onSubmit: (data: WizardData) => void;
   onAnalyzePhoto: (file: File) => Promise<string | null>;
+  /** Pedir el email antes de crear la historia (usuario sin cuenta) */
+  askEmail?: boolean;
 }
 
 export default function Wizard({
@@ -57,7 +64,10 @@ export default function Wizard({
   initialTheme = "",
   onSubmit,
   onAnalyzePhoto,
+  askEmail = false,
 }: WizardProps) {
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState(false);
   const [step, setStep] = useState(initialName ? 1 : 0);
   const [kidName, setKidName] = useState(initialName);
   const [likes, setLikes] = useState<string[]>([]);
@@ -116,7 +126,19 @@ export default function Wizard({
     setPhotoError(null);
   };
 
-  const submit = () =>
+  const submit = () => {
+    const cleanEmail = email.trim();
+    if (askEmail && !EMAIL_RE.test(cleanEmail)) {
+      setEmailError(true);
+      return;
+    }
+    if (askEmail) {
+      try {
+        localStorage.setItem(EMAIL_KEY, cleanEmail);
+      } catch {
+        // sin almacenamiento: no pasa nada
+      }
+    }
     onSubmit({
       kidName: name,
       theme: buildTheme(),
@@ -127,7 +149,9 @@ export default function Wizard({
       style,
       photo,
       characterDescription: description,
+      email: askEmail ? cleanEmail : undefined,
     });
+  };
 
   return (
     <div className='flex-1 overflow-y-auto'>
@@ -307,8 +331,9 @@ export default function Wizard({
             />
             {photoError && <p className='text-sm text-primary mb-3'>{photoError}</p>}
             <p className='text-sm text-text-muted mb-6'>
-              🔒 La foto no se guarda: se usa al momento para dibujar el personaje.
-              Solo puede subirla su madre, padre o tutor.{" "}
+              🔒 Al subir la foto confirmas que tienes la patria potestad o el
+              permiso de quien la tiene. Solo se usa para dibujar sus rasgos y no
+              se guarda.{" "}
               <Link href='/privacidad' className='underline'>
                 Más info
               </Link>
@@ -365,6 +390,46 @@ export default function Wizard({
                     })}
                   </div>
                 </fieldset>
+              </div>
+            )}
+
+            {askEmail && (
+              <div className='mb-3'>
+                <label htmlFor='wizard-email' className='block font-semibold mb-1.5'>
+                  ¿A qué email te enviamos su cuento?
+                </label>
+                <input
+                  id='wizard-email'
+                  type='email'
+                  inputMode='email'
+                  autoComplete='email'
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError(false);
+                  }}
+                  onFocus={() => {
+                    // Rellenar con el de la vez anterior (sin tocar el render inicial)
+                    if (email) return;
+                    try {
+                      const saved = localStorage.getItem(EMAIL_KEY);
+                      if (saved) setEmail(saved);
+                    } catch {
+                      // sin almacenamiento
+                    }
+                  }}
+                  placeholder='tu@email.com'
+                  aria-invalid={emailError}
+                  aria-describedby='wizard-email-help'
+                  className={`w-full px-4 py-3.5 rounded-2xl bg-bg-light border-2 outline-none text-lg ${
+                    emailError ? "border-primary" : "border-border-strong focus:border-primary"
+                  }`}
+                />
+                <p id='wizard-email-help' className={`mt-1.5 text-sm ${emailError ? "text-primary font-semibold" : "text-text-muted"}`}>
+                  {emailError
+                    ? "Escribe un email válido para poder enviarte el cuento."
+                    : "Te mandamos el enlace para volver a su cuento cuando quieras. Sin spam."}
+                </p>
               </div>
             )}
 

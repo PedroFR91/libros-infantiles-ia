@@ -5,8 +5,8 @@ const log = createLogger("claude");
 
 // ============================================
 // Claude para el texto y la visión (historia, revisión, control de calidad de
-// las ilustraciones y análisis de la foto). Las ilustraciones siguen en
-// OpenAI: Claude no genera imágenes.
+// las ilustraciones y análisis de la foto). Las ilustraciones las hace
+// Gemini (src/lib/gemini.ts): Claude no genera imágenes.
 // Se usa en cuanto hay ANTHROPIC_API_KEY; sin ella se vuelve a OpenAI.
 // ============================================
 

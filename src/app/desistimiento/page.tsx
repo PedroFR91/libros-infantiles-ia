@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalOwner } from "@/lib/legal";
-import { FREE_REDRAWS, GUARANTEE_TEXT } from "@/lib/pricing";
+import { FREE_REDRAWS, GUARANTEE_TEXT, PRINT_ENABLED } from "@/lib/pricing";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default async function DesistimientoPage() {
   return (
     <LegalLayout
       title='Desistimiento y garantías'
-      updated='2 de octubre de 2026'
+      updated='4 de octubre de 2026'
       intro={
         <>
           <p className='font-bold mb-2'>Resumen</p>
@@ -29,8 +29,9 @@ export default async function DesistimientoPage() {
               <strong>Nuestra garantía:</strong> {GUARANTEE_TEXT}
             </li>
             <li>
-              <strong>Impreso:</strong> hasta que lo apruebas para imprenta,
-              puedes pedir la devolución completa.
+              <strong>Impreso{!PRINT_ENABLED && " (próximamente)"}:</strong>{" "}
+              hasta que lo apruebas para imprenta, puedes pedir la devolución
+              completa.
             </li>
             <li>
               <strong>Garantía legal:</strong> 3 años para el libro impreso y 2
@@ -74,6 +75,8 @@ export default async function DesistimientoPage() {
           <strong>Impreso + PDF antes de aprobarlo:</strong> mientras no hayas
           aprobado el libro para imprenta, puedes pedir la devolución completa
           del pedido.
+          {!PRINT_ENABLED &&
+            " El libro impreso aún no está a la venta: esto se aplicará cuando esté disponible."}
         </li>
         <li>
           <strong>Libro dañado o con defecto de impresión:</strong> te enviamos

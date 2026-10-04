@@ -40,6 +40,7 @@ function EditorContent() {
   const [credits, setCredits] = useState(0);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [prices, setPrices] = useState<CheckoutPrices | null>(null);
 
   // Libro
@@ -196,6 +197,7 @@ function EditorContent() {
       setCredits(data.credits || 0);
       setHasPurchased(!!data.hasPurchased);
       setIsAdmin(!!data.isAdmin);
+      setAccountEmail(data.user?.email ?? null);
       return data.credits || 0;
     } catch {
       return 0;
@@ -295,6 +297,7 @@ function EditorContent() {
           companion: data.companion || undefined,
           dedication: data.dedication || undefined,
           characterDescription: data.characterDescription || undefined,
+          leadEmail: data.email || undefined,
         }),
       });
       const created = await createRes.json();
@@ -690,6 +693,7 @@ function EditorContent() {
                 initialTheme={searchParams.get("theme") ?? ""}
                 onSubmit={createBook}
                 onAnalyzePhoto={analyzePhoto}
+                askEmail={!accountEmail && !isAdmin}
               />
             )
           ) : (
@@ -773,6 +777,7 @@ function EditorContent() {
         onRead={() => setShowReveal(false)}
         onClose={() => setShowReveal(false)}
         onSaveEmail={saveLeadEmail}
+        knownEmail={book?.leadEmail ?? accountEmail}
       />
 
       <PurchaseSheet

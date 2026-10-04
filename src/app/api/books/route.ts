@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
       gender,
       companion,
       dedication,
+      leadEmail,
     } =
       validation.data;
 
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
         accessToken: randomBytes(24).toString("base64url"),
         companion: companion?.trim() || null,
         dedication: dedication?.trim() || null,
+        leadEmail: leadEmail?.trim().toLowerCase() || null,
       },
     });
 

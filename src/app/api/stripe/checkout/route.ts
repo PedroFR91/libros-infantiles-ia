@@ -16,7 +16,7 @@ import { getOrCreateUser } from "@/lib/credits";
 import { auth } from "@/lib/auth";
 import { checkoutSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
-import { applyPercent, getFounderState, resolveDiscount, stripeDiscounts } from "@/lib/offer";
+import { getFounderState, offerPrice, resolveDiscount } from "@/lib/offer";
 import { publicCampaign } from "@/lib/campaigns";
 import { appUrl } from "@/lib/appUrl";
 import { createLogger } from "@/lib/logger";
@@ -83,26 +83,26 @@ export async function POST(request: NextRequest) {
     }
 
     const discount = await resolveDiscount(product);
-    const discounts = await stripeDiscounts(discount);
-    const percent = discounts.length > 0 && discount ? discount.percent : 0;
+    const price = (cents: number) => offerPrice(cents, discount);
     const title = book ? book.title || `El cuento de ${book.kidName}` : null;
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
     const pack = product === "repeat" ? CREDIT_PACKS.repeat : CREDIT_PACKS.digital;
     if (product === "bundle") {
-      lineItems.push(priceLine(`${BUNDLE_PRODUCT.name} · «${title}»`, BUNDLE_PRODUCT.description, BUNDLE_PRODUCT.price, 1));
+      lineItems.push(priceLine(`${BUNDLE_PRODUCT.name} · «${title}»`, BUNDLE_PRODUCT.description, price(BUNDLE_PRODUCT.price), 1));
       if (extraCopies > 0) {
-        lineItems.push(priceLine("Copia extra del mismo libro", "Para los abuelos, los tíos… al mismo envío", EXTRA_COPY.price, extraCopies));
+        lineItems.push(priceLine("Copia extra del mismo libro", "Para los abuelos, los tíos… al mismo envío", price(EXTRA_COPY.price), extraCopies));
       }
     } else {
-      lineItems.push(priceLine(title ? `${pack.name} · «${title}»` : pack.name, pack.description, pack.price, 1));
+      const name = title ? `${pack.name} · «${title}»` : pack.name;
+      const description = discount ? `${pack.description} · ${discount.label}` : pack.description;
+      lineItems.push(priceLine(name, description, price(pack.price), 1));
     }
 
     const returnTo = book ? `/editor?bookId=${book.id}` : "/editor";
     const stripeSession = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
-      ...(discounts.length > 0 && { discounts }),
       ...(product === "bundle" && {
         shipping_address_collection: { allowed_countries: [...PRINT_PRODUCT.shippingCountries] },
         shipping_options: [
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         stripeSessionId: stripeSession.id,
-        amount: applyPercent(pack.price, percent),
+        amount: price(pack.price),
         currency: "eur",
         status: "PENDING",
         creditsGranted: pack.credits,
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
           stripeSessionId: stripeSession.id,
           kind: "bundle",
           quantity: 1 + extraCopies,
-          amount: applyPercent(BUNDLE_PRODUCT.price - pack.price + extraCopies * EXTRA_COPY.price, percent),
+          amount: price(BUNDLE_PRODUCT.price) - price(pack.price) + extraCopies * price(EXTRA_COPY.price),
           status: "PENDING_PAYMENT",
         },
       });
@@ -190,7 +190,7 @@ export async function GET() {
   const founder = await getFounderState().catch(() => ({ active: false, remaining: 0, percent: 0 }));
   const price = async (cents: number, product: "digital" | "repeat" | "bundle" | "print") => {
     const discount = await resolveDiscount(product, founder);
-    const final = applyPercent(cents, discount?.percent ?? 0);
+    const final = offerPrice(cents, discount);
     return {
       price: final,
       regular: cents,

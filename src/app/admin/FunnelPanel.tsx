@@ -329,7 +329,7 @@ export default function FunnelPanel() {
           <div className='grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-1'>
             <Kpi label='Ingresos sin IVA' value={eur(e.revenueNetOfVatEur)} />
             <Kpi label='Comisión Stripe' value={`− ${eur(e.stripeFeesEur)}`} />
-            <Kpi label='Coste OpenAI' value={`− ${eur(e.openAiCostEur)}`} />
+            <Kpi label='Coste IA (estimado)' value={`− ${eur(e.openAiCostEur)}`} />
             <Kpi
               label='Margen bruto'
               value={eur(e.grossMarginEur)}

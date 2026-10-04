@@ -24,6 +24,8 @@ interface DraftBookOverlayProps {
   onRead: () => void;
   onClose: () => void;
   onSaveEmail: (email: string) => Promise<boolean>;
+  /** Email ya conocido (dado en el asistente o de la cuenta): no se vuelve a pedir */
+  knownEmail?: string | null;
 }
 
 export default function DraftBookOverlay({
@@ -41,6 +43,7 @@ export default function DraftBookOverlay({
   onRead,
   onClose,
   onSaveEmail,
+  knownEmail,
 }: DraftBookOverlayProps) {
   const [email, setEmail] = useState("");
   const [emailState, setEmailState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -118,7 +121,11 @@ export default function DraftBookOverlay({
                 {GUARANTEE_TEXT}
               </p>
 
-              {emailState === "saved" ? (
+              {knownEmail && emailState !== "saved" ? (
+                <p className='mt-4 text-sm text-text-muted flex items-center gap-1.5'>
+                  <Mail className='w-4 h-4' /> Te enviamos el enlace a {knownEmail}.
+                </p>
+              ) : emailState === "saved" ? (
                 <p className='mt-4 text-sm text-success font-semibold'>
                   ✅ Te lo guardamos: te escribiremos a {email}.
                 </p>

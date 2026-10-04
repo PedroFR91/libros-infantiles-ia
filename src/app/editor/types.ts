@@ -30,6 +30,7 @@ export interface BookData {
   ageRange?: string | null;
   companion?: string | null;
   dedication?: string | null;
+  leadEmail?: string | null;
   coverPreviewUrl?: string | null;
   unlockedAt?: string | null;
   previewPending?: boolean;

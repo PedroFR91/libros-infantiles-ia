@@ -80,6 +80,21 @@ export async function POST(
       });
     }
 
+    // La portada gratis cuesta dinero: se pide el email antes (para enviarle su
+    // cuento). Quien ha iniciado sesión ya lo tiene; los administradores, no.
+    if (!book.leadEmail) {
+      const owner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, role: true },
+      });
+      if (!owner?.email && owner?.role !== "ADMIN") {
+        return NextResponse.json(
+          { error: "Dinos tu email para enviarte su cuento.", needsEmail: true },
+          { status: 400 },
+        );
+      }
+    }
+
     // Personajes y marcas con derechos (antes que la moderación: es local)
     const ipMatch = checkIntellectualProperty({
       theme: book.theme,

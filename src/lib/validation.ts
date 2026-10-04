@@ -78,6 +78,7 @@ export const createBookSchema = z.object({
   dedication: safeString(MAX_DEDICATION_LENGTH)
     .optional()
     .describe("Dedicatoria de quien regala"),
+  leadEmail: z.email().max(200).optional().describe("Email para enviarle su cuento"),
 });
 
 /** PATCH /api/books/[id] - Datos del libro editables por el usuario */

@@ -172,6 +172,30 @@ export async function sendPrintOrderAdminEmail(params: {
   );
 }
 
+/**
+ * Aviso interno cuando algo falla con un libro pagado (páginas sin ilustrar,
+ * generación caída, proveedor sin saldo): para reaccionar antes que el cliente.
+ */
+export async function sendAdminAlert(params: { subject: string; bookId: string; details: string[] }) {
+  const to = process.env.ADMIN_EMAIL;
+  if (!to) {
+    log.warn({ bookId: params.bookId }, "ADMIN_EMAIL no configurado");
+    return false;
+  }
+  return send(
+    to,
+    `⚠️ ${params.subject}`,
+    layout(
+      params.subject,
+      `<p>Libro: ${escapeHtml(params.bookId)}</p><ul>${params.details
+        .map((d) => `<li>${escapeHtml(d)}</li>`)
+        .join("")}</ul>
+<p>Revisa los saldos de Gemini y Anthropic y los logs del contenedor. El cliente puede terminarlo gratis con «Terminar las ilustraciones».</p>`,
+      { href: appUrl("/admin"), label: "Abrir panel" },
+    ),
+  );
+}
+
 /** Al dejar el email en el borrador: su portada de muestra y el enlace */
 export async function sendLeadPreviewEmail(params: {
   to: string;

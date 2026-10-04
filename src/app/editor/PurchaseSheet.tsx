@@ -93,7 +93,7 @@ export default function PurchaseSheet({
             <div className='flex-1 overflow-y-auto px-5 pb-4 space-y-3'>
               {prices?.founder.active && prices.digital.discountLabel?.startsWith("Precio fundador") && (
                 <p className='text-sm font-semibold text-primary bg-primary-soft rounded-xl px-3 py-2'>
-                  Precio fundador −{prices.founder.percent}{" "}% ya aplicado · quedan{" "}
+                  Precio fundador ya aplicado · quedan{" "}
                   {prices.founder.remaining} pedidos a este precio
                 </p>
               )}

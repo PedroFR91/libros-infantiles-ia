@@ -8,6 +8,7 @@ import {
   FOUNDER_OFFER,
   FREE_REDRAWS,
   GUARANTEE_TEXT,
+  PRINT_ENABLED,
   PRINT_PRODUCT,
   formatEuros,
 } from "@/lib/pricing";
@@ -15,8 +16,9 @@ import { LegalLayout } from "@/components/LegalLayout";
 
 export const metadata: Metadata = {
   title: "Términos y condiciones",
-  description:
-    "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía, envíos y precio fundador.",
+  description: PRINT_ENABLED
+    ? "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía, envíos y precio fundador."
+    : "Condiciones de compra y uso de LibrosIA: cuento en PDF, libro impreso (próximamente), garantía y precio fundador.",
 };
 
 export default async function TerminosPage() {
@@ -26,25 +28,41 @@ export default async function TerminosPage() {
   return (
     <LegalLayout
       title='Términos y condiciones'
-      updated='2 de octubre de 2026'
+      updated='4 de octubre de 2026'
       intro={
         <>
           <p className='font-bold mb-2'>En pocas palabras</p>
           <ul className='list-disc pl-5 space-y-1.5'>
             <li>Crear la historia y ver su portada es gratis y sin tarjeta.</li>
+            {PRINT_ENABLED ? (
+              <li>
+                Pagas una sola vez por cuento:{" "}
+                <span className='whitespace-nowrap'>{formatEuros(BUNDLE_PRODUCT.price)}</span>{" "}
+                impreso + PDF (envío incluido) o{" "}
+                <span className='whitespace-nowrap'>{formatEuros(CREDIT_PACKS.digital.price)}</span>{" "}
+                solo PDF.
+              </li>
+            ) : (
+              <li>
+                Pagas una sola vez por cuento:{" "}
+                <span className='whitespace-nowrap'>{formatEuros(CREDIT_PACKS.digital.price)}</span>{" "}
+                el cuento en PDF. El libro impreso llegará próximamente.
+              </li>
+            )}
             <li>
-              Pagas una sola vez por cuento:{" "}
-              <span className='whitespace-nowrap'>{formatEuros(BUNDLE_PRODUCT.price)}</span>{" "}
-              impreso + PDF (envío incluido) o{" "}
-              <span className='whitespace-nowrap'>{formatEuros(CREDIT_PACKS.digital.price)}</span>{" "}
-              solo PDF.
+              {PRINT_ENABLED
+                ? "El libro impreso no se imprime hasta que tú lo apruebas."
+                : "Cuando el impreso esté disponible, no se imprimirá hasta que tú lo apruebes."}
             </li>
-            <li>El libro impreso no se imprime hasta que tú lo apruebas.</li>
             <li>
               Si una ilustración no te convence, la rehacemos gratis; si aun así
               no te gusta, te devolvemos el dinero del digital.
             </li>
-            <li>Enviamos el libro impreso solo a España.</li>
+            <li>
+              {PRINT_ENABLED
+                ? "Enviamos el libro impreso solo a España."
+                : "El libro impreso, cuando esté disponible, se enviará solo a España."}
+            </li>
           </ul>
         </>
       }>
@@ -81,41 +99,47 @@ export default async function TerminosPage() {
             </tr>
           </thead>
           <tbody>
+            {PRINT_ENABLED && (
+              <tr>
+                <td>
+                  <strong>{BUNDLE_PRODUCT.name}</strong>
+                </td>
+                <td>
+                  Portada + 12 páginas ilustradas; libro impreso de 21×21 cm en
+                  tapa blanda con envío a domicilio en España; PDF para pantalla
+                  y para imprimir.
+                </td>
+                <td>{formatEuros(BUNDLE_PRODUCT.price)}</td>
+              </tr>
+            )}
             <tr>
               <td>
-                <strong>{BUNDLE_PRODUCT.name}</strong>
-              </td>
-              <td>
-                Portada + 12 páginas ilustradas; libro impreso de 21×21 cm en
-                tapa blanda con envío a domicilio en España; PDF para pantalla
-                y para imprimir.
-              </td>
-              <td>{formatEuros(BUNDLE_PRODUCT.price)}</td>
-            </tr>
-            <tr>
-              <td>
-                <strong>Solo PDF</strong>
+                <strong>{PRINT_ENABLED ? "Solo PDF" : "Cuento en PDF"}</strong>
               </td>
               <td>Portada + 12 páginas ilustradas, en PDF para pantalla y para imprimir en casa.</td>
               <td>{formatEuros(CREDIT_PACKS.digital.price)}</td>
             </tr>
-            <tr>
-              <td>
-                <strong>Pasar a papel</strong>
-              </td>
-              <td>Libro impreso de un cuento del que ya tienes el PDF, con envío incluido.</td>
-              <td>{formatEuros(PRINT_PRODUCT.price)}</td>
-            </tr>
-            <tr>
-              <td>
-                <strong>Copia extra</strong>
-              </td>
-              <td>
-                Otro ejemplar impreso del mismo libro, en el mismo envío
-                (hasta {EXTRA_COPY.max} por pedido).
-              </td>
-              <td>{formatEuros(EXTRA_COPY.price)} cada una</td>
-            </tr>
+            {PRINT_ENABLED && (
+              <>
+                <tr>
+                  <td>
+                    <strong>Pasar a papel</strong>
+                  </td>
+                  <td>Libro impreso de un cuento del que ya tienes el PDF, con envío incluido.</td>
+                  <td>{formatEuros(PRINT_PRODUCT.price)}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Copia extra</strong>
+                  </td>
+                  <td>
+                    Otro ejemplar impreso del mismo libro, en el mismo envío
+                    (hasta {EXTRA_COPY.max} por pedido).
+                  </td>
+                  <td>{formatEuros(EXTRA_COPY.price)} cada una</td>
+                </tr>
+              </>
+            )}
             <tr>
               <td>
                 <strong>{CREDIT_PACKS.repeat.name}</strong>
@@ -126,6 +150,14 @@ export default async function TerminosPage() {
           </tbody>
         </table>
       </div>
+      {!PRINT_ENABLED && (
+        <p>
+          <strong>Libro impreso: próximamente.</strong> De momento solo
+          vendemos el cuento en PDF. Lo que estos términos dicen sobre los
+          productos impresos (aprobación antes de imprimir, envío y garantías
+          del libro en papel) se aplicará cuando estén disponibles.
+        </p>
+      )}
       <p>
         Los textos y las ilustraciones se generan con inteligencia artificial.
         El protagonista es un <strong>personaje dibujado inspirado</strong> en
@@ -195,7 +227,7 @@ export default async function TerminosPage() {
         </li>
       </ul>
 
-      <h2>6. Envío del libro impreso</h2>
+      <h2>6. Envío del libro impreso{!PRINT_ENABLED && " (cuando esté disponible)"}</h2>
       <ul>
         <li>Solo enviamos a direcciones de España.</li>
         <li>

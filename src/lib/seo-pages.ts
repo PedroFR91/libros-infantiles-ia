@@ -846,7 +846,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         heading: "Plazos y precio",
         paragraphs: [
           "El cuento se entrega en PDF y está listo en unos minutos después del pago, así que llega a tiempo aunque lo pidas el mismo 31. Podéis leerlo en una tableta o imprimirlo en casa o en una copistería.",
-          `La campaña de Halloween dura hasta el ${HALLOWEEN_END} y no lleva un descuento propio. Lo que sí tienes es el precio fundador: un ${FOUNDER_OFFER.percent} % menos en los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo al pagar, sin códigos. Ves el importe final antes de confirmar.`,
+          `La campaña de Halloween dura hasta el ${HALLOWEEN_END} y no lleva un descuento propio. Lo que sí tienes es el precio fundador, un precio de lanzamiento para los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo al pagar, sin códigos. Ves el importe final antes de confirmar.`,
         ],
       },
     ],

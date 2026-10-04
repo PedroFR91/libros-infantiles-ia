@@ -29,7 +29,7 @@ import {
 // Precios con el descuento vigente (GET /api/stripe/checkout). Normativa: un
 // precio "antes" tachado tendría que ser el más bajo de los 30 días previos,
 // así que NO se tacha nada: se muestra el precio final y la etiqueta del
-// descuento (p. ej. "Precio fundador −20 %").
+// descuento (p. ej. "Precio fundador").
 
 interface PriceInfo {
   price: number;
@@ -168,7 +168,7 @@ export function OfferSection() {
               {isFounder && founder ? (
                 <>
                   <strong>
-                    Precio fundador: −{founder.percent} % en los {FOUNDER_OFFER.limit}{" "}
+                    Precio fundador en los {FOUNDER_OFFER.limit}{" "}
                     primeros pedidos
                   </strong>{" "}
                   · quedan {founder.remaining}

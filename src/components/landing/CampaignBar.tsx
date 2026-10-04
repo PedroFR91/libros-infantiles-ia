@@ -44,7 +44,7 @@ export function CampaignBar() {
       <Link href='/#precios' className={`${base} hover:bg-secondary-hover transition-colors`}>
         <Sparkles className='inline w-4 h-4 mr-1.5 -mt-0.5 text-[#FFD9B8]' aria-hidden />
         <span className='font-semibold'>
-          Precio fundador −{founder.percent}&nbsp;%
+          Precio fundador
           <span className='hidden sm:inline'> en los {FOUNDER_OFFER.limit} primeros pedidos</span>
         </span>{" "}
         <span className='text-white/85 whitespace-nowrap'>· quedan {founder.remaining}</span>

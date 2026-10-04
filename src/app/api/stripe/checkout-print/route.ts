@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { EXTRA_COPY, PRINT_ENABLED, PRINT_PRODUCT } from "@/lib/pricing";
-import { applyPercent, resolveDiscount, stripeDiscounts } from "@/lib/offer";
+import { offerPrice, resolveDiscount } from "@/lib/offer";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { printCheckoutSchema, validateBody } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMIT_PRESETS } from "@/lib/rateLimit";
@@ -54,11 +54,9 @@ export async function POST(request: NextRequest) {
 
     const title = book.title || `El libro de ${book.kidName}`;
     const discount = await resolveDiscount("print");
-    const discounts = await stripeDiscounts(discount);
-    const percent = discounts.length > 0 && discount ? discount.percent : 0;
+    const price = (cents: number) => offerPrice(cents, discount);
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
-      ...(discounts.length > 0 && { discounts }),
       line_items: [
         {
           price_data: {
@@ -67,7 +65,7 @@ export async function POST(request: NextRequest) {
               name: `${PRINT_PRODUCT.name} · «${title}»`,
               description: PRINT_PRODUCT.description,
             },
-            unit_amount: PRINT_PRODUCT.price,
+            unit_amount: price(PRINT_PRODUCT.price),
           },
           quantity: 1,
         },
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
                     name: "Copia extra del mismo libro",
                     description: "Para los abuelos, los tíos… al mismo envío",
                   },
-                  unit_amount: EXTRA_COPY.price,
+                  unit_amount: price(EXTRA_COPY.price),
                 },
                 quantity: extraCopies,
               },
@@ -129,7 +127,7 @@ export async function POST(request: NextRequest) {
         stripeSessionId: session.id,
         kind: "upgrade",
         quantity: 1 + extraCopies,
-        amount: applyPercent(PRINT_PRODUCT.price + extraCopies * EXTRA_COPY.price, percent),
+        amount: price(PRINT_PRODUCT.price) + extraCopies * price(EXTRA_COPY.price),
         status: "PENDING_PAYMENT",
       },
     });

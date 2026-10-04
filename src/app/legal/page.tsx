@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLegalOwner } from "@/lib/legal";
+import { PRINT_ENABLED } from "@/lib/pricing";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 export default async function LegalPage() {
   const owner = await getLegalOwner();
   return (
-    <LegalLayout title='Aviso legal' updated='2 de octubre de 2026'>
+    <LegalLayout title='Aviso legal' updated='4 de octubre de 2026'>
       <h2>1. Datos del titular</h2>
       <p>
         En cumplimiento del artículo 10 de la Ley 34/2002, de Servicios de la
@@ -53,7 +54,8 @@ export default async function LegalPage() {
               <th scope='row'>Actividad</th>
               <td>
                 Creación y venta de cuentos infantiles personalizados, en
-                formato digital e impreso.
+                formato digital
+                {PRINT_ENABLED ? " e impreso" : " (y, próximamente, impreso)"}.
               </td>
             </tr>
           </tbody>
@@ -70,7 +72,10 @@ export default async function LegalPage() {
       <p>
         El acceso a la web es libre y gratuito, y crear la historia y la
         portada de un cuento también lo es. La compra de cuentos ilustrados,
-        en PDF o impresos, se rige por los{" "}
+        {PRINT_ENABLED
+          ? " en PDF o impresos,"
+          : " de momento solo en PDF (el impreso llegará próximamente),"}{" "}
+        se rige por los{" "}
         <Link href='/terminos'>términos y condiciones</Link>. Te comprometes a
         usar la web de buena fe y conforme a la ley.
       </p>
