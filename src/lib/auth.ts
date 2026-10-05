@@ -17,6 +17,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Google verifica el email: si ya existe un usuario con ese email (p. ej.
+      // creado al regalar créditos o al entrar con enlace por email), se vincula
+      // en vez de fallar con OAuthAccountNotLinked
+      allowDangerousEmailAccountLinking: true,
     }),
     Resend({
       apiKey: process.env.RESEND_API_KEY!,
