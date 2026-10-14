@@ -59,15 +59,15 @@ export type PdfKind = "digital" | "home" | "print-interior" | "print-cover";
 const MM = 72 / 25.4;
 const envMm = (name: string, fallback: number) =>
   parseFloat(process.env[name] || "") || fallback;
-// Formato cuadrado del libro (Bubok: 210×210 mm). Ajustar el resto con la guía
-// de la imprenta: sangrado, lomo (según páginas y papel) y envoltura si es tapa dura
-const TRIM = envMm("PRINT_TRIM_MM", 210) * MM;
+// Formato cuadrado del libro: 190×190 mm, el estándar infantil del webservice de
+// Bubok (no admite 210×210). Lomo según páginas y papel: confirmar con Bubok.
+const TRIM = envMm("PRINT_TRIM_MM", 190) * MM;
 const PRINT_BLEED = envMm("PRINT_BLEED_MM", 3) * MM;
 const PRINT_SPINE = envMm("PRINT_SPINE_MM", 3) * MM;
 const PRINT_COVER_WRAP = envMm("PRINT_COVER_WRAP_MM", 0) * MM;
 const PRINT_MIN_PAGES = parseInt(process.env.PRINT_MIN_PAGES || "32", 10);
 const SAFE = 0.5 * 72; // margen de seguridad dentro del corte
-const LAYOUT_VERSION = 5; // subirlo invalida todos los PDFs en caché
+const LAYOUT_VERSION = 6; // subirlo invalida todos los PDFs en caché
 
 const COLORS = {
   cream: rgb(0.995, 0.97, 0.92),

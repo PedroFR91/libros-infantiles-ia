@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { sendPrintOrderAdminEmail, sendPrintOrderConfirmationEmail } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
+import { submitPrintOrder } from "@/lib/printFulfillment";
 
 const log = createLogger("approve-print");
 
@@ -57,6 +58,8 @@ export async function POST(
       if (order.email) {
         await sendPrintOrderConfirmationEmail({ to: order.email, kidName: book.kidName, title });
       }
+      // A la imprenta (si falla, queda pagado y el admin recibe el aviso)
+      await submitPrintOrder(order.id);
     }
     return NextResponse.json({ approved: true });
   } catch (error) {

@@ -144,6 +144,30 @@ function OrderRow({
     }
   };
 
+  const handleSubmitToPrinter = async () => {
+    if (!confirm("¿Enviar este pedido a Bubok para imprimirlo?")) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/print-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, submitToPrinter: true }),
+      });
+      const json = await res.json();
+      if (json.order) onSaved(json.order);
+      setMessage(
+        json.submitted
+          ? { ok: true, text: "Enviado a Bubok" }
+          : { ok: false, text: json.error || "No se pudo enviar" },
+      );
+    } catch {
+      setMessage({ ok: false, text: "No se pudo enviar" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const recipientEmail = order.email || order.user.email;
 
   return (
@@ -273,6 +297,14 @@ function OrderRow({
           )}
           Guardar
         </button>
+        {order.status === "PAID" && (
+          <button
+            onClick={handleSubmitToPrinter}
+            disabled={saving}
+            className='mt-1 inline-flex items-center gap-1 px-2 py-1 bg-secondary hover:bg-secondary-hover text-white text-xs font-medium rounded transition-colors disabled:opacity-40'>
+            Enviar a Bubok
+          </button>
+        )}
         {message && (
           <p
             className={`text-[10px] mt-1 max-w-35 ml-auto ${

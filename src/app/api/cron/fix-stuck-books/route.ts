@@ -11,6 +11,7 @@ import { isRunning } from "@/lib/generation";
 import { deleteBookImages } from "@/lib/imageStorage";
 import { createLogger } from "@/lib/logger";
 import { PRINT_ENABLED } from "@/lib/pricing";
+import { syncPrintOrders } from "@/lib/printFulfillment";
 
 const log = createLogger("cron-fix-stuck");
 
@@ -49,6 +50,10 @@ export async function GET(request: NextRequest) {
     const reminders = await sendDraftReminders();
     const sequence = await sendSalesSequence();
     const purged = await purgeOldDrafts();
+    const printOrders = await syncPrintOrders().catch((error) => {
+      log.error({ err: error }, "Error sincronizando pedidos impresos");
+      return null;
+    });
 
     if (stuckBooks.length === 0) {
       return NextResponse.json({
@@ -56,6 +61,7 @@ export async function GET(request: NextRequest) {
         reminders,
         sequence,
         purged,
+        printOrders,
         message: "No stuck books found",
       });
     }

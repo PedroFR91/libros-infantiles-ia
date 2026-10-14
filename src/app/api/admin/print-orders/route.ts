@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createLogger } from "@/lib/logger";
 import { sendPrintShippedEmail } from "@/lib/email";
+import { submitPrintOrder } from "@/lib/printFulfillment";
 
 const log = createLogger("admin-print-orders");
 
@@ -38,6 +39,8 @@ const patchSchema = z.object({
   provider: optionalText(50),
   providerOrderId: optionalText(200),
   notes: optionalText(2000),
+  /** Enviar (o reenviar tras corregir) el pedido a Bubok */
+  submitToPrinter: z.boolean().optional(),
 });
 
 const orderInclude = {
@@ -114,7 +117,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { id, ...changes } = parsed.data;
+    const { id, submitToPrinter, ...changes } = parsed.data;
+
+    if (submitToPrinter) {
+      const result = await submitPrintOrder(id);
+      const order = await prisma.printOrder.findUnique({ where: { id }, include: orderInclude });
+      return NextResponse.json(
+        { order, submitted: result.ok, error: result.error ?? null },
+        { status: result.ok ? 200 : 400 },
+      );
+    }
 
     const existing = await prisma.printOrder.findUnique({
       where: { id },

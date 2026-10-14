@@ -11,6 +11,7 @@ import {
 } from "@/lib/email";
 import { unlockAndIllustrate } from "@/lib/unlock";
 import { getActiveCampaign } from "@/lib/campaigns";
+import { submitPrintOrder } from "@/lib/printFulfillment";
 
 const log = createLogger("stripe-webhook");
 
@@ -369,6 +370,7 @@ async function handlePrintPaid(session: Stripe.Checkout.Session) {
   if (order.email) {
     await sendPrintOrderConfirmationEmail({ to: order.email, kidName: order.book.kidName, title });
   }
+  await submitPrintOrder(order.id);
 }
 
 /**
