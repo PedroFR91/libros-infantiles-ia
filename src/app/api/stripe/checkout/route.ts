@@ -8,7 +8,7 @@ import {
   BUNDLE_PRODUCT,
   CREDIT_PACKS,
   EXTRA_COPY,
-  PRINT_ENABLED,
+  OFFER_BUNDLE,
   PRINT_PRODUCT,
   formatEuros,
 } from "@/lib/pricing";
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Opción no válida" }, { status: 400 });
     }
     const { product, bookId, extraCopies } = validation.data;
-    if (product === "bundle" && !PRINT_ENABLED) {
+    if (product === "bundle" && !OFFER_BUNDLE) {
       return NextResponse.json(
         { error: "El cuento impreso estará disponible muy pronto. Por ahora, el PDF." },
         { status: 400 },

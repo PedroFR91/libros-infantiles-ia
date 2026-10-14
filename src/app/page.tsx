@@ -16,7 +16,6 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import {
-  FOUNDER_OFFER,
   FREE_REDRAWS,
   GUARANTEE_TEXT,
   PRINT_COMING_SOON_TEXT,
@@ -113,10 +112,6 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: "¿Necesito crear una cuenta?",
     a: "No. Te enviamos el enlace de tu cuento por email y puedes recuperarlo cuando quieras desde «Mis cuentos» con ese mismo email.",
-  },
-  {
-    q: "¿Qué es el precio fundador?",
-    a: `Un precio de lanzamiento para los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo, sin códigos: el precio que ves en la web es el que pagas. Cuando se agotan, se acaba.`,
   },
   {
     q: "¿Puedo devolverlo?",

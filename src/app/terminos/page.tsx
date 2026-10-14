@@ -5,7 +5,6 @@ import {
   BUNDLE_PRODUCT,
   CREDIT_PACKS,
   EXTRA_COPY,
-  FOUNDER_OFFER,
   FREE_REDRAWS,
   GUARANTEE_TEXT,
   PRINT_ENABLED,
@@ -17,8 +16,8 @@ import { LegalLayout } from "@/components/LegalLayout";
 export const metadata: Metadata = {
   title: "Términos y condiciones",
   description: PRINT_ENABLED
-    ? "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía, envíos y precio fundador."
-    : "Condiciones de compra y uso de LibrosIA: cuento en PDF, libro impreso (próximamente), garantía y precio fundador.",
+    ? "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía y envíosndador."
+    : "Condiciones de compra y uso de LibrosIA: cuento en PDF, libro impreso (próximamente) y garantía.",
 };
 
 export default async function TerminosPage() {
@@ -105,7 +104,7 @@ export default async function TerminosPage() {
                   <strong>{BUNDLE_PRODUCT.name}</strong>
                 </td>
                 <td>
-                  Portada + 12 páginas ilustradas; libro impreso de 21×21 cm en
+                  Portada + 12 páginas ilustradas; libro impreso de 19×19 cm en
                   tapa blanda con envío a domicilio en España; PDF para pantalla
                   y para imprimir.
                 </td>
@@ -195,15 +194,6 @@ export default async function TerminosPage() {
         <li>
           El importe final, con los descuentos que correspondan, se muestra
           antes de confirmar el pago. Recibirás la confirmación por email.
-        </li>
-        <li>
-          <strong>Precio fundador.</strong> Los {FOUNDER_OFFER.limit} primeros
-          pedidos pagados de LibrosIA tienen un descuento del{" "}
-          {FOUNDER_OFFER.percent} % que se aplica automáticamente, sin códigos.
-          El contador es real y la web muestra cuántos quedan. Si el descuento
-          está activo cuando pagas, se aplica a todo el pedido; cuando se agota,
-          no se aplica a pedidos posteriores ni se devuelve la diferencia de los
-          anteriores.
         </li>
       </ul>
 

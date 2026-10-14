@@ -7,9 +7,7 @@ import {
   Download,
   Gift,
   Loader2,
-  Minus,
   Package,
-  Plus,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -18,14 +16,13 @@ import {
   X,
 } from "lucide-react";
 import {
-  EXTRA_COPY,
   GUARANTEE_TEXT,
   PRINT_COMING_SOON_TEXT,
-  PRINT_ENABLED,
+  OFFER_BUNDLE,
   PRINT_PRODUCT,
-  formatEuros,
 } from "@/lib/pricing";
 import { BookData, BookPage, CheckoutPrices } from "./types";
+import PrintUpsell, { type PrintShipping } from "./PrintUpsell";
 
 // Paneles de estado del libro, en la vista principal (no escondidos en el
 // panel lateral): ilustrando, listo, barra de acción y acciones de página.
@@ -75,7 +72,9 @@ interface ResultPanelProps {
   downloading: "digital" | "print" | null;
   onDownload: (type: "digital" | "print") => void;
   orderingPrint: boolean;
-  onOrderPrint: (extraCopies: number) => void;
+  onOrderPrint: (extraCopies: number, shipping: PrintShipping) => void;
+  /** Libro físico disponible (al público, o a los admins durante el piloto) */
+  canOrderPrint: boolean;
   approving: boolean;
   onApprove: () => void;
   onNewBook: () => void;
@@ -88,17 +87,13 @@ export function ResultPanel({
   onDownload,
   orderingPrint,
   onOrderPrint,
+  canOrderPrint,
   approving,
   onApprove,
   onNewBook,
 }: ResultPanelProps) {
   const order = book.printOrders?.[0];
   const cover = book.pages.find((p) => p.pageNumber === 1)?.imageUrl;
-  const [extraCopies, setExtraCopies] = useState(0);
-  const [accepted, setAccepted] = useState(false);
-  const [needsAccept, setNeedsAccept] = useState(false);
-  const printPrice = prices?.print.price ?? PRINT_PRODUCT.price;
-  const copyPrice = prices?.extraCopy.price ?? EXTRA_COPY.price;
 
   return (
     <section className='mx-3 sm:mx-6 mt-3 p-4 sm:p-5 rounded-2xl bg-bg-light border border-border card-shadow'>
@@ -169,7 +164,7 @@ export function ResultPanel({
                 )}
               </p>
             </>
-          ) : !PRINT_ENABLED ? (
+          ) : !canOrderPrint ? (
             <>
               <p className='font-bold flex items-center gap-2'>
                 <Gift className='w-5 h-5 text-primary' /> Muy pronto, en papel
@@ -180,53 +175,7 @@ export function ResultPanel({
               </p>
             </>
           ) : (
-            <>
-              <p className='font-bold flex items-center gap-2'>
-                <Gift className='w-5 h-5 text-primary' /> Tenlo en papel
-              </p>
-              <p className='text-sm text-text-muted mt-1'>
-                21×21 cm, envío a casa incluido, en {PRINT_PRODUCT.deliveryDays.min}-
-                {PRINT_PRODUCT.deliveryDays.max} días laborables.
-              </p>
-              <div className='flex items-center justify-between gap-2 mt-2 text-sm'>
-                <span>Copias extra (+{formatEuros(copyPrice)})</span>
-                <div className='flex items-center gap-2'>
-                  <RoundButton label='Quitar una copia' disabled={extraCopies === 0} onClick={() => setExtraCopies(extraCopies - 1)}>
-                    <Minus className='w-4 h-4' />
-                  </RoundButton>
-                  <span className='w-4 text-center font-bold'>{extraCopies}</span>
-                  <RoundButton label='Añadir una copia' disabled={extraCopies >= EXTRA_COPY.max} onClick={() => setExtraCopies(extraCopies + 1)}>
-                    <Plus className='w-4 h-4' />
-                  </RoundButton>
-                </div>
-              </div>
-              <label
-                className={`flex items-start gap-2 mt-2 min-h-[44px] p-1.5 -mx-1.5 rounded-lg text-xs cursor-pointer ${
-                  needsAccept && !accepted ? "ring-2 ring-primary bg-bg-light" : ""
-                }`}>
-                <input
-                  type='checkbox'
-                  checked={accepted}
-                  onChange={(e) => setAccepted(e.target.checked)}
-                  className='mt-0.5 w-4 h-4 accent-primary flex-shrink-0'
-                />
-                <span>
-                  He revisado el cuento y acepto que, al ser personalizado, no
-                  tiene desistimiento (si llega con un defecto de impresión, lo
-                  reponemos).
-                </span>
-              </label>
-              <button
-                onClick={() => (accepted ? onOrderPrint(extraCopies) : setNeedsAccept(true))}
-                disabled={orderingPrint}
-                className='w-full mt-1 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60'>
-                {orderingPrint ? (
-                  <Loader2 className='w-5 h-5 animate-spin' />
-                ) : (
-                  <>Pedirlo impreso · {formatEuros(printPrice + extraCopies * copyPrice)}</>
-                )}
-              </button>
-            </>
+            <PrintUpsell prices={prices} ordering={orderingPrint} onOrder={onOrderPrint} />
           )}
         </div>
       </div>
@@ -284,7 +233,7 @@ export function ActionBar({ book, prices, hasCredits, hasPurchased, busy, onBuy,
             className='flex-1 py-3.5 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60'>
             <Wand2 className='w-5 h-5' /> Ilustrar el cuento
           </button>
-        ) : !PRINT_ENABLED ? (
+        ) : !OFFER_BUNDLE ? (
           <button
             onClick={() => onBuy(hasPurchased ? "repeat" : "digital")}
             className='flex-1 py-3.5 rounded-2xl bg-primary hover:bg-primary-hover text-white font-bold flex items-center justify-center gap-2'>
@@ -395,25 +344,3 @@ export function PageSheet({ page, canRedraw, freeRedraws, redrawing, onClose, on
   );
 }
 
-function RoundButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type='button'
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className='w-8 h-8 rounded-full border-2 border-border-strong flex items-center justify-center disabled:opacity-30'>
-      {children}
-    </button>
-  );
-}

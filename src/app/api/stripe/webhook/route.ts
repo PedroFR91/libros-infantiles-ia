@@ -263,9 +263,11 @@ async function updatePrintOrderFromSession(
       status,
       ...(status === "PAID" && { approvedAt: new Date() }),
       stripePaymentId: paymentIntentId,
-      email: session.customer_details?.email ?? null,
-      shippingName: shipping?.name ?? session.customer_details?.name ?? null,
-      shippingPhone: session.customer_details?.phone ?? null,
+      ...(session.customer_details?.email && { email: session.customer_details.email }),
+      ...((shipping?.name || session.customer_details?.name) && {
+        shippingName: shipping?.name ?? session.customer_details?.name,
+      }),
+      ...(session.customer_details?.phone && { shippingPhone: session.customer_details.phone }),
       shippingAddress: shipping?.address
         ? {
             line1: shipping.address.line1,

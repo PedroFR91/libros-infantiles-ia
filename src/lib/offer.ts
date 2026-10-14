@@ -28,6 +28,7 @@ export interface Discount {
  * pedidos de "pasar a papel" pagados.
  */
 export async function getFounderState(): Promise<FounderState> {
+  if (!FOUNDER_OFFER.enabled) return { active: false, remaining: 0, percent: FOUNDER_OFFER.percent };
   const [digital, printUpgrades] = await Promise.all([
     // Solo pagos reales (modo live): las pruebas no gastan plazas fundador
     prisma.payment.count({

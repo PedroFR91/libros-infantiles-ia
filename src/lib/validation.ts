@@ -126,6 +126,14 @@ export const checkoutSchema = z.object({
 export const printCheckoutSchema = z.object({
   bookId: z.string().cuid(),
   extraCopies: z.number().int().min(0).max(3).default(0),
+  // Dirección pedida en la web (no en Stripe) para validar la zona antes de pagar
+  shipping: z.object({
+    name: z.string().trim().min(3).max(120),
+    phone: z.string().trim().regex(/^(\+34)?[6789]\d{8}$/),
+    line1: z.string().trim().min(5).max(200),
+    postalCode: z.string().trim().regex(/^\d{5}$/),
+    city: z.string().trim().min(2).max(100),
+  }),
   // Producto personalizado: sin desistimiento (art. 103.c TRLGDCU)
   acceptedTerms: z.literal(true),
 });

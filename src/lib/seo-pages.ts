@@ -15,7 +15,7 @@
 // fechas y temas de src/lib/campaigns.ts para que no se desfasen.
 
 import { CAMPAIGNS } from "@/lib/campaigns";
-import { FOUNDER_OFFER, PRINT_COMING_SOON_TEXT } from "@/lib/pricing";
+import { PRINT_COMING_SOON_TEXT } from "@/lib/pricing";
 
 
 const campaign = (prefix: string) => CAMPAIGNS.find((c) => c.id.startsWith(prefix));
@@ -846,7 +846,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
         heading: "Plazos y precio",
         paragraphs: [
           "El cuento se entrega en PDF y está listo en unos minutos después del pago, así que llega a tiempo aunque lo pidas el mismo 31. Podéis leerlo en una tableta o imprimirlo en casa o en una copistería.",
-          `La campaña de Halloween dura hasta el ${HALLOWEEN_END} y no lleva un descuento propio. Lo que sí tienes es el precio fundador, un precio de lanzamiento para los ${FOUNDER_OFFER.limit} primeros pedidos, que se aplica solo al pagar, sin códigos. Ves el importe final antes de confirmar.`,
+          `La campaña de Halloween dura hasta el ${HALLOWEEN_END} y no lleva un descuento propio. El PDF cuesta lo mismo todo el año y ves el importe final antes de confirmar.`,
         ],
       },
     ],
@@ -913,7 +913,7 @@ export const SEO_CONTENT: Record<SeoSlug, SeoContent> = {
       },
       {
         q: "¿Hay descuento en Black Friday?",
-        a: "En Black Friday no añadimos un porcentaje de descuento: preferimos hacer regalos. Si en ese momento sigue activo el precio fundador, se aplica igualmente.",
+        a: "En Black Friday no añadimos un porcentaje de descuento: preferimos hacer regalos.",
       },
       {
         q: "¿Llegará a tiempo para Navidad?",

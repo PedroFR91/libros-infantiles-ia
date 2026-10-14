@@ -132,7 +132,7 @@ export function BookMockup({
         </div>
       </div>
       <figcaption className='mt-4 text-center text-sm text-text-muted'>
-        Ilustración orientativa · formato 21×21 cm, portada + 12 páginas
+        Ilustración orientativa · formato 19×19 cm, portada + 12 páginas
         ilustradas
       </figcaption>
     </figure>

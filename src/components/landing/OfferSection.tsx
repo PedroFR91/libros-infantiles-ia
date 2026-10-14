@@ -265,7 +265,7 @@ export function OfferSection() {
               </p>
             )}
             <ul className='space-y-2.5 mb-6 flex-1'>
-              <Bullet>Libro de 21×21 cm, tapa blanda: portada + 12 páginas ilustradas</Bullet>
+              <Bullet>Libro de 19×19 cm, tapa blanda: portada + 12 páginas ilustradas</Bullet>
               <Bullet>El PDF al momento, para leerlo ya en pantalla</Bullet>
               <Bullet>
                 <strong>Lo revisas y apruebas antes de imprimir</strong>: puedes

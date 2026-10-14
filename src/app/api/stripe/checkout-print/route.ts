@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { EXTRA_COPY, PRINT_ENABLED, PRINT_PRODUCT } from "@/lib/pricing";
+import {
+  EXTRA_COPY,
+  PRINT_ENABLED,
+  PRINT_PRODUCT,
+  SHIPPING_SURCHARGE,
+  shippingZone,
+} from "@/lib/pricing";
+import { isAdminUser } from "@/lib/adminAuth";
 import { offerPrice, resolveDiscount } from "@/lib/offer";
 import { getAuthenticatedUserId } from "@/lib/apiAuth";
 import { printCheckoutSchema, validateBody } from "@/lib/validation";
@@ -15,15 +22,16 @@ const log = createLogger("checkout-print");
 // No crea filas en Payment (son solo del producto digital): el pedido vive en PrintOrder.
 export async function POST(request: NextRequest) {
   try {
-    if (!PRINT_ENABLED) {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    // Antes de abrirlo al público, solo los administradores (piloto con Bubok)
+    if (!PRINT_ENABLED && !(await isAdminUser(userId))) {
       return NextResponse.json(
         { error: "El cuento impreso estará disponible muy pronto." },
         { status: 400 },
       );
-    }
-    const userId = await getAuthenticatedUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const rateLimitResponse = checkRateLimit(
@@ -36,7 +44,20 @@ export async function POST(request: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: "Datos no válidos" }, { status: 400 });
     }
-    const { bookId, extraCopies } = validation.data;
+    const { bookId, extraCopies, shipping } = validation.data;
+    const zone = shippingZone(shipping.postalCode);
+    if (zone === "invalid" || zone === "unavailable") {
+      return NextResponse.json(
+        {
+          error:
+            zone === "unavailable"
+              ? "De momento enviamos a la Península y Baleares."
+              : "El código postal no es válido.",
+        },
+        { status: 400 },
+      );
+    }
+    const surcharge = zone === "baleares" ? SHIPPING_SURCHARGE.baleares : 0;
 
     const book = await prisma.book.findFirst({
       where: { id: bookId, userId },
@@ -84,24 +105,22 @@ export async function POST(request: NextRequest) {
               },
             ]
           : []),
+        ...(surcharge > 0
+          ? [
+              {
+                price_data: {
+                  currency: "eur",
+                  product_data: {
+                    name: "Suplemento de envío a Baleares",
+                    description: `Envío a ${shipping.city} (${shipping.postalCode})`,
+                  },
+                  unit_amount: surcharge,
+                },
+                quantity: 1,
+              },
+            ]
+          : []),
       ],
-      shipping_address_collection: {
-        allowed_countries: [...PRINT_PRODUCT.shippingCountries],
-      },
-      shipping_options: [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: 0, currency: "eur" },
-            display_name: "Envío a domicilio incluido",
-            delivery_estimate: {
-              minimum: { unit: "business_day", value: PRINT_PRODUCT.deliveryDays.min },
-              maximum: { unit: "business_day", value: PRINT_PRODUCT.deliveryDays.max },
-            },
-          },
-        },
-      ],
-      phone_number_collection: { enabled: true },
       // Sin códigos promocionales: solo el precio fundador automático
       custom_text: {
         submit: {
@@ -127,8 +146,19 @@ export async function POST(request: NextRequest) {
         stripeSessionId: session.id,
         kind: "upgrade",
         quantity: 1 + extraCopies,
-        amount: price(PRINT_PRODUCT.price) + extraCopies * price(EXTRA_COPY.price),
+        amount: price(PRINT_PRODUCT.price) + extraCopies * price(EXTRA_COPY.price) + surcharge,
         status: "PENDING_PAYMENT",
+        email: book.user.email,
+        shippingName: shipping.name,
+        shippingPhone: shipping.phone,
+        shippingAddress: {
+          line1: shipping.line1,
+          line2: null,
+          city: shipping.city,
+          postal_code: shipping.postalCode,
+          state: null,
+          country: "ES",
+        },
       },
     });
 

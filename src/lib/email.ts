@@ -255,7 +255,7 @@ export async function sendPrintOfferEmail(params: {
     layout(
       `«${title}», en sus manos`,
       `<p>Muchas familias acaban pidiendo el cuento impreso: es el que se lee cada noche y el que se guarda.</p>
-<p>Pásalo a papel por <strong>${formatEuros(PRINT_PRODUCT.price)}</strong> (21×21 cm, envío a casa incluido). Llega en ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables.</p>`,
+<p>Pásalo a papel por <strong>${formatEuros(PRINT_PRODUCT.price)}</strong> (19×19 cm, envío a casa incluido en la Península). Llega en ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables.</p>`,
       { href: await bookLink(bookId), label: "Pedirlo impreso" },
     ),
   );

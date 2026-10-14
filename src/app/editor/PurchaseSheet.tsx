@@ -8,6 +8,7 @@ import {
   GUARANTEE_TEXT,
   EXTRA_COPY,
   PRINT_COMING_SOON_TEXT,
+  OFFER_BUNDLE,
   PRINT_ENABLED,
   PRINT_PRODUCT,
   formatEuros,
@@ -41,7 +42,7 @@ export default function PurchaseSheet({
   const digitalProduct: PurchaseProduct = hasPurchased ? "repeat" : "digital";
   // Se remonta (key) cada vez que se abre, así parte de la opción elegida
   const [product, setProduct] = useState<PurchaseProduct>(
-    initialProduct === "bundle" && PRINT_ENABLED ? "bundle" : digitalProduct,
+    initialProduct === "bundle" && OFFER_BUNDLE ? "bundle" : digitalProduct,
   );
   const [extraCopies, setExtraCopies] = useState(0);
   const [accepted, setAccepted] = useState(false);
@@ -102,7 +103,7 @@ export default function PurchaseSheet({
               )}
 
               {/* Regalo: impreso + PDF */}
-              {PRINT_ENABLED && (
+              {OFFER_BUNDLE && (
               <OptionCard
                 selected={product === "bundle"}
                 onSelect={() => setProduct("bundle")}
@@ -113,7 +114,7 @@ export default function PurchaseSheet({
                   {prices?.campaign?.bonus?.onProduct === "bundle" && (
                     <li className='font-bold text-secondary'>🎁 {prices.campaign.bonus.label} ({prices.campaign.name})</li>
                   )}
-                  <li>📦 Libro de 21×21 cm en casa en {PRINT_PRODUCT.deliveryDays.min}-{PRINT_PRODUCT.deliveryDays.max} días laborables, envío incluido</li>
+                  <li>📦 Libro de 19×19 cm en casa en {PRINT_PRODUCT.deliveryDays.min}-{PRINT_PRODUCT.deliveryDays.max} días laborables, envío incluido</li>
                   <li>👀 Lo revisas y lo apruebas antes de imprimir</li>
                   <li>📄 El PDF, al momento</li>
                 </ul>
@@ -149,7 +150,7 @@ export default function PurchaseSheet({
               <OptionCard
                 selected={product !== "bundle"}
                 onSelect={() => setProduct(digitalProduct)}
-                title={hasPurchased ? "Otro cuento en PDF" : PRINT_ENABLED ? "Solo el PDF" : "El cuento en PDF"}
+                title={hasPurchased ? "Otro cuento en PDF" : OFFER_BUNDLE ? "Solo el PDF" : "El cuento en PDF"}
                 price={digital ?? undefined}>
                 <p className='text-sm text-text-muted mt-2'>
                   {prices?.campaign?.bonus?.onProduct === "pdf" && (
@@ -162,10 +163,12 @@ export default function PurchaseSheet({
                 </p>
               </OptionCard>
 
-              {!PRINT_ENABLED && (
+              {!OFFER_BUNDLE && (
                 <p className='flex gap-2 text-sm text-text-muted'>
                   <Gift className='w-5 h-5 text-secondary flex-shrink-0' />
-                  {PRINT_COMING_SOON_TEXT}
+                  {PRINT_ENABLED
+                    ? `Cuando lo tengas, podrás añadir el libro físico por +${formatEuros(PRINT_PRODUCT.price)}, con envío incluido.`
+                    : PRINT_COMING_SOON_TEXT}
                 </p>
               )}
 

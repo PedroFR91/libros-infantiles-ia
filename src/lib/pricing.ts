@@ -38,21 +38,55 @@ export const PRINT_ENABLED = false;
 export const PRINT_COMING_SOON_TEXT =
   "Próximamente, también en papel: estamos preparando el cuento impreso con envío a casa.";
 
-/** Producto estrella: libro impreso + PDF en un solo pago, envío incluido */
+/**
+ * Pack impreso + PDF en un solo pago. Desde oct. 2026 no se ofrece: primero se
+ * compra el PDF y justo después se ofrece el libro físico por +20 € (Pedro y
+ * Mario). Se deja el producto por si vuelve, apagado con BUNDLE_ENABLED.
+ */
+export const BUNDLE_ENABLED = false;
+/** El pack se ofrece solo si hay impreso y el pack está activo */
+export const OFFER_BUNDLE = PRINT_ENABLED && BUNDLE_ENABLED;
+
 export const BUNDLE_PRODUCT = {
-  price: 3490,
+  price: 2990,
   name: "Cuento impreso + PDF",
-  description: "21×21 cm · tapa blanda · envío a casa incluido · PDF al momento",
+  description: "19×19 cm · tapa blanda · envío a casa incluido · PDF al momento",
 };
 
-/** Pasar a papel un libro que ya tiene el PDF */
+/**
+ * Libro físico de un cuento que ya tiene el PDF (la mejora tras comprarlo):
+ * +20 € con envío incluido a la Península. Coste con Bubok ≈ 7,25 € de
+ * impresión + 5,93 € de envío (oct. 2026).
+ */
 export const PRINT_PRODUCT = {
-  price: 2500,
+  price: 2000,
   name: "Libro impreso",
-  description: "21×21 cm · tapa blanda · envío a domicilio incluido",
+  format: "19×19 cm en tapa blanda",
+  description: "19×19 cm · tapa blanda · envío a domicilio incluido",
   shippingCountries: ["ES"] as const, // solo España
   deliveryDays: { min: 7, max: 10 }, // laborables (Bubok)
 };
+
+/** Suplementos de envío sobre la Península (céntimos). Canarias, Ceuta y Melilla: aún no */
+export const SHIPPING_SURCHARGE = {
+  baleares: 700,
+};
+
+export type ShippingZone = "peninsula" | "baleares";
+
+/**
+ * Zona de envío por código postal español: "invalid" si no es un código
+ * postal, "unavailable" si de momento no se envía allí (Canarias, Ceuta y
+ * Melilla: fuera del IVA y con aduana).
+ */
+export function shippingZone(postalCode: string): ShippingZone | "invalid" | "unavailable" {
+  const cp = postalCode.trim();
+  if (!/^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/.test(cp)) return "invalid";
+  const province = cp.slice(0, 2);
+  if (province === "07") return "baleares";
+  if (["35", "38", "51", "52"].includes(province)) return "unavailable";
+  return "peninsula";
+}
 
 /** Copias extra del mismo libro al mismo envío (abuelos, tíos) */
 export const EXTRA_COPY = {
@@ -65,6 +99,8 @@ export const EXTRA_COPY = {
  * El contador es real: pedidos pagados de digital, pack o impreso.
  */
 export const FOUNDER_OFFER = {
+  // Retirado en oct. 2026: PDF a 9,90 € para todos, sin descuentos que explicar
+  enabled: false,
   percent: 20,
   limit: 50,
 };

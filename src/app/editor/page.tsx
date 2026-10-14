@@ -15,7 +15,8 @@ import Wizard, { WizardData } from "./Wizard";
 import { ActionBar, PageSheet, ProgressPanel, ResultPanel } from "./BookPanels";
 import { BookData, BookPage, CheckoutPrices, PurchaseProduct, ViewMode } from "./types";
 import { track } from "@/lib/analytics";
-import { PRINT_ENABLED } from "@/lib/pricing";
+import { OFFER_BUNDLE, PRINT_ENABLED } from "@/lib/pricing";
+import type { PrintShipping } from "./PrintUpsell";
 
 export default function EditorPage() {
   return (
@@ -61,7 +62,7 @@ function EditorContent() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showReveal, setShowReveal] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const [purchaseProduct, setPurchaseProduct] = useState<PurchaseProduct>(PRINT_ENABLED ? "bundle" : "digital");
+  const [purchaseProduct, setPurchaseProduct] = useState<PurchaseProduct>(OFFER_BUNDLE ? "bundle" : "digital");
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [orderingPrint, setOrderingPrint] = useState(false);
@@ -336,7 +337,7 @@ function EditorContent() {
       const res = await fetch(`/api/books/${bookId}/generate-images`, { method: "POST" });
       const data = await res.json();
       if (data.needsCredits) {
-        openPurchase(PRINT_ENABLED ? "bundle" : "digital");
+        openPurchase(OFFER_BUNDLE ? "bundle" : "digital");
         return;
       }
       if (res.status === 202 || res.status === 409) {
@@ -389,21 +390,24 @@ function EditorContent() {
     setPaying(false);
   };
 
-  const orderPrint = async (extraCopies: number) => {
+  const orderPrint = async (extraCopies: number, shipping: PrintShipping) => {
     if (!book) return;
     setOrderingPrint(true);
     try {
       const res = await fetch("/api/stripe/checkout-print", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookId: book.id, extraCopies, acceptedTerms: true }),
+        body: JSON.stringify({ bookId: book.id, extraCopies, shipping, acceptedTerms: true }),
       });
       const data = await res.json();
       if (!data.url) throw new Error(data.error);
       window.location.href = data.url;
       return;
-    } catch {
-      setNotice({ type: "error", text: "No se pudo abrir el pago del libro impreso." });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: error instanceof Error && error.message ? error.message : "No se pudo abrir el pago del libro impreso.",
+      });
     }
     setOrderingPrint(false);
   };
@@ -707,6 +711,7 @@ function EditorContent() {
                   onDownload={download}
                   orderingPrint={orderingPrint}
                   onOrderPrint={orderPrint}
+                  canOrderPrint={PRINT_ENABLED || isAdmin}
                   approving={approving}
                   onApprove={approvePrint}
                   onNewBook={newBook}
