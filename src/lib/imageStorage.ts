@@ -86,6 +86,12 @@ export async function storeImageBuffer(
   }
 }
 
+/** Audio de la narración (MP3), en el mismo almacenamiento que las imágenes */
+export async function storeAudioBuffer(buffer: Buffer, bookId: string, label: string): Promise<string> {
+  const fileName = `${label}-${randomUUID().slice(0, 8)}.mp3`;
+  return USE_S3 ? storeToS3(buffer, bookId, fileName) : storeToLocal(buffer, bookId, fileName);
+}
+
 /**
  * Download an image URL into a Buffer (for loading stored character refs).
  */
@@ -120,7 +126,11 @@ async function storeToS3(
       Bucket: S3_BUCKET,
       Key: key,
       Body: buffer,
-      ContentType: fileName.endsWith(".jpg") ? "image/jpeg" : "image/png",
+      ContentType: fileName.endsWith(".mp3")
+        ? "audio/mpeg"
+        : fileName.endsWith(".jpg")
+          ? "image/jpeg"
+          : "image/png",
       CacheControl: "public, max-age=31536000, immutable",
     }),
   );

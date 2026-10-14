@@ -149,10 +149,16 @@ export async function PATCH(
       });
     }
 
+    let textChanged = false;
+
     // Actualizar una página específica (desde el editor)
     if (pageNumber !== undefined) {
       const pageData: Record<string, string | null> = {};
-      if (text !== undefined) pageData.text = text;
+      if (text !== undefined) {
+        pageData.text = text;
+        pageData.audioUrl = null;
+        textChanged = true;
+      }
       if (textPosition !== undefined) pageData.textPosition = textPosition;
       if (textBackground !== undefined)
         pageData.textBackground = textBackground;
@@ -175,7 +181,11 @@ export async function PATCH(
       for (const page of pages) {
         if (page.pageNumber !== undefined) {
           const pageData: Record<string, string | null> = {};
-          if (page.text !== undefined) pageData.text = page.text;
+          if (page.text !== undefined) {
+            pageData.text = page.text;
+            pageData.audioUrl = null;
+            textChanged = true;
+          }
           if (page.textPosition !== undefined)
             pageData.textPosition = page.textPosition;
           if (page.textBackground !== undefined)
@@ -194,6 +204,10 @@ export async function PATCH(
           }
         }
       }
+    }
+
+    if (textChanged) {
+      await prisma.book.update({ where: { id }, data: { narratedAt: null } });
     }
 
     // Retornar libro actualizado

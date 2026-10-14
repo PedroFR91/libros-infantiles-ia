@@ -32,8 +32,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-# Fuentes para que sharp/librsvg dibuje el texto de la marca de agua
-RUN apk add --no-cache fontconfig ttf-dejavu
+# Fuentes para que sharp/librsvg dibuje el texto de la marca de agua;
+# ffmpeg para pasar la narración del cuento (WAV) a MP3
+RUN apk add --no-cache fontconfig ttf-dejavu ffmpeg
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

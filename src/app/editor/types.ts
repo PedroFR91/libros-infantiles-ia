@@ -31,6 +31,8 @@ export interface BookData {
   companion?: string | null;
   dedication?: string | null;
   leadEmail?: string | null;
+  /** Enlace del cuento narrado (solo lectura, para compartir) */
+  listenUrl?: string | null;
   coverPreviewUrl?: string | null;
   unlockedAt?: string | null;
   previewPending?: boolean;

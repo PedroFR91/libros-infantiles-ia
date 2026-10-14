@@ -43,14 +43,37 @@ export async function GET(
       ".gif": "image/gif",
       ".webp": "image/webp",
       ".svg": "image/svg+xml",
+      ".mp3": "audio/mpeg",
     };
 
     const contentType = contentTypes[ext] || "application/octet-stream";
+
+    // Rangos: el audio (sobre todo en Safari) pide trozos del archivo
+    const range = request.headers.get("range")?.match(/^bytes=(\d*)-(\d*)$/);
+    if (range) {
+      const size = fileBuffer.length;
+      const start = range[1] ? parseInt(range[1], 10) : Math.max(0, size - parseInt(range[2] || "0", 10));
+      const end = range[1] && range[2] ? Math.min(parseInt(range[2], 10), size - 1) : size - 1;
+      if (Number.isNaN(start) || start >= size || start > end) {
+        return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
+      }
+      return new NextResponse(fileBuffer.subarray(start, end + 1), {
+        status: 206,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Range": `bytes ${start}-${end}/${size}`,
+          "Content-Length": String(end - start + 1),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+    }
 
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
+        "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });

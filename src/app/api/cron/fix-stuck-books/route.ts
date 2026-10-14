@@ -12,6 +12,7 @@ import { deleteBookImages } from "@/lib/imageStorage";
 import { createLogger } from "@/lib/logger";
 import { PRINT_ENABLED } from "@/lib/pricing";
 import { syncPrintOrders } from "@/lib/printFulfillment";
+import { startNarration } from "@/lib/narration";
 
 const log = createLogger("cron-fix-stuck");
 
@@ -50,6 +51,10 @@ export async function GET(request: NextRequest) {
     const reminders = await sendDraftReminders();
     const sequence = await sendSalesSequence();
     const purged = await purgeOldDrafts();
+    const narrations = await queueNarrations().catch((error) => {
+      log.error({ err: error }, "Error lanzando narraciones");
+      return 0;
+    });
     const printOrders = await syncPrintOrders().catch((error) => {
       log.error({ err: error }, "Error sincronizando pedidos impresos");
       return null;
@@ -62,6 +67,7 @@ export async function GET(request: NextRequest) {
         sequence,
         purged,
         printOrders,
+        narrations,
         message: "No stuck books found",
       });
     }
@@ -273,3 +279,25 @@ async function purgeOldDrafts(): Promise<number> {
   if (old.length > 0) log.info({ purged: old.length }, "Borradores antiguos eliminados");
   return old.length;
 }
+
+/**
+ * Cuentos pagados sin narrar del todo: los terminados antes de existir la
+ * narración y los que tienen alguna página retocada (se espera 5 min para no
+ * narrar a cada cambio). Pocos por pasada: la narración corre en este proceso.
+ */
+async function queueNarrations(): Promise<number> {
+  const books = await prisma.book.findMany({
+    where: {
+      status: "COMPLETED",
+      unlockedAt: { not: null },
+      narratedAt: null,
+      updatedAt: { lt: new Date(Date.now() - 5 * 60 * 1000) },
+    },
+    select: { id: true },
+    orderBy: { updatedAt: "desc" },
+    take: 3,
+  });
+  for (const book of books) startNarration(book.id);
+  return books.length;
+}
+

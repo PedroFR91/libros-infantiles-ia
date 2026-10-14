@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Download,
   Gift,
+  Headphones,
   Loader2,
   Package,
   RefreshCw,
@@ -127,6 +128,7 @@ export function ResultPanel({
             className='w-full py-2 text-sm text-secondary font-semibold underline underline-offset-4'>
             {downloading === "print" ? "Preparando…" : "PDF para imprimir en casa"}
           </button>
+          {book.listenUrl && <ListenButtons url={book.listenUrl} />}
         </div>
 
         {/* Impreso */}
@@ -340,6 +342,35 @@ export function PageSheet({ page, canRedraw, freeRedraws, redrawing, onClose, on
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** El cuento narrado: abrirlo y compartir el enlace (solo lectura) con la familia */
+function ListenButtons({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const data = { title: "Nuestro cuento narrado", text: "Escucha el cuento que hemos creado", url };
+    if (navigator.share) {
+      await navigator.share(data).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard.writeText(url).catch(() => undefined);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+  return (
+    <div className='rounded-2xl bg-secondary/10 border border-secondary/30 p-3'>
+      <a
+        href={url}
+        target='_blank'
+        rel='noopener'
+        className='w-full py-3 rounded-xl bg-secondary hover:bg-secondary-hover text-white font-bold flex items-center justify-center gap-2'>
+        <Headphones className='w-5 h-5' /> Escuchar el cuento narrado
+      </a>
+      <button onClick={share} className='w-full mt-1.5 py-2 text-sm text-secondary font-semibold underline underline-offset-4'>
+        {copied ? "Enlace copiado ✓" : "Compartir con la familia"}
+      </button>
     </div>
   );
 }

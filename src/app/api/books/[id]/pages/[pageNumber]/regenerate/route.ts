@@ -289,10 +289,14 @@ export async function POST(
       log.info({ bookId: id, pageNumber, usedFreeRedraw }, "Imagen regenerada");
     }
 
+    if (updates.text !== undefined) updates.audioUrl = null; // el cron la vuelve a narrar
     const updatedPage = await prisma.bookPage.update({
       where: { id: page.id },
       data: updates,
     });
+    if (updates.text !== undefined) {
+      await prisma.book.update({ where: { id }, data: { narratedAt: null } });
+    }
 
     // Invalidar PDFs cacheados
     const fresh = await prisma.book.update({

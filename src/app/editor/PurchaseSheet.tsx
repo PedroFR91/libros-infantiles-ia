@@ -160,6 +160,9 @@ export default function PurchaseSheet({
                   )}
                   Portada + 12 páginas ilustradas para leer en la tablet o imprimir
                   en casa.{PRINT_ENABLED ? " Puedes pasarlo a papel después." : ""}
+                  <span className='block mt-1 font-semibold text-secondary'>
+                    🎧 Incluye el cuento narrado, para escucharlo y compartirlo con la familia
+                  </span>
                 </p>
               </OptionCard>
 

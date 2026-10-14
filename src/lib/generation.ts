@@ -14,6 +14,7 @@ import { refundCredits } from "@/lib/credits";
 import { CREDIT_COSTS } from "@/lib/stripe";
 import { sendAdminAlert, sendBookReadyEmail } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
+import { startNarration } from "@/lib/narration";
 
 const log = createLogger("generation");
 
@@ -287,6 +288,8 @@ async function runIllustrations(bookId: string, userId: string) {
   });
   if (completed.count === 0) throw new GenerationTakenOver();
   log.info({ bookId, generated, failed: failedPages.length }, "Libro completado");
+  // Cuento narrado (incluido con el PDF), en segundo plano
+  startNarration(bookId);
 
   // Fallo parcial: 1 crédito por página fallida (lo que cuesta regenerarla)
   if (failedPages.length > 0) {

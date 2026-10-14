@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { createLogger } from "@/lib/logger";
 import { appUrl } from "@/lib/appUrl";
 import { bookLink } from "@/lib/bookAccess";
+import { listenUrl } from "@/lib/listenLink";
 import { GUARANTEE_TEXT, PRINT_ENABLED, PRINT_PRODUCT, formatEuros } from "@/lib/pricing";
 
 export { appUrl };
@@ -84,6 +85,7 @@ export async function sendBookReadyEmail(params: {
       `«${title}» ya está listo`,
       `<p>Hemos terminado todas las ilustraciones del libro de <strong>${escapeHtml(kidName)}</strong>.</p>
 <p>Puedes verlo, retocar páginas y descargar el PDF para leer en pantalla o imprimir.</p>
+<p>🎧 <strong>Y también es un cuento narrado:</strong> una voz lo lee página a página, con música suave. <a href="${listenUrl(bookId)}">Escúchalo aquí</a> y comparte ese enlace con quien quieras: abuelos, tíos… (en unos minutos tendrá la voz en todas las páginas).</p>
 ${PRINT_ENABLED ? "<p>Y si quieres tenerlo en papel, puedes pedirlo impreso con envío a casa.</p>" : "<p>Muy pronto podrás pedirlo también impreso, con envío a casa: te avisaremos.</p>"}`,
       { href: await bookLink(bookId), label: "Ver mi libro" },
     ),

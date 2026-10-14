@@ -209,6 +209,10 @@ export function OfferSection() {
               <ul className='space-y-2.5 mb-6 flex-1'>
                 <Bullet>Portada + 12 páginas ilustradas, con su nombre y tu dedicatoria</Bullet>
                 <Bullet>Un PDF para leer en la tablet y otro para imprimir en casa o en una copistería</Bullet>
+                <Bullet>
+                  <strong>Incluye el cuento narrado</strong>: una voz lo lee página a página, con
+                  música suave, y lo compartes con la familia con un enlace
+                </Bullet>
                 <Bullet>Puedes cambiar frases y rehacer dibujos gratis</Bullet>
                 <Bullet>
                   ¿Otro para su hermano o su primo? <Price info={prices.repeat} size='sm' />

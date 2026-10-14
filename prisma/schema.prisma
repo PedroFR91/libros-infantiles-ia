@@ -126,6 +126,10 @@ model Book {
 
   @@index([userId])
   @@index([status])
+
+  // Cuento narrado (incluido con el PDF): música de fondo y cuándo quedó narrado entero
+  musicTrack    String?
+  narratedAt    DateTime?
 }
 
 model BookPage {
@@ -150,6 +154,9 @@ model BookPage {
 
   // Escena del motor v2: { characters: string[], location: string, shot: string, action: string }
   scene          Json?
+
+  // Cuento narrado: la página leída en voz alta (MP3)
+  audioUrl       String?
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

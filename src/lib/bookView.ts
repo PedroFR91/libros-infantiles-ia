@@ -1,4 +1,5 @@
 import { isPreviewRunning, isRunning } from "@/lib/generation";
+import { listenUrl } from "@/lib/listenLink";
 
 /**
  * Libro tal y como se devuelve al navegador: sin la biblia (prompts internos)
@@ -23,6 +24,8 @@ export function toPublicBook<
     ...(book.pages && {
       pages: book.pages.map((p) => ({ ...p, imagePrompt: unlocked ? p.imagePrompt : null })),
     }),
+    // Enlace del cuento narrado (solo lectura, para compartir)
+    listenUrl: unlocked ? listenUrl(book.id) : null,
     previewPending: isPreviewRunning(book.id),
     generating: isRunning(book.id),
   };

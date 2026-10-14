@@ -102,6 +102,10 @@ const FAQ: { q: string; a: string }[] = [
     a: "La historia y la portada, unos minutos. Tras el pago, el cuento ilustrado y su PDF también tardan unos minutos: sirve incluso como regalo de última hora.",
   },
   {
+    q: "¿Qué es el cuento narrado?",
+    a: "Viene incluido con el PDF: una voz cálida lee el cuento página a página, con música suave de fondo, y las páginas pasan solas. Lo escuchas en el móvil o la tablet y puedes compartir el enlace con abuelos y tíos para que lo disfruten también.",
+  },
+  {
     q: "¿Lo puedo tener impreso?",
     a: `${PRINT_COMING_SOON_TEXT} Mientras tanto, el PDF incluye una versión para imprimir en casa o en una copistería.`,
   },
