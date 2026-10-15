@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Laboratorio · libro 3D", robots: { 
 export default async function Libro3DLab() {
   const books = await prisma.book.findMany({
     where: { showcase: true, status: "COMPLETED", coverImageUrl: { not: null } },
-    include: { pages: { where: { pageNumber: 2 }, select: { imageUrl: true } } },
+    include: { pages: { where: { pageNumber: { gt: 1 } }, orderBy: { pageNumber: "asc" }, select: { imageUrl: true, text: true } } },
     orderBy: { createdAt: "desc" },
     take: 4,
   });
@@ -19,9 +19,10 @@ export default async function Libro3DLab() {
     <main className='min-h-screen bg-bg px-4 py-10'>
       <h1 className='font-display text-3xl font-semibold text-center'>Laboratorio: libro en 3D</h1>
       <p className='text-center text-text-muted mt-2'>
-        Pasa el ratón (o toca) para abrirlo; arrastra para girarlo. Portada e interior de cada cuento.
+        Arrastra para girarlo. «Abrir y hojear» (o tócalo) y pasa páginas con las flechas, tocando a
+        cada lado o deslizando; en el ordenador, también con el teclado.
       </p>
-      <div className='mt-8 grid sm:grid-cols-2 gap-6 max-w-5xl mx-auto'>
+      <div className='mt-8 grid gap-6 max-w-4xl mx-auto'>
         {books.map((b) => (
           <figure key={b.id} className='rounded-3xl bg-bg-light border border-border p-3'>
             <Book3D
@@ -29,7 +30,7 @@ export default async function Libro3DLab() {
               coverUrl={b.coverImageUrl}
               title={b.title ?? undefined}
               kidName={b.kidName}
-              pageUrl={b.pages[0]?.imageUrl}
+              pages={b.pages.map((p) => ({ imageUrl: p.imageUrl, text: p.text ?? "" }))}
             />
             <figcaption className='text-center text-sm text-text-muted pb-2'>{b.title}</figcaption>
           </figure>
