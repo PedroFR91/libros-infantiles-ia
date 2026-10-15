@@ -283,7 +283,7 @@ async function purgeOldDrafts(): Promise<number> {
 /**
  * Cuentos pagados sin narrar del todo: los terminados antes de existir la
  * narración y los que tienen alguna página retocada (se espera 5 min para no
- * narrar a cada cambio). Pocos por pasada: la narración corre en este proceso.
+ * narrar a cada cambio). Uno por pasada: la narración corre en este proceso.
  */
 async function queueNarrations(): Promise<number> {
   const books = await prisma.book.findMany({
@@ -295,7 +295,8 @@ async function queueNarrations(): Promise<number> {
     },
     select: { id: true },
     orderBy: { updatedAt: "desc" },
-    take: 3,
+    // Uno por pasada: la voz va de una en una para no agotar el cupo de la cuenta
+    take: 1,
   });
   for (const book of books) startNarration(book.id);
   return books.length;

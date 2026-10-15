@@ -13,7 +13,37 @@ const log = createLogger("narration");
 
 const TTS_MODEL = process.env.NARRATION_MODEL || "gemini-3.8-flash-tts";
 const VOICE = process.env.NARRATION_VOICE || "Sulafat";
-const PARALLEL = 3;
+/** Separación mínima entre peticiones de voz en todo el servidor (cupo por minuto de la cuenta) */
+const MIN_GAP_MS = Number(process.env.NARRATION_MIN_GAP_MS) || 7000;
+
+/** Se agotó el cupo diario de voz: se deja para la siguiente pasada del cron */
+class DailyQuotaError extends Error {}
+
+// Cola global: una petición de voz cada vez, con MIN_GAP_MS entre ellas
+let queue: Promise<void> = Promise.resolve();
+let lastCall = 0;
+function throttled<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(async () => {
+    const wait = lastCall + MIN_GAP_MS - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastCall = Date.now();
+    return fn();
+  });
+  queue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/** Espera que pide Google en un 429 ("retryDelay": "12s") y si el cupo es diario */
+function quotaInfo(body: string): { waitMs: number; daily: boolean } {
+  const delay = body.match(/"retryDelay":\s*"(\d+(?:\.\d+)?)s"/)?.[1];
+  return {
+    waitMs: delay ? Math.ceil(Number(delay) * 1000) + 1000 : 30_000,
+    daily: /PerDay|per day|daily/i.test(body),
+  };
+}
 
 // Gemini 3.8 TTS lee el campo de texto literalmente: cualquier instrucción de
 // estilo se oiría en voz alta. La voz Sulafat ya suena cálida y pausada.
@@ -46,7 +76,7 @@ async function speak(text: string): Promise<Buffer> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY sin configurar");
   for (let attempt = 1; ; attempt++) {
-    const response = await fetch(
+    const response = await throttled(() => fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
       {
         method: "POST",
@@ -60,7 +90,7 @@ async function speak(text: string): Promise<Buffer> {
         }),
         signal: AbortSignal.timeout(120_000),
       },
-    );
+    ));
     if (response.ok) {
       const data = (await response.json()) as {
         candidates?: { content?: { parts?: { inlineData?: { mimeType: string; data: string } }[] } }[];
@@ -73,9 +103,16 @@ async function speak(text: string): Promise<Buffer> {
       const rate = Number(audio.mimeType.match(/rate=(\d+)/)?.[1] ?? 24000);
       return wavFromPcm(bytes, rate);
     }
-    const retriable = response.status === 429 || response.status >= 500;
-    const body = (await response.text()).slice(0, 300);
-    if (!retriable || attempt >= 4) throw new Error(`Voz ${response.status}: ${body}`);
+    const body = await response.text();
+    if (response.status === 429) {
+      const { waitMs, daily } = quotaInfo(body);
+      if (daily) throw new DailyQuotaError("Cupo diario de voz agotado");
+      if (attempt >= 6) throw new Error(`Voz 429 tras ${attempt} intentos: ${body.slice(0, 600)}`);
+      log.warn({ waitMs, attempt }, "Cupo por minuto de voz: se espera y se reintenta");
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 120_000)));
+      continue;
+    }
+    if (response.status < 500 || attempt >= 4) throw new Error(`Voz ${response.status}: ${body.slice(0, 600)}`);
     await new Promise((r) => setTimeout(r, 10_000 * attempt));
   }
 }
@@ -155,19 +192,20 @@ async function narrateBook(bookId: string) {
   const pending = book.pages.filter((p) => !p.audioUrl && pageScript(p, book));
   const started = Date.now();
   let failed = 0;
-  for (let i = 0; i < pending.length; i += PARALLEL) {
-    await Promise.all(
-      pending.slice(i, i + PARALLEL).map(async (page) => {
-        try {
-          const mp3 = await synthesizeNarration(pageScript(page, book));
-          const url = await storeAudioBuffer(mp3, bookId, `voz-${page.pageNumber}`);
-          await prisma.bookPage.update({ where: { id: page.id }, data: { audioUrl: url } });
-        } catch (error) {
-          failed++;
-          log.error({ err: error, bookId, page: page.pageNumber }, "Página sin narrar");
-        }
-      }),
-    );
+  // Página a página (la cola global ya espacia las peticiones)
+  for (const page of pending) {
+    try {
+      const mp3 = await synthesizeNarration(pageScript(page, book));
+      const url = await storeAudioBuffer(mp3, bookId, `voz-${page.pageNumber}`);
+      await prisma.bookPage.update({ where: { id: page.id }, data: { audioUrl: url } });
+    } catch (error) {
+      failed++;
+      if (error instanceof DailyQuotaError) {
+        log.warn({ bookId }, "Cupo diario de voz agotado: se sigue en la próxima pasada");
+        break;
+      }
+      log.error({ err: error, bookId, page: page.pageNumber }, "Página sin narrar");
+    }
   }
 
   if (failed === 0) {
