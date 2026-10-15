@@ -4,8 +4,8 @@ import { musicUrl } from "@/lib/narration";
 import BookDive from "@/components/BookDive";
 import { loadListenBook } from "../loadBook";
 
-// /leer/[id]/3d?s=firma — el cuento inmersivo: el libro en 3D, y al hacer
-// scroll (o con los botones) se entra en cada ilustración, que cobra vida.
+// /leer/[id]/3d?s=firma — viaje por el cuento: se entra en el libro 3D y, con
+// el scroll o los botones, la cámara recorre el cuento por dentro.
 export const dynamic = "force-dynamic";
 
 type Props = {
@@ -28,7 +28,7 @@ export default async function ImmersivePage({ params, searchParams }: Props) {
   const cover = book.pages.find((p) => p.pageNumber === 1);
   const pages = book.pages
     .filter((p) => p.pageNumber > 1 && p.imageUrl)
-    .map((p) => ({ imageUrl: p.imageUrl, text: p.text ?? "", audioUrl: p.audioUrl, videoUrl: p.videoUrl }));
+    .map((p) => ({ imageUrl: p.imageUrl, text: p.text ?? "", audioUrl: p.audioUrl, videoUrl: p.videoUrl, transitionUrl: p.transitionUrl }));
 
   return (
     <BookDive

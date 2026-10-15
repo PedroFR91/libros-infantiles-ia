@@ -164,6 +164,9 @@ model BookPage {
 
   // Cuento animado: la ilustración en movimiento (MP4 en bucle, sin sonido)
   videoUrl       String?
+
+  // Viaje por el cuento: plano de cámara de esta página a la siguiente (MP4, sin sonido)
+  transitionUrl  String?
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

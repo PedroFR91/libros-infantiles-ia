@@ -20,10 +20,18 @@ const log = createLogger("animation");
 // 3. ffmpeg la convierte en bucle de ida y vuelta, sin sonido.
 // Coste ≈ 0,37 $ por página (≈ 4,8 $ el libro). Una página cada vez: la
 // cuenta de Google tiene poco cupo de vídeo.
+//
+// Viaje por el cuento (ANIMATION_TRANSITIONS=true): además, un plano de cámara
+// continuo de cada página a la siguiente (Veo con primer y último fotograma:
+// las panorámicas de los dos bucles). Veo solo interpola en planos de 8 s
+// (≈ 0,40 $ cada uno, 11 por libro). Se codifica con fotogramas clave muy
+// seguidos para que el lector lo pueda mover con el scroll hacia los dos lados.
 // ============================================
 
 const VIDEO_MODEL = process.env.ANIMATION_MODEL || "veo-3.1-lite-generate-preview";
 const SECONDS = 6;
+const TRANSITION_SECONDS = 8;
+const TRANSITIONS = process.env.ANIMATION_TRANSITIONS === "true";
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 class QuotaError extends Error {}
@@ -54,22 +62,46 @@ async function widen(image: Buffer): Promise<Buffer> {
   );
 }
 
-/** Lanza Veo y espera el vídeo (MP4) */
-async function animate(image: Buffer, action: string): Promise<Buffer> {
+/** Bucle: la ilustración cobra vida con la cámara quieta */
+function animate(image: Buffer, action: string): Promise<Buffer> {
   const prompt =
     `The illustration gently comes to life${action ? `: ${action}` : ""}. Subtle, slow, natural movement: ` +
     "characters breathe and blink softly, hair, leaves, water and light move gently. Static camera, no zoom, " +
     "no cuts, no new characters or objects. Keep exactly the same illustration style, colors and composition. " +
     "No text or letters anywhere. Soft ambient sounds only.";
+  return veo(prompt, image, null, SECONDS);
+}
 
+/** Plano de cámara continuo de una escena a la siguiente */
+function travel(from: Buffer, to: Buffer, actionFrom: string, actionTo: string, sameLocation: boolean): Promise<Buffer> {
+  const move = sameLocation
+    ? "The camera glides slowly and smoothly through the same place, from the first moment to the next one"
+    : "The camera travels slowly and smoothly from the first place to the next one, moving naturally through the world " +
+      "(gliding, panning or flying between them as if it were one single place)";
+  const prompt =
+    `${move}. First: ${actionFrom || "the opening scene"}. Then: ${actionTo || "the next scene"}. ` +
+    "One single continuous shot with a steady gimbal camera, like floating inside a watercolor children's picture book. " +
+    "The characters stay exactly the same. Same illustration style and colors throughout. " +
+    "Avoid: cuts, scene changes, fades, crossfades, morphing faces, flicker, shaky camera, fast zoom, text, letters, new people.";
+  return veo(prompt, from, to, TRANSITION_SECONDS);
+}
+
+/** Lanza Veo y espera el vídeo (MP4) */
+async function veo(prompt: string, image: Buffer, lastFrame: Buffer | null, seconds: number): Promise<Buffer> {
   let operation = "";
   for (let attempt = 1; ; attempt++) {
     const response = await fetch(`${BASE}/models/${VIDEO_MODEL}:predictLongRunning`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey() },
       body: JSON.stringify({
-        instances: [{ prompt, image: { bytesBase64Encoded: image.toString("base64"), mimeType: "image/png" } }],
-        parameters: { aspectRatio: "16:9", durationSeconds: SECONDS, resolution: "720p", personGeneration: "allow_adult" },
+        instances: [
+          {
+            prompt,
+            image: { bytesBase64Encoded: image.toString("base64"), mimeType: "image/png" },
+            ...(lastFrame ? { lastFrame: { bytesBase64Encoded: lastFrame.toString("base64"), mimeType: "image/png" } } : {}),
+          },
+        ],
+        parameters: { aspectRatio: "16:9", durationSeconds: seconds, resolution: "720p", personGeneration: "allow_adult" },
       }),
       signal: AbortSignal.timeout(60_000),
     });
@@ -109,20 +141,15 @@ async function animate(image: Buffer, action: string): Promise<Buffer> {
   throw new Error("Veo tardó demasiado");
 }
 
-/** Bucle de ida y vuelta sin sonido, ligero para la web */
-async function toLoop(mp4: Buffer): Promise<Buffer> {
+/** Pasa un MP4 por ffmpeg con los argumentos dados (entre la entrada y la salida) */
+async function ffmpeg(mp4: Buffer, args: string[], ext = "mp4"): Promise<Buffer> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "anim-"));
   const input = path.join(dir, "in.mp4");
-  const output = path.join(dir, `${randomUUID()}.mp4`);
+  const output = path.join(dir, `${randomUUID()}.${ext}`);
   try {
     await fs.writeFile(input, mp4);
     await new Promise<void>((resolve, reject) => {
-      const ff = spawn("ffmpeg", [
-        "-v", "error", "-y", "-i", input,
-        "-filter_complex", "[0:v]reverse[r];[0:v][r]concat=n=2:v=1[v]",
-        "-map", "[v]", "-an", "-c:v", "libx264", "-crf", "26", "-preset", "veryfast",
-        "-pix_fmt", "yuv420p", "-movflags", "+faststart", output,
-      ]);
+      const ff = spawn("ffmpeg", ["-v", "error", "-y", "-i", input, ...args, output]);
       let err = "";
       ff.stderr.on("data", (c) => (err += c));
       ff.on("error", reject);
@@ -132,6 +159,23 @@ async function toLoop(mp4: Buffer): Promise<Buffer> {
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+const H264 = ["-an", "-c:v", "libx264", "-crf", "26", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "+faststart"];
+
+/** Bucle de ida y vuelta sin sonido, ligero para la web */
+function toLoop(mp4: Buffer): Promise<Buffer> {
+  return ffmpeg(mp4, ["-filter_complex", "[0:v]reverse[r];[0:v][r]concat=n=2:v=1[v]", "-map", "[v]", ...H264]);
+}
+
+/** Para moverlo con el scroll: un fotograma clave cada 4 (retroceder no da tirones) */
+export function toScrub(mp4: Buffer): Promise<Buffer> {
+  return ffmpeg(mp4, ["-g", "4", "-bf", "0", ...H264]);
+}
+
+/** Primer fotograma del bucle: la panorámica de la página */
+function firstFrame(mp4: Buffer): Promise<Buffer> {
+  return ffmpeg(mp4, ["-frames:v", "1"], "png");
 }
 
 /** Ilustración cuadrada → bucle MP4 animado (también para probarlo desde scripts) */
@@ -177,6 +221,8 @@ async function animateBook(bookId: string) {
     }
   }
 
+  if (TRANSITIONS && failed === 0) failed += await travelBook(bookId);
+
   await prisma.book.update({
     where: { id: bookId },
     data:
@@ -185,4 +231,35 @@ async function animateBook(bookId: string) {
         : { animationStatus: "requested" }, // el cron lo retoma
   });
   log.info({ bookId, pages: pending.length, failed, ms: Date.now() - started }, "Cuento animado");
+}
+
+/** Planos de cámara entre páginas animadas consecutivas; devuelve cuántos fallaron */
+async function travelBook(bookId: string): Promise<number> {
+  const pages = await prisma.bookPage.findMany({
+    where: { bookId, pageNumber: { gt: 1 } },
+    orderBy: { pageNumber: "asc" },
+  });
+  let failed = 0;
+  for (let i = 0; i + 1 < pages.length; i++) {
+    const [a, b] = [pages[i], pages[i + 1]];
+    if (a.transitionUrl || !a.videoUrl || !b.videoUrl) continue;
+    try {
+      const [from, to] = await Promise.all([a.videoUrl, b.videoUrl].map(async (url) => firstFrame(await loadStoredImage(url))));
+      const sceneA = parseScene(a.scene);
+      const sceneB = parseScene(b.scene);
+      const sameLocation = Boolean(sceneA && sceneB && sceneA.location === sceneB.location);
+      const clip = await travel(from, to, sceneA?.action ?? "", sceneB?.action ?? "", sameLocation);
+      const url = await storeMediaBuffer(await toScrub(clip), bookId, `viaje-${a.pageNumber}`, "mp4");
+      await prisma.bookPage.update({ where: { id: a.id }, data: { transitionUrl: url } });
+      log.info({ bookId, page: a.pageNumber }, "Viaje entre páginas listo");
+    } catch (error) {
+      failed++;
+      if (error instanceof QuotaError) {
+        log.warn({ bookId }, "Cupo de vídeo agotado: el viaje sigue en la próxima pasada");
+        break;
+      }
+      log.error({ err: error, bookId, page: a.pageNumber }, "Viaje sin generar");
+    }
+  }
+  return failed;
 }
