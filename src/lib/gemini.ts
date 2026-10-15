@@ -39,7 +39,11 @@ class GeminiError extends Error {
   }
 }
 
-export async function geminiImage(prompt: string, inputs: ImageInput[] = []): Promise<Buffer> {
+export async function geminiImage(
+  prompt: string,
+  inputs: ImageInput[] = [],
+  aspectRatio: "1:1" | "16:9" = "1:1",
+): Promise<Buffer> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
     {
@@ -61,7 +65,7 @@ export async function geminiImage(prompt: string, inputs: ImageInput[] = []): Pr
         ],
         generationConfig: {
           responseModalities: ["IMAGE"],
-          imageConfig: { aspectRatio: "1:1", imageSize: GEMINI_IMAGE_SIZE },
+          imageConfig: { aspectRatio, imageSize: GEMINI_IMAGE_SIZE },
         },
       }),
       signal: AbortSignal.timeout(180_000),

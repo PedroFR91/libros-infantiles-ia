@@ -86,10 +86,19 @@ export async function storeImageBuffer(
   }
 }
 
-/** Audio de la narración (MP3), en el mismo almacenamiento que las imágenes */
-export async function storeAudioBuffer(buffer: Buffer, bookId: string, label: string): Promise<string> {
-  const fileName = `${label}-${randomUUID().slice(0, 8)}.mp3`;
+/** Audio (MP3) o vídeo (MP4) del cuento, en el mismo almacenamiento que las imágenes */
+export async function storeMediaBuffer(
+  buffer: Buffer,
+  bookId: string,
+  label: string,
+  ext: "mp3" | "mp4",
+): Promise<string> {
+  const fileName = `${label}-${randomUUID().slice(0, 8)}.${ext}`;
   return USE_S3 ? storeToS3(buffer, bookId, fileName) : storeToLocal(buffer, bookId, fileName);
+}
+
+export async function storeAudioBuffer(buffer: Buffer, bookId: string, label: string): Promise<string> {
+  return storeMediaBuffer(buffer, bookId, label, "mp3");
 }
 
 /**
@@ -128,6 +137,8 @@ async function storeToS3(
       Body: buffer,
       ContentType: fileName.endsWith(".mp3")
         ? "audio/mpeg"
+        : fileName.endsWith(".mp4")
+          ? "video/mp4"
         : fileName.endsWith(".jpg")
           ? "image/jpeg"
           : "image/png",

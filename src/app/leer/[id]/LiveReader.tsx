@@ -13,6 +13,8 @@ export interface ReaderPage {
   imageUrl: string | null;
   text: string;
   audioUrl: string | null;
+  /** Cuento animado: la ilustración en movimiento (bucle sin sonido) */
+  videoUrl?: string | null;
 }
 
 interface Props {
@@ -151,6 +153,24 @@ export default function LiveReader({ title, kidName, dedication, pages, musicUrl
 
   const image =
     slide.kind === "cover" || slide.kind === "page" ? slide.page.imageUrl : slide.image;
+  const video = slide.kind === "cover" || slide.kind === "page" ? slide.page.videoUrl : null;
+  // Ilustración (o su vídeo animado: el centro del vídeo panorámico es la original)
+  const art = (cls: string) =>
+    video ? (
+      <video
+        key={video}
+        src={video}
+        poster={image ?? undefined}
+        autoPlay
+        muted
+        loop
+        playsInline
+        className={`${cls} object-cover`}
+      />
+    ) : image ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={image} alt='' className={`${cls} object-cover`} />
+    ) : null;
 
   return (
     <main
@@ -176,10 +196,7 @@ export default function LiveReader({ title, kidName, dedication, pages, musicUrl
       <div className='relative h-full flex flex-col items-center justify-center gap-4 px-4 pt-14 pb-28'>
         {slide.kind === "cover" && (
           <div key={index} className='flex flex-col items-center text-center animate-[pagein_.8s_ease]'>
-            {image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={image} alt='' className='w-[min(78vw,52vh)] aspect-square object-cover rounded-2xl shadow-2xl ring-1 ring-white/20' />
-            )}
+            {art("w-[min(78vw,52vh)] aspect-square rounded-2xl shadow-2xl ring-1 ring-white/20")}
             <h1 className='mt-6 font-display text-3xl sm:text-5xl font-semibold leading-tight max-w-2xl drop-shadow'>{title}</h1>
             <p className='mt-2 text-white/80 text-lg'>Un cuento para {kidName}</p>
             {!playing && (
@@ -203,10 +220,7 @@ export default function LiveReader({ title, kidName, dedication, pages, musicUrl
 
         {slide.kind === "page" && (
           <div key={index} className='w-full max-w-5xl flex flex-col md:flex-row items-center gap-5 md:gap-10 animate-[pagein_.8s_ease]'>
-            {image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={image} alt='' className='w-[min(86vw,48vh)] md:w-[min(46vw,70vh)] aspect-square object-cover rounded-2xl shadow-2xl ring-1 ring-white/20' />
-            )}
+            {art("w-[min(86vw,48vh)] md:w-[min(46vw,70vh)] aspect-square rounded-2xl shadow-2xl ring-1 ring-white/20")}
             <p className='max-w-xl text-lg sm:text-2xl leading-relaxed text-center md:text-left drop-shadow-[0_2px_8px_rgba(0,0,0,.6)]'>
               {slide.page.text}
             </p>

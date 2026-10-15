@@ -13,6 +13,7 @@ import { createLogger } from "@/lib/logger";
 import { PRINT_ENABLED } from "@/lib/pricing";
 import { syncPrintOrders } from "@/lib/printFulfillment";
 import { startNarration } from "@/lib/narration";
+import { startAnimation } from "@/lib/animation";
 
 const log = createLogger("cron-fix-stuck");
 
@@ -55,6 +56,10 @@ export async function GET(request: NextRequest) {
       log.error({ err: error }, "Error lanzando narraciones");
       return 0;
     });
+    const animations = await queueAnimations().catch((error) => {
+      log.error({ err: error }, "Error lanzando animaciones");
+      return 0;
+    });
     const printOrders = await syncPrintOrders().catch((error) => {
       log.error({ err: error }, "Error sincronizando pedidos impresos");
       return null;
@@ -68,6 +73,7 @@ export async function GET(request: NextRequest) {
         purged,
         printOrders,
         narrations,
+        animations,
         message: "No stuck books found",
       });
     }
@@ -299,6 +305,18 @@ async function queueNarrations(): Promise<number> {
     take: 1,
   });
   for (const book of books) startNarration(book.id);
+  return books.length;
+}
+
+/** Cuentos animados pedidos (o a medias por el cupo de vídeo): uno por pasada */
+async function queueAnimations(): Promise<number> {
+  const books = await prisma.book.findMany({
+    where: { animationStatus: "requested", status: "COMPLETED", unlockedAt: { not: null } },
+    select: { id: true },
+    orderBy: { updatedAt: "asc" },
+    take: 1,
+  });
+  for (const book of books) startAnimation(book.id);
   return books.length;
 }
 

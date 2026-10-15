@@ -44,6 +44,7 @@ export async function GET(
       ".webp": "image/webp",
       ".svg": "image/svg+xml",
       ".mp3": "audio/mpeg",
+      ".mp4": "video/mp4",
     };
 
     const contentType = contentTypes[ext] || "application/octet-stream";

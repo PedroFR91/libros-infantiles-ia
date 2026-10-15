@@ -56,6 +56,7 @@ export default async function ReadPage({ params, searchParams }: Props) {
       imageUrl: p.pageNumber === 1 ? (book.coverImageUrl ?? p.imageUrl) : p.imageUrl,
       text: p.pageNumber === 1 ? "" : (p.text ?? ""),
       audioUrl: p.audioUrl,
+      videoUrl: p.videoUrl,
     }))
     .filter((p) => p.imageUrl);
 

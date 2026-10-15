@@ -130,6 +130,10 @@ model Book {
   // Cuento narrado (incluido con el PDF): música de fondo y cuándo quedó narrado entero
   musicTrack    String?
   narratedAt    DateTime?
+
+  // Cuento animado (+9,90 €): "requested" -> "running" -> "done" | "error"
+  animationStatus String?
+  animatedAt      DateTime?
 }
 
 model BookPage {
@@ -157,6 +161,9 @@ model BookPage {
 
   // Cuento narrado: la página leída en voz alta (MP3)
   audioUrl       String?
+
+  // Cuento animado: la ilustración en movimiento (MP4 en bucle, sin sonido)
+  videoUrl       String?
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
