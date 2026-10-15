@@ -201,8 +201,9 @@ export default function PurchaseSheet({
                   <Link href='/terminos' target='_blank' className='underline'>
                     términos
                   </Link>{" "}
-                  y que, al ser un cuento personalizado, no tiene desistimiento
-                  (sí nuestra garantía).
+                  y pido que empecéis a ilustrar mi cuento ya. Entiendo que, al
+                  ser un cuento personalizado, pierdo el derecho de
+                  desistimiento (sí tengo vuestra garantía).
                 </span>
               </label>
               {needsAccept && !accepted && (

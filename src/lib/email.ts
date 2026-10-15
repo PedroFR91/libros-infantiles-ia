@@ -129,7 +129,8 @@ export async function sendPrintOrderConfirmationEmail(params: {
     layout(
       "¡Pedido recibido!",
       `<p>Vamos a imprimir <strong>«${escapeHtml(title)}»</strong> en papel.</p>
-<p>Llegará en unos 7-10 días laborables y te enviaremos el enlace de seguimiento en cuanto salga hacia tu casa.</p>`,
+<p>Llegará en unos ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables y te enviaremos el enlace de seguimiento en cuanto salga hacia tu casa.</p>
+<p style="font-size:13px;color:#6B5B4E">Al ser un libro personalizado no admite desistimiento; si llega con un defecto de impresión, te enviamos otro sin coste.</p>`,
     ),
   );
 }
@@ -236,6 +237,7 @@ export async function sendIllustratingEmail(params: {
     layout(
       "¡Gracias! Ya lo estamos ilustrando",
       `<p>Las ilustraciones de <strong>«${escapeHtml(title)}»</strong> estarán listas en unos minutos. Puedes cerrar la página: con este enlace vuelves a tu cuento desde cualquier dispositivo, sin cuenta.</p>
+<p style="font-size:13px;color:#6B5B4E">Como pediste al pagar, empezamos a crearlo de inmediato: al ser un cuento personalizado, no tiene derecho de desistimiento.</p>
 ${withPrint ? `<p><strong>Tu libro impreso:</strong> cuando esté ilustrado, revísalo y pulsa «Aprobar para imprimir». Lo mandamos a imprenta entonces y llega en ${PRINT_PRODUCT.deliveryDays.min}-${PRINT_PRODUCT.deliveryDays.max} días laborables.</p>` : ""}
 <p style="font-size:13px;color:#6B5B4E">${escapeHtml(GUARANTEE_TEXT)}</p>`,
       { href: await bookLink(bookId), label: "Abrir mi cuento" },

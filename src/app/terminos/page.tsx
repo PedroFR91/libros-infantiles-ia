@@ -9,6 +9,7 @@ import {
   GUARANTEE_TEXT,
   PRINT_ENABLED,
   PRINT_PRODUCT,
+  SHIPPING_SURCHARGE,
   formatEuros,
 } from "@/lib/pricing";
 import { LegalLayout } from "@/components/LegalLayout";
@@ -16,7 +17,7 @@ import { LegalLayout } from "@/components/LegalLayout";
 export const metadata: Metadata = {
   title: "Términos y condiciones",
   description: PRINT_ENABLED
-    ? "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía y envíosndador."
+    ? "Condiciones de compra y uso de LibrosIA: cuento impreso + PDF, solo PDF, aprobación antes de imprimir, garantía y envíos."
     : "Condiciones de compra y uso de LibrosIA: cuento en PDF, libro impreso (próximamente) y garantía.",
 };
 
@@ -59,8 +60,8 @@ export default async function TerminosPage() {
             </li>
             <li>
               {PRINT_ENABLED
-                ? "Enviamos el libro impreso solo a España."
-                : "El libro impreso, cuando esté disponible, se enviará solo a España."}
+                ? `Enviamos el libro impreso a la España peninsular (envío incluido) y a Baleares (+${formatEuros(SHIPPING_SURCHARGE.baleares)}).`
+                : "El libro impreso, cuando esté disponible, se enviará a la España peninsular y a Baleares."}
             </li>
           </ul>
         </>
@@ -184,7 +185,9 @@ export default async function TerminosPage() {
       <ul>
         <li>
           Los precios están en euros e <strong>incluyen el IVA</strong>. En los
-          productos impresos, el envío a España también está incluido.
+          productos impresos, el envío a la España peninsular está incluido; a
+          Baleares se suman {formatEuros(SHIPPING_SURCHARGE.baleares)}, que se
+          muestran antes de pagar.
         </li>
         <li>
           El pago es único (sin suscripciones) y se hace en la página segura de
@@ -219,7 +222,11 @@ export default async function TerminosPage() {
 
       <h2>6. Envío del libro impreso{!PRINT_ENABLED && " (cuando esté disponible)"}</h2>
       <ul>
-        <li>Solo enviamos a direcciones de España.</li>
+        <li>
+          Enviamos a la España peninsular (envío incluido) y a Baleares (+
+          {formatEuros(SHIPPING_SURCHARGE.baleares)}). De momento no enviamos a
+          Canarias, Ceuta ni Melilla.
+        </li>
         <li>
           El libro lo imprime y lo envía nuestra imprenta colaboradora. Suele
           llegar entre {days} días laborables después de que lo apruebes. En
