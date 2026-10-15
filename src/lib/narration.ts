@@ -11,7 +11,15 @@ const log = createLogger("narration");
 // Música: biblioteca fija en public/music (Lyria, generada una vez).
 // ============================================
 
-const TTS_MODEL = process.env.NARRATION_MODEL || "gemini-3.8-flash-tts";
+// Modelos de voz por orden: cada uno tiene su propio cupo diario. Si uno lo
+// agota, se pasa al siguiente (todos tienen la voz Sulafat).
+const TTS_MODELS = (process.env.NARRATION_MODELS || "gemini-3.8-flash-tts,gemini-2.5-flash-preview-tts,gemini-3.8-flash-lite-tts")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
+/** Modelos con el cupo diario agotado (hasta medianoche, hora del Pacífico) */
+const exhausted = new Map<string, number>();
+const availableModel = () => TTS_MODELS.find((m) => (exhausted.get(m) ?? 0) < Date.now());
 const VOICE = process.env.NARRATION_VOICE || "Sulafat";
 /** Separación mínima entre peticiones de voz en todo el servidor (cupo por minuto de la cuenta) */
 const MIN_GAP_MS = Number(process.env.NARRATION_MIN_GAP_MS) || 7000;
@@ -76,8 +84,10 @@ async function speak(text: string): Promise<Buffer> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY sin configurar");
   for (let attempt = 1; ; attempt++) {
+    const model = availableModel();
+    if (!model) throw new DailyQuotaError("Cupo diario de voz agotado en todos los modelos");
     const response = await throttled(() => fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-goog-api-key": key },
@@ -106,7 +116,13 @@ async function speak(text: string): Promise<Buffer> {
     const body = await response.text();
     if (response.status === 429) {
       const { waitMs, daily } = quotaInfo(body);
-      if (daily) throw new DailyQuotaError("Cupo diario de voz agotado");
+      if (daily) {
+        // Ese modelo ya no sirve hoy: se prueba con el siguiente
+        exhausted.set(model, Date.now() + 6 * 60 * 60 * 1000);
+        log.warn({ model }, "Cupo diario de voz agotado en este modelo; se pasa al siguiente");
+        attempt--;
+        continue;
+      }
       if (attempt >= 6) throw new Error(`Voz 429 tras ${attempt} intentos: ${body.slice(0, 600)}`);
       log.warn({ waitMs, attempt }, "Cupo por minuto de voz: se espera y se reintenta");
       await new Promise((r) => setTimeout(r, Math.min(waitMs, 120_000)));
