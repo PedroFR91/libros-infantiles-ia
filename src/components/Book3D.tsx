@@ -245,10 +245,10 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
       const cover = book.getObjectByName("portada");
       const firstPage = book.getObjectByName("primera_pagina");
 
-      const toTexture = (source: HTMLCanvasElement | HTMLImageElement, mirror = false) => {
+      const toTexture = (source: HTMLCanvasElement | HTMLImageElement, mirror = false, gltf = true) => {
         const tex = new THREE.Texture(source);
         tex.colorSpace = THREE.SRGBColorSpace;
-        tex.flipY = false; // convención glTF
+        tex.flipY = !gltf; // glTF no voltea; las hojas creadas aquí (PlaneGeometry) sí
         tex.anisotropy = maxAniso;
         if (mirror) {
           tex.wrapS = THREE.RepeatWrapping;
@@ -281,9 +281,16 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
       const leaves: Leaf[] = [];
       const T_HALF = 0.0018; // mitad del bloque de páginas (como en el modelo)
       const EPS = 0.00009;
+      // Montón de la derecha: justo bajo la cara interior de la portada (z = T_HALF)
+      const RIGHT_TOP = T_HALF - 0.0001;
       const baseX: number[] = [];
       if (reading && pages) {
         if (firstPage) firstPage.visible = false;
+        const block = book.getObjectByName("paginas");
+        if (block) {
+          block.scale.z = 0.3;
+          block.position.z = -0.0011;
+        }
         setMap("interior_cubierta", drawTextPage(pages[0]?.text ?? "", 1));
         const n = pages.length;
         for (let j = 0; j < n; j++) {
@@ -296,7 +303,7 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
           const front = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, side: THREE.FrontSide });
           const back = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, side: THREE.BackSide });
           const hinge = new THREE.Group();
-          hinge.position.set(0, 0, T_HALF + (n - j) * EPS);
+          hinge.position.set(0, 0, RIGHT_TOP - j * EPS);
           const meshF = new THREE.Mesh(geom, front);
           const meshB = new THREE.Mesh(geom, back);
           meshF.castShadow = meshB.castShadow = true;
@@ -306,11 +313,11 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
           const nextText = j + 1 < n ? pages[j + 1].text : "";
           drawIllustration(pages[j].imageUrl).then((c) => {
             if (disposed) return;
-            front.map = toTexture(c);
+            front.map = toTexture(c, false, false);
             front.needsUpdate = true;
           });
           const backCanvas = j + 1 < n ? drawTextPage(nextText, j + 2) : drawTextPage("Fin", null);
-          back.map = toTexture(backCanvas, true);
+          back.map = toTexture(backCanvas, true, false);
           back.needsUpdate = true;
         }
       }
@@ -344,9 +351,8 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
         pos.needsUpdate = true;
         leaf.geom.computeVertexNormals();
         // Altura de la hoja en el montón: a la derecha la primera arriba; a la izquierda, la última pasada arriba
-        const n = leaves.length;
-        const zRight = T_HALF + (n - index) * EPS;
-        const zLeft = T_HALF + (index + 1) * EPS;
+        const zRight = RIGHT_TOP - index * EPS;
+        const zLeft = T_HALF + 0.0001 + (index + 1) * EPS;
         leaf.hinge.position.z = zRight + (zLeft - zRight) * ease;
       };
       leaves.forEach((l, i) => shapeLeaf(l, i));
