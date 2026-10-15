@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import prisma from "@/lib/prisma";
 import { appUrl } from "@/lib/appUrl";
-import { verifyListenSignature, listenUrl } from "@/lib/listenLink";
+import { listenUrl } from "@/lib/listenLink";
 import { musicUrl } from "@/lib/narration";
 import LiveReader, { type ReaderPage } from "./LiveReader";
+import { loadListenBook as loadBook } from "./loadBook";
 
 // /leer/[id]?s=firma — el cuento narrado: se lee y se escucha página a página.
 // Solo lectura (se comparte con la familia); no da acceso al editor.
@@ -14,16 +14,6 @@ type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ s?: string }>;
 };
-
-async function loadBook(id: string, signature?: string) {
-  if (!verifyListenSignature(id, signature)) return null;
-  const book = await prisma.book.findUnique({
-    where: { id },
-    include: { pages: { orderBy: { pageNumber: "asc" } } },
-  });
-  if (!book || book.status !== "COMPLETED" || !book.unlockedAt) return null;
-  return book;
-}
 
 const absolute = (url: string | null | undefined) => (url ? (url.startsWith("http") ? url : appUrl(url)) : undefined);
 
@@ -46,7 +36,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function ReadPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const book = await loadBook(id, (await searchParams).s);
+  const { s } = await searchParams;
+  const book = await loadBook(id, s);
   if (!book) notFound();
 
   const pages: ReaderPage[] = book.pages
@@ -69,6 +60,7 @@ export default async function ReadPage({ params, searchParams }: Props) {
       musicUrl={musicUrl(book.musicTrack)}
       shareUrl={listenUrl(book.id)}
       narrating={!book.narratedAt}
+      immersiveUrl={`/leer/${book.id}/3d?s=${s}`}
     />
   );
 }

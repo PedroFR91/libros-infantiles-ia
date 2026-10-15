@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Music, Pause, Play, RotateCcw, Share2, VolumeX } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight, Music, Pause, Play, RotateCcw, Share2, VolumeX } from "lucide-react";
 
 // Lector del cuento narrado: una diapositiva por página (portada, dedicatoria,
 // páginas y "fin"), la voz lee cada página y pasa sola a la siguiente, con una
@@ -26,6 +26,8 @@ interface Props {
   shareUrl: string;
   /** La narración aún se está generando (alguna página sin voz) */
   narrating: boolean;
+  /** El mismo cuento en 3D (inmersivo) */
+  immersiveUrl?: string;
 }
 
 type Slide =
@@ -38,7 +40,7 @@ const MUSIC_VOLUME = 0.14;
 /** Sin voz en una página: tiempo de lectura aproximado antes de pasar */
 const readingMs = (text: string) => Math.min(14000, Math.max(4000, text.split(/\s+/).length * 380));
 
-export default function LiveReader({ title, kidName, dedication, pages, musicUrl, shareUrl, narrating }: Props) {
+export default function LiveReader({ title, kidName, dedication, pages, musicUrl, shareUrl, narrating, immersiveUrl }: Props) {
   // Estable entre renders: la reproducción depende de la diapositiva actual
   const slides = useMemo<Slide[]>(() => {
     const [cover, ...story] = pages;
@@ -253,9 +255,16 @@ export default function LiveReader({ title, kidName, dedication, pages, musicUrl
         <Link href='/' className='font-display text-lg font-semibold text-white/90'>
           LibrosIA
         </Link>
-        <button onClick={share} className='inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-4 py-2 text-sm font-bold hover:bg-white/25'>
-          <Share2 className='w-4 h-4' /> {copied ? "Enlace copiado" : "Compartir"}
-        </button>
+        <div className='flex items-center gap-2'>
+          {immersiveUrl && (
+            <Link href={immersiveUrl} className='inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-4 py-2 text-sm font-bold hover:bg-white/25'>
+              <Box className='w-4 h-4' /> En 3D
+            </Link>
+          )}
+          <button onClick={share} className='inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-4 py-2 text-sm font-bold hover:bg-white/25'>
+            <Share2 className='w-4 h-4' /> {copied ? "Enlace copiado" : "Compartir"}
+          </button>
+        </div>
       </div>
 
       {/* Controles */}

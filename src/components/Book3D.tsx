@@ -2,18 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { createBookScene, type BookPage } from "./book3d/bookScene";
 
-// Libro en 3D (modelo de Blender: public/models/libro.glb, ver blender/build_book.py).
+// Libro en 3D para hojear (la escena está en book3d/bookScene.ts).
 // - Con portada e ilustración de un cuento concreto se dibuja su cubierta como
 //   en el PDF de imprenta (ilustración + recuadro con el título).
 // - Con `pages` se puede hojear entero como el libro impreso: texto a la
 //   izquierda e ilustración a la derecha; cada hoja se curva al pasarla.
 // three.js se carga solo cuando el libro entra en pantalla.
 
-export interface Book3DPage {
-  imageUrl: string | null;
-  text: string;
-}
+export type Book3DPage = BookPage;
 
 interface Book3DProps {
   /** Ilustración de portada (sin texto); sin ella, la del modelo */
@@ -27,10 +25,6 @@ interface Book3DProps {
   className?: string;
 }
 
-const W = 0.19;
-const LEAF_W = 0.1875;
-const LEAF_H = 0.1878;
-const SEGMENTS = 24;
 const TURN_MS = 900;
 
 type Controls = {
@@ -39,138 +33,6 @@ type Controls = {
   next: () => void;
   prev: () => void;
 };
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-async function loadFonts() {
-  const faces = [
-    new FontFace("Sniglet", "url(/fonts/Sniglet-ExtraBold.ttf)"),
-    new FontFace("Andika", "url(/fonts/Andika-Regular.ttf)"),
-  ];
-  for (const f of faces) {
-    try {
-      document.fonts.add(await f.load());
-    } catch {
-      // se usa la fuente de reserva
-    }
-  }
-}
-
-function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const w of text.split(/\s+/)) {
-    const probe = line ? `${line} ${w}` : w;
-    if (ctx.measureText(probe).width > maxWidth && line) {
-      lines.push(line);
-      line = w;
-    } else line = probe;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-/** Cubierta como la del PDF: ilustración a sangre + recuadro blanco con el título */
-async function drawCover(coverUrl: string, title?: string, kidName?: string): Promise<HTMLCanvasElement> {
-  const size = 1024;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  const img = await loadImage(coverUrl);
-  const scale = Math.max(size / img.width, size / img.height);
-  ctx.drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
-  if (!title) return canvas;
-  ctx.font = "800 64px Sniglet, 'Arial Rounded MT Bold', sans-serif";
-  const lines = wrap(ctx, title, size * 0.84).slice(0, 3);
-  const boxH = 70 + lines.length * 74 + (kidName ? 40 : 0);
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.beginPath();
-  ctx.roundRect(size * 0.05, size * 0.05, size * 0.9, boxH, 18);
-  ctx.fill();
-  ctx.fillStyle = "#7c3aed";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  lines.forEach((l, i) => ctx.fillText(l, size / 2, size * 0.05 + 34 + i * 74));
-  if (kidName) {
-    ctx.font = "600 28px Nunito, sans-serif";
-    ctx.fillStyle = "#3b3048";
-    ctx.fillText(`Una aventura de ${kidName}`, size / 2, size * 0.05 + 40 + lines.length * 74);
-  }
-  return canvas;
-}
-
-/** Página de texto como en el libro impreso (crema, texto centrado, número) */
-function drawTextPage(text: string, pageNumber: number | null): HTMLCanvasElement {
-  const size = 1024;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fdf8ee";
-  ctx.fillRect(0, 0, size, size);
-  // Sombra suave hacia el lomo (lado derecho en la página de la izquierda)
-  const g = ctx.createLinearGradient(size * 0.82, 0, size, 0);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(60,40,20,0.12)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.fillStyle = "#33293f";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  let fontSize = 46;
-  let lines: string[] = [];
-  do {
-    ctx.font = `${fontSize}px Andika, Nunito, sans-serif`;
-    lines = wrap(ctx, text, size * 0.74);
-    if (lines.length * fontSize * 1.5 < size * 0.72) break;
-    fontSize -= 2;
-  } while (fontSize > 24);
-  const lineH = fontSize * 1.5;
-  let y = (size - lines.length * lineH) / 2;
-  for (const l of lines) {
-    ctx.fillText(l, size / 2, y);
-    y += lineH;
-  }
-  if (pageNumber !== null) {
-    ctx.font = "26px Andika, sans-serif";
-    ctx.fillStyle = "#9a8f9f";
-    ctx.fillText(String(pageNumber), size / 2, size - 70);
-  }
-  return canvas;
-}
-
-/** Ilustración a sangre con una sombra suave hacia el lomo (lado izquierdo) */
-async function drawIllustration(url: string | null): Promise<HTMLCanvasElement> {
-  const size = 1024;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fdf8ee";
-  ctx.fillRect(0, 0, size, size);
-  if (url) {
-    try {
-      const img = await loadImage(url);
-      const scale = Math.max(size / img.width, size / img.height);
-      ctx.drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
-    } catch {
-      // página sin imagen: queda crema
-    }
-  }
-  const g = ctx.createLinearGradient(0, 0, size * 0.14, 0);
-  g.addColorStop(0, "rgba(60,40,20,0.18)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  return canvas;
-}
 
 export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, className }: Book3DProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -188,174 +50,16 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
     let cleanup: (() => void) | undefined;
 
     const start = async () => {
-      const THREE = await import("three");
-      const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
-      await loadFonts();
-      if (disposed) return;
+      const book3d = await createBookScene(el, { coverUrl, title, kidName, pageUrl, pages }, () => disposed);
+      if (!book3d) return;
+      const { THREE, renderer, scene, camera, pivot, cover, leaves, shapeLeaf } = book3d;
 
-      const width = el.clientWidth;
-      const height = el.clientHeight;
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(width, height);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      el.prepend(renderer.domElement);
-      const maxAniso = renderer.capabilities.getMaxAnisotropy();
-
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 10);
       // Vista de tres cuartos (cerrado) y vista frontal (leyendo)
       const viewClosed = { pos: new THREE.Vector3(0.26, 0.22, 0.56), look: new THREE.Vector3(0.0, 0.095, 0) };
       const viewOpen = { pos: new THREE.Vector3(0, 0.12, 0.66), look: new THREE.Vector3(0, 0.095, 0) };
       const lookNow = viewClosed.look.clone();
       camera.position.copy(viewClosed.pos);
       camera.lookAt(lookNow);
-
-      scene.add(new THREE.HemisphereLight(0xfff8ee, 0xe9dccb, 2.3));
-      const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-      sun.position.set(-0.4, 0.8, 0.7);
-      sun.castShadow = true;
-      sun.shadow.mapSize.set(1024, 1024);
-      sun.shadow.camera.left = sun.shadow.camera.bottom = -0.4;
-      sun.shadow.camera.right = sun.shadow.camera.top = 0.4;
-      sun.shadow.radius = 6;
-      scene.add(sun);
-      const ground = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShadowMaterial({ opacity: 0.14 }));
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      scene.add(ground);
-
-      const gltf = await new GLTFLoader().loadAsync("/models/libro.glb");
-      if (disposed) {
-        renderer.dispose();
-        return;
-      }
-      const book = gltf.scene;
-      const pivot = new THREE.Group();
-      book.position.set(-W / 2, 0, 0);
-      pivot.position.set(W / 2, 0, 0);
-      pivot.add(book);
-      scene.add(pivot);
-      book.traverse((o) => {
-        const mesh = o as InstanceType<typeof THREE.Mesh>;
-        if (mesh.isMesh) mesh.castShadow = true;
-      });
-      const cover = book.getObjectByName("portada");
-      const firstPage = book.getObjectByName("primera_pagina");
-
-      const toTexture = (source: HTMLCanvasElement | HTMLImageElement, mirror = false, gltf = true) => {
-        const tex = new THREE.Texture(source);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.flipY = !gltf; // glTF no voltea; las hojas creadas aquí (PlaneGeometry) sí
-        tex.anisotropy = maxAniso;
-        if (mirror) {
-          tex.wrapS = THREE.RepeatWrapping;
-          tex.repeat.x = -1;
-          tex.offset.x = 1;
-        }
-        tex.needsUpdate = true;
-        return tex;
-      };
-      const setMap = (materialName: string, source: HTMLCanvasElement | HTMLImageElement) => {
-        book.traverse((o) => {
-          const mesh = o as InstanceType<typeof THREE.Mesh>;
-          if (!mesh.isMesh) return;
-          for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-            const mat = m as InstanceType<typeof THREE.MeshStandardMaterial>;
-            if (mat.name !== materialName) continue;
-            mat.map = toTexture(source);
-            mat.color.set(0xffffff);
-            mat.needsUpdate = true;
-          }
-        });
-      };
-      if (coverUrl) drawCover(coverUrl, title, kidName).then((c) => !disposed && setMap("portada", c)).catch(() => undefined);
-      if (pageUrl && !reading) loadImage(pageUrl).then((img) => !disposed && setMap("pagina", img)).catch(() => undefined);
-
-      // ── Hojas para hojear (modo lectura) ───────────────────────────
-      // Hoja j: delante la ilustración de la página j; detrás el texto de la
-      // página j+1 (o "Fin"). El interior de la portada lleva el texto de la 1.
-      type Leaf = { hinge: InstanceType<typeof THREE.Group>; geom: InstanceType<typeof THREE.BufferGeometry>; t: number; target: number; from: number };
-      const leaves: Leaf[] = [];
-      const T_HALF = 0.0018; // mitad del bloque de páginas (como en el modelo)
-      const EPS = 0.00009;
-      // Montón de la derecha: justo bajo la cara interior de la portada (z = T_HALF)
-      const RIGHT_TOP = T_HALF - 0.0001;
-      const baseX: number[] = [];
-      if (reading && pages) {
-        if (firstPage) firstPage.visible = false;
-        const block = book.getObjectByName("paginas");
-        if (block) {
-          block.scale.z = 0.3;
-          block.position.z = -0.0011;
-        }
-        setMap("interior_cubierta", drawTextPage(pages[0]?.text ?? "", 1));
-        const n = pages.length;
-        for (let j = 0; j < n; j++) {
-          const geom = new THREE.PlaneGeometry(LEAF_W, LEAF_H, SEGMENTS, 1);
-          geom.translate(LEAF_W / 2 + 0.0004, LEAF_H / 2 + 0.0011, 0);
-          if (!baseX.length) {
-            const pos = geom.attributes.position as InstanceType<typeof THREE.BufferAttribute>;
-            for (let i = 0; i < pos.count; i++) baseX.push(pos.getX(i));
-          }
-          const front = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, side: THREE.FrontSide });
-          const back = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, side: THREE.BackSide });
-          const hinge = new THREE.Group();
-          hinge.position.set(0, 0, RIGHT_TOP - j * EPS);
-          const meshF = new THREE.Mesh(geom, front);
-          const meshB = new THREE.Mesh(geom, back);
-          meshF.castShadow = meshB.castShadow = true;
-          hinge.add(meshF, meshB);
-          book.add(hinge);
-          leaves.push({ hinge, geom, t: 0, target: 0, from: 0 });
-          const nextText = j + 1 < n ? pages[j + 1].text : "";
-          drawIllustration(pages[j].imageUrl).then((c) => {
-            if (disposed) return;
-            front.map = toTexture(c, false, false);
-            front.needsUpdate = true;
-          });
-          const backCanvas = j + 1 < n ? drawTextPage(nextText, j + 2) : drawTextPage("Fin", null);
-          back.map = toTexture(backCanvas, true, false);
-          back.needsUpdate = true;
-        }
-      }
-
-      /** Coloca una hoja según su avance (0 = a la derecha, 1 = pasada), con curva */
-      const shapeLeaf = (leaf: Leaf, index: number) => {
-        const t = leaf.t;
-        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        const base = -Math.PI * ease;
-        const curl = 0.9 * Math.sin(Math.PI * t);
-        const pos = leaf.geom.attributes.position as InstanceType<typeof THREE.BufferAttribute>;
-        // Columnas de vértices: x creciente desde el lomo
-        const xs = baseX.slice(0, SEGMENTS + 1).map((x) => x);
-        const seg = LEAF_W / SEGMENTS;
-        let px = 0.0004;
-        let pz = 0;
-        const colX: number[] = [px];
-        const colZ: number[] = [pz];
-        for (let k = 1; k <= SEGMENTS; k++) {
-          const phi = base + curl * (k / SEGMENTS);
-          px += seg * Math.cos(phi);
-          pz += -seg * Math.sin(phi);
-          colX.push(px);
-          colZ.push(pz);
-        }
-        for (let i = 0; i < pos.count; i++) {
-          const k = Math.round((baseX[i] - xs[0]) / seg);
-          pos.setX(i, colX[k]);
-          pos.setZ(i, colZ[k]);
-        }
-        pos.needsUpdate = true;
-        leaf.geom.computeVertexNormals();
-        // Altura de la hoja en el montón: a la derecha la primera arriba; a la izquierda, la última pasada arriba
-        const zRight = RIGHT_TOP - index * EPS;
-        const zLeft = T_HALF + 0.0001 + (index + 1) * EPS;
-        leaf.hinge.position.z = zRight + (zLeft - zRight) * ease;
-      };
-      leaves.forEach((l, i) => shapeLeaf(l, i));
 
       // ── Estado e interacción ───────────────────────────────────────
       let wantOpen = false;
@@ -466,20 +170,14 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
         leaves.forEach((leaf, i) => {
           if (leaf.t === leaf.target) return;
           leaf.t = leaf.target > leaf.t ? Math.min(leaf.target, leaf.t + step) : Math.max(leaf.target, leaf.t - step);
-          shapeLeaf(leaf, i);
+          shapeLeaf(i);
         });
         renderer.render(scene, camera);
       };
       tick();
       setReady(true);
 
-      const ro = new ResizeObserver(() => {
-        const w = el.clientWidth;
-        const h = el.clientHeight;
-        renderer.setSize(w, h);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-      });
+      const ro = new ResizeObserver(book3d.resize);
       ro.observe(el);
 
       cleanup = () => {
@@ -488,8 +186,7 @@ export default function Book3D({ coverUrl, title, kidName, pageUrl, pages, class
         ro.disconnect();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("keydown", onKey);
-        renderer.dispose();
-        canvas.remove();
+        book3d.dispose();
         controls.current = null;
       };
     };
