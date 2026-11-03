@@ -114,7 +114,15 @@ async function soapCall(method: string, inner: string): Promise<string> {
   const fault = xml.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/);
   if (fault) throw new Error(`Bubok ${method}: ${unescapeXml(fault[1])}`);
   const result = xml.match(/<return[^>]*>([\s\S]*?)<\/return>/);
-  if (!result) throw new Error(`Bubok ${method}: respuesta inesperada (HTTP ${response.status})`);
+  if (!result) {
+    // Sin respuesta SOAP: guardar qué devolvió (p. ej. la página de un cortafuegos) para poder diagnosticarlo
+    const text = xml.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    log.warn(
+      { method, status: response.status, server: response.headers.get("server"), body: xml.slice(0, 2000) },
+      "Respuesta inesperada de Bubok",
+    );
+    throw new Error(`Bubok ${method}: respuesta inesperada (HTTP ${response.status})${text ? `: ${text.slice(0, 200)}` : ""}`);
+  }
   return result[1];
 }
 
