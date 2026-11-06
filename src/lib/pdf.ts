@@ -67,7 +67,7 @@ const PRINT_SPINE = envMm("PRINT_SPINE_MM", 3) * MM;
 const PRINT_COVER_WRAP = envMm("PRINT_COVER_WRAP_MM", 0) * MM;
 const PRINT_MIN_PAGES = parseInt(process.env.PRINT_MIN_PAGES || "32", 10);
 const SAFE = 0.5 * 72; // margen de seguridad dentro del corte
-const LAYOUT_VERSION = 6; // subirlo invalida todos los PDFs en caché
+const LAYOUT_VERSION = 7; // subirlo invalida todos los PDFs en caché
 
 const COLORS = {
   cream: rgb(0.995, 0.97, 0.92),
@@ -205,6 +205,9 @@ async function buildSpreads(
   if (!forPrinter) await drawCoverPanel(newFrame(), fonts, images, book, cover?.imageUrl);
 
   drawExLibris(newFrame(), fonts, book);
+  // En el libro impreso la primera página es impar (derecha): con el dorso del
+  // ex libris en blanco, cada texto cae en par (izquierda) frente a su ilustración
+  if (forPrinter) newFrame();
   if (book.dedication) drawDedication(newFrame(), fonts, book);
   else drawSimplePage(newFrame(), fonts, `Para ${book.kidName}`);
 
